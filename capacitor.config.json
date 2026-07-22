@@ -1,0 +1,6 @@
+{
+  "appId": "com.billingsoftware.billing",
+  "appName": "Billing Software",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

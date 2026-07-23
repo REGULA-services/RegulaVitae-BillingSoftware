@@ -583,7 +583,17 @@ app.get('/api/reports/yearly', async (req, res) => {
   }
 });
 
-// Start API server
-app.listen(PORT, () => {
+// Start API server with EADDRINUSE guard.
+// If the port is already in use (e.g., zombie process from a previous run),
+// log clearly instead of crashing silently which would cause a blank screen.
+const server = app.listen(PORT, () => {
   console.log(`[SERVER] API running on http://localhost:${PORT}`);
+});
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[SERVER] Port ${PORT} is already in use. The API server could not start. Close any other instances and restart.`);
+  } else {
+    console.error('[SERVER] Unexpected server error:', err);
+  }
 });

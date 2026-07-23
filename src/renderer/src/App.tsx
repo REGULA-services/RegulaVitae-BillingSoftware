@@ -509,6 +509,32 @@ export default function App() {
     }
   }, [cashReceived, billSummary.grandTotal, showPaymentModal]);
 
+  // Payment modal keyboard shortcuts: C = Cash, G = Google Pay, K = (Bank) Card
+  useEffect(() => {
+    if (!showPaymentModal) return;
+
+    const handlePaymentKey = (e: KeyboardEvent) => {
+      // Don't fire if user is typing in the cash-received input
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'c') {
+        e.preventDefault();
+        completeBilling('Cash');
+      } else if (key === 'g') {
+        e.preventDefault();
+        completeBilling('Google Pay');
+      } else if (key === 'k') {
+        e.preventDefault();
+        completeBilling('Bank Card');
+      }
+    };
+
+    window.addEventListener('keydown', handlePaymentKey);
+    return () => window.removeEventListener('keydown', handlePaymentKey);
+  }, [showPaymentModal]);
+
   // ----------------------------------------------------
   // BILLING ACTION ENGINES
   // ----------------------------------------------------
@@ -1432,8 +1458,13 @@ export default function App() {
       {/* ----------------- TOP NAVBAR PANEL ----------------- */}
       <header className="flex items-center justify-between px-4 lg:px-6 py-2.5 lg:py-3 bg-slate-900 border-b border-slate-800 shadow-md">
         <div className="flex items-center space-x-2 lg:space-x-3">
-          <div className="p-1.5 lg:p-2 bg-gradient-to-br from-bakery-400 to-bakery-600 rounded-lg shadow-inner flex-shrink-0">
-            <ShoppingBag className="w-4 h-4 lg:w-5 lg:h-5 text-slate-950" />
+          <div className="flex-shrink-0">
+            <img
+              src="./icon.png"
+              alt="REGULA Logo"
+              className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl object-cover shadow-md shadow-yellow-900/30"
+              style={{ imageRendering: 'crisp-edges' }}
+            />
           </div>
           <div>
             <h1 className="text-sm lg:text-lg font-bold tracking-tight text-white">{bakeryDetails.name}</h1>
@@ -2019,14 +2050,14 @@ export default function App() {
 
               {/* Payment Methods */}
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Select Payment Channel [1 - 3]</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Select Payment Channel [C / G / K]</span>
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => completeBilling('Cash')}
                     className="flex flex-col items-center justify-center p-4 bg-slate-800 hover:bg-slate-700/80 rounded-xl border border-slate-800/80 active:scale-95 transition-all text-slate-200"
                   >
                     <DollarSign className="w-5 h-5 text-emerald-400 mb-1" />
-                    <span className="text-xs font-bold font-mono">[1] Cash</span>
+                    <span className="text-xs font-bold font-mono">[C] Cash</span>
                   </button>
 
                   <button
@@ -2034,7 +2065,7 @@ export default function App() {
                     className="flex flex-col items-center justify-center p-4 bg-slate-800 hover:bg-slate-700/80 rounded-xl border border-slate-800/80 active:scale-95 transition-all text-slate-200"
                   >
                     <Smartphone className="w-5 h-5 text-terminal-highlight mb-1" />
-                    <span className="text-xs font-bold font-mono">[2] G-Pay</span>
+                    <span className="text-xs font-bold font-mono">[G] G-Pay</span>
                   </button>
 
                   <button
@@ -2042,14 +2073,14 @@ export default function App() {
                     className="flex flex-col items-center justify-center p-4 bg-slate-800 hover:bg-slate-700/80 rounded-xl border border-slate-800/80 active:scale-95 transition-all text-slate-200"
                   >
                     <CreditCard className="w-5 h-5 text-bakery-400 mb-1" />
-                    <span className="text-xs font-bold font-mono">[3] Card</span>
+                    <span className="text-xs font-bold font-mono">[K] Card</span>
                   </button>
                 </div>
               </div>
             </div>
 
             <div className="p-3 bg-slate-950 text-[10px] text-slate-500 font-mono flex justify-between border-t border-slate-800">
-              <span>Press Cashier keys [1], [2], or [3] to print instantly</span>
+              <span>Press <strong className="text-slate-300">C</strong> Cash &nbsp;·&nbsp; <strong className="text-slate-300">G</strong> G-Pay &nbsp;·&nbsp; <strong className="text-slate-300">K</strong> Card</span>
               <span>ESC: Cancel</span>
             </div>
           </div>

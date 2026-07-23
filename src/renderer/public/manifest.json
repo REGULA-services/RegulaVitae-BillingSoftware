@@ -1,17 +1,29 @@
 {
-  "name": "Billing Software POS",
-  "short_name": "BillingPOS",
-  "description": "High-Speed Standalone Billing & Point of Sale System",
+  "name": "REGULA Billing Software",
+  "short_name": "REGULA",
+  "description": "REGULA — High-Speed Bakery Billing & Point of Sale System. Rule Your Finances.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#090d16",
-  "theme_color": "#f97316",
+  "background_color": "#0d1117",
+  "theme_color": "#b8860b",
   "orientation": "any",
   "icons": [
     {
-      "src": "favicon.ico",
+      "src": "./icon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    },
+    {
+      "src": "./icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

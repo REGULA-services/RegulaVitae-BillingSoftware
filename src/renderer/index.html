@@ -3,11 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Billing Software POS</title>
+    <title>REGULA — Billing Software</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./icon.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="./icon.png" />
     <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#f97316" />
+    <meta name="theme-color" content="#b8860b" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="REGULA" />
     <!-- Google Fonts Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,12 +21,19 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator && !window.process) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker registered:', reg.scope))
-            .catch(err => console.warn('Service Worker registration failed:', err));
-        });
+      // Service Worker is intentionally NOT registered in Electron.
+      // Registering a SW in a file:// context causes it to cache broken
+      // responses, resulting in a blank white screen on every subsequent launch.
+      // SW is only useful for web/PWA deployments, not packaged Electron apps.
+      if ('serviceWorker' in navigator && typeof window !== 'undefined' && !window.process) {
+        const isElectronApp = navigator.userAgent.toLowerCase().includes('electron');
+        if (!isElectronApp) {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+              .then(reg => console.log('Service Worker registered:', reg.scope))
+              .catch(err => console.warn('Service Worker registration failed:', err));
+          });
+        }
       }
     </script>
   </body>

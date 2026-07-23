@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
 
 // Import and start Express backend directly in Electron's main process context
@@ -18,7 +18,7 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 720,
     title: "Billing Software POS",
-    icon: path.join(__dirname, '../../public/icon.png'),
+    icon: path.join(app.getAppPath(), 'public', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -37,7 +37,12 @@ function createMainWindow() {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(app.getAppPath(), 'dist/index.html'));
+    // Use __dirname-relative path for robustness inside the ASAR archive.
+    // dist/ is packed at the app root alongside dist-electron/.
+    const indexPath = path.join(app.getAppPath(), 'dist', 'index.html');
+    mainWindow.loadFile(indexPath).catch((err) => {
+      console.error('Failed to load index.html:', err, 'Tried path:', indexPath);
+    });
   }
 
   mainWindow.on('closed', () => {
@@ -45,7 +50,29 @@ function createMainWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // -----------------------------------------------------------
+  // CRITICAL: Clear HTTP cache and purge any cached Service Workers
+  // on every launch. A stale SW registered in a previous install
+  // intercepts file:// requests and serves a broken cached response,
+  // causing a blank white screen on every subsequent launch.
+  // -----------------------------------------------------------
+  try {
+    const ses = session.defaultSession;
+
+    // Clear the HTTP disk cache entirely
+    await ses.clearCache();
+
+    // Clear storage data: service workers, cache storage, cookies, etc.
+    await ses.clearStorageData({
+      storages: ['serviceworkers', 'cachestorage', 'cookies']
+    });
+
+    console.log('[STARTUP] Session cache and service workers cleared.');
+  } catch (err) {
+    console.warn('[STARTUP] Could not clear session cache:', err);
+  }
+
   createMainWindow();
 
   app.on('activate', () => {

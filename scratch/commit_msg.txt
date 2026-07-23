@@ -1,0 +1,7 @@
+feat: proper multi-size ICO for desktop and taskbar icons
+
+- Generate valid Windows ICO with 6 embedded sizes: 16, 32, 48, 64, 128, 256px
+- Use jimp + to-ico for proper resize + ICO creation (replaces broken PNG-in-ICO wrapper)
+- Set icon.ico in electron-builder win + global config for desktop shortcut and taskbar
+- ICO is now 350KB vs the previous 550KB broken single-image wrapper
+- Desktop shortcut, installer, taskbar, and Alt+Tab all now show REGULA logo

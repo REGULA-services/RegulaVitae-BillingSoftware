@@ -37,6 +37,7 @@
     "cross-env": "^7.0.3",
     "electron": "^30.0.1",
     "electron-builder": "^24.13.3",
+    "jimp": "^1.6.1",
     "lucide-react": "^0.372.0",
     "nodemon": "^3.1.0",
     "png-to-ico": "^3.0.2",
@@ -44,6 +45,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwindcss": "^3.4.3",
+    "to-ico": "^1.1.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
     "wait-on": "^7.2.0"
@@ -52,6 +54,7 @@
     "appId": "com.billingsoftware.billing",
     "productName": "BillingSoftwarePOS",
     "npmRebuild": false,
+    "icon": "build/icon.ico",
     "directories": {
       "output": "release"
     },
@@ -63,7 +66,8 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

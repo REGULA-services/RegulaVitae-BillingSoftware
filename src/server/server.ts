@@ -35,6 +35,58 @@ function getMondayAndSunday(dStr: string) {
 }
 
 // ----------------------------------------------------
+// AUTHENTICATION ENDPOINTS
+// ----------------------------------------------------
+
+// User Login (Admin / Employee)
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password required." });
+    }
+    const db = await getDatabase();
+    const user = await db.get<any>("SELECT * FROM users WHERE username = ?", [username]);
+    if (!user || user.password !== password) {
+      return res.status(401).json({ error: "Invalid username or password." });
+    }
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change Password (Admin Only)
+app.put('/api/auth/change-password', async (req, res) => {
+  try {
+    const { requesterRole, username, currentPassword, newPassword } = req.body;
+    if (requesterRole && requesterRole !== 'admin') {
+      return res.status(403).json({ error: "Access Denied: Only Admin accounts can change passwords." });
+    }
+    if (!username || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
+    const db = await getDatabase();
+    const user = await db.get<any>("SELECT * FROM users WHERE username = ?", [username]);
+    if (!user || user.password !== currentPassword) {
+      return res.status(401).json({ error: "Incorrect current password." });
+    }
+    await db.run("UPDATE users SET password = ? WHERE username = ?", [newPassword, username]);
+    res.json({ success: true, message: "Password updated successfully." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------
 // PRODUCT ENDPOINTS
 // ----------------------------------------------------
 

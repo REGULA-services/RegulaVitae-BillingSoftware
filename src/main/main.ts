@@ -17,7 +17,7 @@ function createMainWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 720,
-    title: "Billing Software POS",
+    title: "RegulaVitae POS",
     icon: path.join(app.getAppPath(), 'public', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -107,9 +107,11 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
   return new Promise((resolve, reject) => {
     try {
       const {
-        bakeryName = "Billing Software",
+        bakeryName = "Billing Software POS",
         address = "123 Gourmet Lane, Foodie City",
         phone = "+91 98765 43210",
+        gstin = "",
+        fssai = "",
         billNumber,
         date,
         time,
@@ -122,6 +124,9 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
         paymentMethod = "Cash",
         width = "80mm" // "58mm" or "80mm"
       } = receiptData;
+
+      const cgst = tax > 0 ? tax / 2 : 0;
+      const sgst = tax > 0 ? tax / 2 : 0;
 
       // Compile styled thermal receipt HTML markup
       const thermalHtml = `
@@ -138,7 +143,7 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
               font-size: ${width === '58mm' ? '11px' : '13px'};
               line-height: 1.4;
               margin: 0;
-              padding: ${width === '58mm' ? '5px' : '15px'};
+              padding: ${width === '58mm' ? '5px' : '12px'};
               color: #000;
               background: #fff;
               width: ${width};
@@ -155,9 +160,12 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
               margin-bottom: 2px;
               text-transform: uppercase;
             }
+            .sub-info {
+              font-size: ${width === '58mm' ? '10px' : '11px'};
+            }
             .separator {
               border-top: 1px dashed #000;
-              margin: 8px 0;
+              margin: 6px 0;
             }
             .info-table, .items-table {
               width: 100%;
@@ -173,7 +181,7 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
               font-weight: bold;
             }
             .items-table td {
-              padding: 4px 0;
+              padding: 3px 0;
               vertical-align: top;
             }
             .right {
@@ -181,17 +189,17 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
             }
             .totals-container {
               width: 100%;
-              margin-top: 8px;
+              margin-top: 6px;
             }
             .totals-table {
-              width: 60%;
-              margin-left: 40%;
+              width: 70%;
+              margin-left: 30%;
             }
             .totals-table td {
               padding: 2px 0;
             }
             .footer {
-              margin-top: 20px;
+              margin-top: 16px;
               font-size: ${width === '58mm' ? '10px' : '11px'};
             }
           </style>
@@ -199,8 +207,10 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
         <body>
           <div class="center">
             <div class="header-title">${bakeryName}</div>
-            <div>${address}</div>
-            <div>Phone: ${phone}</div>
+            <div class="sub-info">${address}</div>
+            <div class="sub-info">Ph: ${phone}</div>
+            ${gstin ? `<div class="sub-info bold">GSTIN: ${gstin}</div>` : ''}
+            ${fssai ? `<div class="sub-info">FSSAI Lic No: ${fssai}</div>` : ''}
           </div>
 
           <div class="separator"></div>
@@ -221,16 +231,16 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
           <table class="items-table">
             <thead>
               <tr>
-                <th style="width: 50%;">Item</th>
+                <th style="width: 45%;">Item</th>
                 <th class="right" style="width: 15%;">Qty</th>
-                <th class="right" style="width: 15%;">Rate</th>
-                <th class="right" style="width: 20%;">Total</th>
+                <th class="right" style="width: 18%;">Rate</th>
+                <th class="right" style="width: 22%;">Total</th>
               </tr>
             </thead>
             <tbody>
               ${items.map((item: any) => `
                 <tr>
-                  <td>${item.product_name}</td>
+                  <td>${item.product_name} ${item.hsn_code ? `<br/><small>HSN: ${item.hsn_code}</small>` : ''}</td>
                   <td class="right">${item.quantity}</td>
                   <td class="right">₹${Number(item.rate).toFixed(2)}</td>
                   <td class="right">₹${Number(item.total).toFixed(2)}</td>
@@ -253,6 +263,16 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
                   <td class="right">-₹${Number(discount).toFixed(2)}</td>
                 </tr>
               ` : ''}
+              ${tax > 0 ? `
+                <tr>
+                  <td>CGST (Half):</td>
+                  <td class="right">₹${cgst.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>SGST (Half):</td>
+                  <td class="right">₹${sgst.toFixed(2)}</td>
+                </tr>
+              ` : ''}
               <tr class="bold">
                 <td>Grand Total:</td>
                 <td class="right" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0;">
@@ -265,14 +285,14 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
           <div class="separator"></div>
 
           <div class="center">
-            <span class="bold">Payment Method: ${paymentMethod}</span>
+            <span class="bold">Payment Mode: ${paymentMethod}</span>
           </div>
 
           <div class="separator"></div>
 
           <div class="center footer">
             <div class="bold">Thank You. Visit Again!</div>
-            <div style="font-size: 9px; color: #666; margin-top: 4px;">Powered by REGULA</div>
+            <div style="font-size: 9px; color: #666; margin-top: 4px;">GST Invoice | Powered by RegulaVitae POS</div>
           </div>
         </body>
         </html>

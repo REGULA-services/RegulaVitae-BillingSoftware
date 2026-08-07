@@ -31,7 +31,8 @@ class JSONDatabaseEngine implements DatabaseEngine {
     bill_items: any[];
     deleted_items_history: any[];
     employees: any[];
-  } = { products: [], bills: [], bill_items: [], deleted_items_history: [], employees: [] };
+    users: any[];
+  } = { products: [], bills: [], bill_items: [], deleted_items_history: [], employees: [], users: [] };
 
   constructor() {
     this.load();
@@ -43,6 +44,7 @@ class JSONDatabaseEngine implements DatabaseEngine {
       try {
         const raw = fs.readFileSync(jsonDbPath, 'utf8');
         this.data = JSON.parse(raw);
+        if (!this.data.users) this.data.users = [];
       } catch (err) {
         console.error("Failed to parse JSON DB, starting fresh", err);
       }
@@ -74,6 +76,13 @@ class JSONDatabaseEngine implements DatabaseEngine {
       ];
       this.save();
     }
+    if (!this.data.users || this.data.users.length === 0) {
+      this.data.users = [
+        { id: 1, username: "admin", password: "admin123", role: "admin", name: "Administrator" },
+        { id: 2, username: "employee", password: "employee123", role: "employee", name: "Employee" }
+      ];
+      this.save();
+    }
   }
 
   async all<T>(query: string, params: any[] = []): Promise<T[]> {
@@ -83,6 +92,9 @@ class JSONDatabaseEngine implements DatabaseEngine {
     }
     if (q.startsWith("SELECT * FROM EMPLOYEES")) {
       return this.data.employees as T[];
+    }
+    if (q.startsWith("SELECT * FROM USERS")) {
+      return this.data.users as T[];
     }
     if (q.startsWith("SELECT * FROM BILLS")) {
       // Check filters
@@ -123,6 +135,10 @@ class JSONDatabaseEngine implements DatabaseEngine {
       const id = params[0];
       return this.data.employees.find(e => e.id === Number(id)) as T;
     }
+    if (q.startsWith("SELECT * FROM USERS WHERE USERNAME = ?")) {
+      const username = params[0];
+      return this.data.users.find(u => u.username === username) as T;
+    }
     if (q.startsWith("SELECT * FROM PRODUCTS WHERE BARCODE = ?")) {
       const barcode = params[0];
       return this.data.products.find(p => p.barcode === barcode) as T;
@@ -156,11 +172,16 @@ class JSONDatabaseEngine implements DatabaseEngine {
       return { lastID: id, changes: 1 };
     }
     if (q.startsWith("UPDATE EMPLOYEES")) {
-      const [name, role, phone, email, salary, status, joined_date, id] = params;
+      const id = params[params.length - 1];
       if (!this.data.employees) this.data.employees = [];
       const idx = this.data.employees.findIndex(e => e.id === Number(id));
       if (idx !== -1) {
-        this.data.employees[idx] = { id: Number(id), name, role, phone, email, salary: salary !== null ? Number(salary) : null, status, joined_date };
+        if (params.length === 8) {
+          const [name, role, phone, email, salary, status, joined_date] = params;
+          this.data.employees[idx] = { id: Number(id), name, role, phone, email, salary: salary !== null ? Number(salary) : null, status, joined_date };
+        } else {
+          this.data.employees[idx] = { ...this.data.employees[idx] };
+        }
         this.save();
         return { lastID: Number(id), changes: 1 };
       }
@@ -183,11 +204,17 @@ class JSONDatabaseEngine implements DatabaseEngine {
       return { lastID: id, changes: 1 };
     }
     if (q.startsWith("UPDATE PRODUCTS")) {
-      // UPDATE products SET name = ?, category = ?, price = ?, barcode = ?, sku = ?, tax_percent = ?, status = ?, quantity_type = ? WHERE id = ?
-      const [name, category, price, barcode, sku, tax_percent, status, quantity_type, id] = params;
+      const id = params[params.length - 1];
       const idx = this.data.products.findIndex(p => p.id === Number(id));
       if (idx !== -1) {
-        this.data.products[idx] = { id: Number(id), name, category, price: Number(price), barcode, sku, tax_percent: Number(tax_percent), status, quantity_type };
+        if (params.length === 9) {
+          const [name, category, price, barcode, sku, tax_percent, status, quantity_type] = params;
+          this.data.products[idx] = { id: Number(id), name, category, price: Number(price), barcode, sku, tax_percent: Number(tax_percent), status, quantity_type };
+        } else if (q.includes("SET PRICE = ?")) {
+          this.data.products[idx].price = Number(params[0]);
+        } else {
+          this.data.products[idx] = { ...this.data.products[idx] };
+        }
         this.save();
         return { lastID: Number(id), changes: 1 };
       }
@@ -266,6 +293,16 @@ class JSONDatabaseEngine implements DatabaseEngine {
       this.data.deleted_items_history.push(newDeleted);
       this.save();
       return { lastID: id, changes: 1 };
+    }
+    if (q.startsWith("UPDATE USERS SET PASSWORD = ? WHERE USERNAME = ?")) {
+      const [password, username] = params;
+      const user = this.data.users ? this.data.users.find((u: any) => u.username === username) : null;
+      if (user) {
+        user.password = password;
+        this.save();
+        return { changes: 1 };
+      }
+      return { changes: 0 };
     }
     return { changes: 0 };
   }
@@ -379,6 +416,16 @@ export async function getDatabase(): Promise<DatabaseEngine> {
       )
     `);
 
+    await nativeEngine.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT,
+        name TEXT
+      )
+    `);
+
     // Check if the bills table already exists and has a UNIQUE constraint on bill_number
     const tableInfo = await nativeEngine.get<{ sql: string }>(
       "SELECT sql FROM sqlite_master WHERE type='table' AND name='bills'"
@@ -479,6 +526,21 @@ export async function getDatabase(): Promise<DatabaseEngine> {
         joined_date TEXT
       )
     `);
+
+    // Check if user seeding is necessary
+    const usrCount = await nativeEngine.get<{ 'count(*)': number }>("SELECT count(*) FROM users");
+    if (usrCount && usrCount['count(*)'] === 0) {
+      console.log("Seeding default users database...");
+      await nativeEngine.run(
+        `INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)`,
+        ["admin", "admin123", "admin", "Administrator"]
+      );
+      await nativeEngine.run(
+        `INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)`,
+        ["employee", "employee123", "employee", "Employee"]
+      );
+      console.log("User seeding completed.");
+    }
 
     // Check if employee seeding is necessary
     const empCount = await nativeEngine.get<{ 'count(*)': number }>("SELECT count(*) FROM employees");

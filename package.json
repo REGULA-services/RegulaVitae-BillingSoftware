@@ -1,7 +1,7 @@
 {
-  "name": "billing-software",
+  "name": "regulavitae-pos",
   "version": "1.0.0",
-  "description": "Bakery Billing & POS (Point of Sale) Software",
+  "description": "RegulaVitae — High-Speed Bakery Billing & Point of Sale System",
   "main": "dist-electron/src/main/main.js",
   "type": "commonjs",
   "scripts": {
@@ -51,8 +51,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.billingsoftware.billing",
-    "productName": "BillingSoftwarePOS",
+    "appId": "com.regulavitae.pos",
+    "productName": "RegulaVitae POS",
     "npmRebuild": false,
     "icon": "build/icon.ico",
     "directories": {

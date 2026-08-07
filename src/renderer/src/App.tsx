@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Plus, Search, Trash2, CreditCard, DollarSign, Smartphone, ShoppingBag,
   Settings, BarChart2, FileText, X, Check, AlertCircle, Edit, RefreshCw, AlertTriangle,
-  Users
+  Users, Lock, LogOut, Shield, KeyRound
 } from 'lucide-react';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
@@ -136,7 +136,7 @@ const electronAPI = isElectron ? (window as any).electron : {
           <div class="separator"></div>
           <div class="center footer">
             <div class="bold">Thank You. Visit Again!</div>
-            <div style="font-size: 9px; color: #666; margin-top: 4px;">Powered by REGULA</div>
+            <div style="font-size: 9px; color: #666; margin-top: 4px;">Powered by RegulaVitae</div>
           </div>
         </body>
         </html>
@@ -227,6 +227,110 @@ export default function App() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee>>({});
   const [employeeSearch, setEmployeeSearch] = useState('');
+
+  // Authentication & Role State
+  const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: 'admin' | 'employee'; name: string } | null>(() => {
+    const saved = localStorage.getItem("bakers_pos_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isFirstTimeEver, setIsFirstTimeEver] = useState<boolean>(() => {
+    return !localStorage.getItem("bakers_pos_has_logged_in_ever");
+  });
+  const [loginForm, setLoginForm] = useState({ username: 'admin', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [changePasswordModal, setChangePasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ username: 'admin', currentPassword: '', newPassword: '', confirmPassword: '' });
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    if (!loginForm.password) {
+      setLoginError('Password is required.');
+      return;
+    }
+    setIsLoggingIn(true);
+    try {
+      const res = await fetch("http://localhost:4848/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(loginForm)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCurrentUser(data.user);
+        localStorage.setItem("bakers_pos_user", JSON.stringify(data.user));
+        localStorage.setItem("bakers_pos_has_logged_in_ever", "true");
+        setIsFirstTimeEver(false);
+        showToast(`Logged in as ${data.user.name} (${data.user.role.toUpperCase()})`, "success");
+      } else {
+        setLoginError(data.error || "Invalid username or password");
+      }
+    } catch (err) {
+      // Local fallback authentication
+      if (loginForm.username === 'admin' && (loginForm.password === 'admin123' || loginForm.password === 'admin')) {
+        const u = { id: 1, username: 'admin', role: 'admin' as const, name: 'Administrator' };
+        setCurrentUser(u);
+        localStorage.setItem("bakers_pos_user", JSON.stringify(u));
+        localStorage.setItem("bakers_pos_has_logged_in_ever", "true");
+        setIsFirstTimeEver(false);
+        showToast("Logged in as Administrator", "success");
+      } else if (loginForm.username === 'employee' && (loginForm.password === 'employee123' || loginForm.password === 'employee' || loginForm.password === '1234')) {
+        const u = { id: 2, username: 'employee', role: 'employee' as const, name: 'Employee' };
+        setCurrentUser(u);
+        localStorage.setItem("bakers_pos_user", JSON.stringify(u));
+        localStorage.setItem("bakers_pos_has_logged_in_ever", "true");
+        setIsFirstTimeEver(false);
+        showToast("Logged in as Employee", "success");
+      } else {
+        setLoginError(isFirstTimeEver ? "Invalid username or password. Default Admin: admin / admin123. Default Employee: employee / employee123" : "Invalid username or password.");
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("bakers_pos_user");
+    setLoginForm({ username: 'admin', password: '' });
+    setLoginError('');
+    showToast("Logged out successfully.", "info");
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (currentUser?.role !== 'admin') {
+      showToast("Access Denied: Only Admin accounts can change passwords.", "error");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showToast("New passwords do not match.", "error");
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:4848/api/auth/change-password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requesterRole: currentUser?.role,
+          username: passwordForm.username,
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Password for ${passwordForm.username} updated!`, "success");
+        setChangePasswordModal(false);
+        setPasswordForm({ username: 'admin', currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        showToast(data.error || "Failed to update password.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
 
   // Custom confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -1019,6 +1123,10 @@ export default function App() {
 
   const saveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUser?.role !== 'admin') {
+      showToast("Access Denied: Admin privileges required to modify products.", "error");
+      return;
+    }
     if (!editingProduct?.name || !editingProduct?.category || editingProduct?.price === undefined) {
       showToast("Name, Category and Price are mandatory.", "error");
       return;
@@ -1049,6 +1157,10 @@ export default function App() {
   };
 
   const deleteProduct = async (id: number) => {
+    if (currentUser?.role !== 'admin') {
+      showToast("Access Denied: Admin privileges required to delete products.", "error");
+      return;
+    }
     showConfirm({
       title: "Delete Product",
       message: "Are you sure you want to delete this bakery product?",
@@ -1090,6 +1202,10 @@ export default function App() {
 
   const saveEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUser?.role !== 'admin') {
+      showToast("Access Denied: Admin privileges required to modify employees.", "error");
+      return;
+    }
     if (!editingEmployee.name || !editingEmployee.role) {
       showToast("Name and Role are mandatory.", "error");
       return;
@@ -1120,6 +1236,10 @@ export default function App() {
   };
 
   const deleteEmployee = async (id: number) => {
+    if (currentUser?.role !== 'admin') {
+      showToast("Access Denied: Admin privileges required to delete employees.", "error");
+      return;
+    }
     showConfirm({
       title: "Remove Employee",
       message: "Are you sure you want to remove this employee?",
@@ -1327,13 +1447,13 @@ export default function App() {
       } else {
         url += `?date=${date}`;
       }
-      
+
       const res = await fetch(url);
       const data = await res.json();
-      
+
       let csvContent = "\ufeff"; // UTF-8 BOM
       let filename = "";
-      
+
       if (type === 'daily') {
         filename = `Daily_Sales_Report_${date}.csv`;
         csvContent += `Daily Sales Report - ${date}\n\n`;
@@ -1343,7 +1463,7 @@ export default function App() {
         csvContent += `Cash Sales,₹${(data.paymentBreakdown?.Cash || 0).toFixed(2)}\n`;
         csvContent += `Google Pay Sales,₹${(data.paymentBreakdown?.GooglePay || 0).toFixed(2)}\n`;
         csvContent += `Bank Card Sales,₹${(data.paymentBreakdown?.BankCard || 0).toFixed(2)}\n\n`;
-        
+
         csvContent += `Top Selling Products\n`;
         csvContent += `Product Name,Quantity,Total Sales\n`;
         if (data.topProducts) {
@@ -1351,7 +1471,7 @@ export default function App() {
             csvContent += `"${p.name}",${p.quantity},₹${p.total.toFixed(2)}\n`;
           });
         }
-        
+
         csvContent += `\nTransactions List\n`;
         csvContent += `Bill #,Time,Cashier,Payment Method,Grand Total\n`;
         if (data.allBills) {
@@ -1367,7 +1487,7 @@ export default function App() {
         csvContent += `Cash Sales,₹${(data.paymentBreakdown?.Cash || 0).toFixed(2)}\n`;
         csvContent += `Google Pay Sales,₹${(data.paymentBreakdown?.GooglePay || 0).toFixed(2)}\n`;
         csvContent += `Bank Card Sales,₹${(data.paymentBreakdown?.BankCard || 0).toFixed(2)}\n\n`;
-        
+
         csvContent += `Daily Breakdown\n`;
         csvContent += `Date,Sales Amount,Bills Count\n`;
         if (data.dailyBreakdown) {
@@ -1375,7 +1495,7 @@ export default function App() {
             csvContent += `${d.date},₹${d.amount.toFixed(2)},${d.bills}\n`;
           });
         }
-        
+
         csvContent += `\nTop Selling Products\n`;
         csvContent += `Product Name,Quantity,Total Sales\n`;
         if (data.topProducts) {
@@ -1391,7 +1511,7 @@ export default function App() {
         csvContent += `Cash Sales,₹${(data.paymentBreakdown?.Cash || 0).toFixed(2)}\n`;
         csvContent += `Google Pay Sales,₹${(data.paymentBreakdown?.GooglePay || 0).toFixed(2)}\n`;
         csvContent += `Bank Card Sales,₹${(data.paymentBreakdown?.BankCard || 0).toFixed(2)}\n\n`;
-        
+
         csvContent += `Monthly Breakdown\n`;
         csvContent += `Month,Sales Amount,Bills Count,MoM Growth\n`;
         if (data.monthlyBreakdown) {
@@ -1399,7 +1519,7 @@ export default function App() {
             csvContent += `${m.monthName},₹${m.amount.toFixed(2)},${m.bills},${(m.growthPercent * 100).toFixed(1)}%\n`;
           });
         }
-        
+
         csvContent += `\nTop Selling Products\n`;
         csvContent += `Product Name,Quantity,Total Sales\n`;
         if (data.topProducts) {
@@ -1408,7 +1528,7 @@ export default function App() {
           });
         }
       }
-      
+
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -1452,6 +1572,95 @@ export default function App() {
     return products.filter(p => p.category === selectedCategory);
   }, [products, selectedCategory]);
 
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100 p-4 font-sans select-none">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 p-6 text-slate-950">
+            <div className="flex items-center space-x-3">
+              <div className="bg-slate-950/20 backdrop-blur rounded-xl overflow-hidden w-12 h-12 flex-shrink-0">
+                <img src="./icon.png" alt="RegulaVitae Logo" className="w-12 h-12 object-cover" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black tracking-tight">RegulaVitae POS</h2>
+                <p className="text-xs font-bold text-slate-900/80">Select Account & Enter Password</p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleLogin} className="p-6 space-y-4">
+            {loginError && (
+              <div className="flex items-center space-x-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Select User Account</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLoginForm(prev => ({ ...prev, username: 'admin' }))}
+                  className={`flex items-center justify-center px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${loginForm.username === 'admin'
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-md shadow-amber-500/10'
+                    : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                    }`}
+                >
+                  <Shield className="w-3.5 h-3.5 mr-2" />
+                  Admin (admin)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginForm(prev => ({ ...prev, username: 'employee' }))}
+                  className={`flex items-center justify-center px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${loginForm.username === 'employee'
+                    ? 'bg-blue-500/20 border-blue-500 text-blue-400 shadow-md shadow-blue-500/10'
+                    : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                    }`}
+                >
+                  <Users className="w-3.5 h-3.5 mr-2" />
+                  Employee (employee)
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder={`Enter password for ${loginForm.username}...`}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  autoFocus
+                />
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-98 disabled:opacity-50"
+            >
+              {isLoggingIn ? "Authenticating..." : `Login as ${loginForm.username.toUpperCase()}`}
+            </button>
+
+            {isFirstTimeEver && (
+              <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 space-y-1">
+                <p className="font-bold text-slate-300">Default Passwords (First-Time Only):</p>
+                <p>• Admin: <code className="text-amber-400 bg-slate-900 px-1.5 py-0.5 rounded">admin123</code></p>
+                <p>• Employee: <code className="text-blue-400 bg-slate-900 px-1.5 py-0.5 rounded">employee123</code></p>
+              </div>
+            )}
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-slate-950 font-sans text-slate-100 select-none overflow-hidden theme-orange-white">
 
@@ -1461,14 +1670,14 @@ export default function App() {
           <div className="flex-shrink-0">
             <img
               src="./icon.png"
-              alt="REGULA Logo"
+              alt="RegulaVitae Logo"
               className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl object-cover shadow-md shadow-yellow-900/30"
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
           <div>
             <h1 className="text-sm lg:text-lg font-bold tracking-tight text-white">{bakeryDetails.name}</h1>
-            <p className="text-[10px] lg:text-xs text-slate-400 font-medium font-mono">Counter POS terminal</p>
+            <p className="text-[10px] lg:text-xs text-slate-400 font-medium font-mono">RegulaVitae POS Terminal</p>
           </div>
         </div>
 
@@ -1508,6 +1717,24 @@ export default function App() {
           >
             <Settings className="w-4 h-4" />
           </button>
+
+          {/* User Profile Badge & Logout */}
+          <div className="flex items-center space-x-2 pl-2 lg:pl-3 border-l border-slate-800">
+            <div className="hidden sm:flex flex-col items-end">
+              <span className="text-xs font-bold text-slate-200">{currentUser.name}</span>
+              <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${currentUser.role === 'admin' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
+                {currentUser.role}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Logout / Switch User"
+              className="flex items-center px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-md text-xs font-semibold transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1906,11 +2133,10 @@ export default function App() {
       <div className="lg:hidden flex items-center justify-around bg-slate-900 border-t border-slate-800 py-2 px-4 shadow-lg flex-shrink-0 z-40">
         <button
           onClick={() => setMobileTab('menu')}
-          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all ${
-            mobileTab === 'menu'
+          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all ${mobileTab === 'menu'
               ? 'text-bakery-400 font-bold'
               : 'text-slate-500 hover:text-slate-300'
-          }`}
+            }`}
         >
           <ShoppingBag className="w-5 h-5" />
           <span className="text-[10px] tracking-wide uppercase">Menu</span>
@@ -1918,11 +2144,10 @@ export default function App() {
 
         <button
           onClick={() => setMobileTab('ticket')}
-          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all relative ${
-            mobileTab === 'ticket'
+          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all relative ${mobileTab === 'ticket'
               ? 'text-bakery-400 font-bold'
               : 'text-slate-500 hover:text-slate-300'
-          }`}
+            }`}
         >
           <CreditCard className="w-5 h-5" />
           <span className="text-[10px] tracking-wide uppercase">Ticket</span>
@@ -1935,11 +2160,10 @@ export default function App() {
 
         <button
           onClick={() => setMobileTab('queue')}
-          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all relative ${
-            mobileTab === 'queue'
+          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all relative ${mobileTab === 'queue'
               ? 'text-bakery-400 font-bold'
               : 'text-slate-500 hover:text-slate-300'
-          }`}
+            }`}
         >
           <Users className="w-5 h-5" />
           <span className="text-[10px] tracking-wide uppercase">Queue</span>
@@ -2098,15 +2322,23 @@ export default function App() {
                 {editingProduct?.id ? 'Edit Product' : 'Add New Product'}
               </h3>
 
+              {currentUser?.role !== 'admin' && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-3">
+                  <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                  <span>View Only Mode: Login as Admin to add, edit, or delete items.</span>
+                </div>
+              )}
+
               <form onSubmit={saveProduct} className="flex flex-col gap-4 flex-1">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Product Name *</label>
                   <input
                     type="text"
                     required
+                    disabled={currentUser?.role !== 'admin'}
                     value={editingProduct?.name || ''}
                     onChange={(e) => setEditingProduct(prev => ({ ...prev, name: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
                   />
                 </div>
 
@@ -2116,19 +2348,21 @@ export default function App() {
                     <input
                       type="text"
                       required
+                      disabled={currentUser?.role !== 'admin'}
                       placeholder="e.g. Cakes, Puffs"
                       value={editingProduct?.category || ''}
                       onChange={(e) => setEditingProduct(prev => ({ ...prev, category: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity Type *</label>
                     <select
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingProduct?.quantity_type || 'pcs'}
                       onChange={(e: any) => setEditingProduct(prev => ({ ...prev, quantity_type: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
                     >
                       <option value="pcs">pcs</option>
                       <option value="kg">kg</option>
@@ -2143,10 +2377,11 @@ export default function App() {
                   <input
                     type="number"
                     required
+                    disabled={currentUser?.role !== 'admin'}
                     step="0.01"
                     value={editingProduct?.price || ''}
                     onChange={(e) => setEditingProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
-                    className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                    className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
                   />
                 </div>
 
@@ -2155,10 +2390,11 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Barcode</label>
                     <input
                       type="text"
+                      disabled={currentUser?.role !== 'admin'}
                       placeholder="Optional"
                       value={editingProduct?.barcode || ''}
                       onChange={(e) => setEditingProduct(prev => ({ ...prev, barcode: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
                     />
                   </div>
 
@@ -2166,30 +2402,51 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">SKU Code</label>
                     <input
                       type="text"
+                      disabled={currentUser?.role !== 'admin'}
                       placeholder="Optional"
                       value={editingProduct?.sku || ''}
                       onChange={(e) => setEditingProduct(prev => ({ ...prev, sku: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Availability Status</label>
-                  <select
-                    value={editingProduct?.status || 'Available'}
-                    onChange={(e: any) => setEditingProduct(prev => ({ ...prev, status: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100"
-                  >
-                    <option value="Available">Available</option>
-                    <option value="Out of Stock">Out of Stock</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">GST Rate (%) *</label>
+                    <select
+                      disabled={currentUser?.role !== 'admin'}
+                      value={editingProduct?.tax_percent !== undefined ? editingProduct.tax_percent : 5}
+                      onChange={(e) => setEditingProduct(prev => ({ ...prev, tax_percent: Number(e.target.value) }))}
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
+                    >
+                      <option value={0}>0% (Exempt / Nil Rated)</option>
+                      <option value={5}>5% (Bakery & Food GST)</option>
+                      <option value={12}>12% (Packaged Food GST)</option>
+                      <option value={18}>18% (Standard Goods GST)</option>
+                      <option value={28}>28% (Luxury Goods GST)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Availability Status</label>
+                    <select
+                      disabled={currentUser?.role !== 'admin'}
+                      value={editingProduct?.status || 'Available'}
+                      onChange={(e: any) => setEditingProduct(prev => ({ ...prev, status: e.target.value }))}
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
+                    >
+                      <option value="Available">Available</option>
+                      <option value="Out of Stock">Out of Stock</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex space-x-2 mt-4">
                   <button
                     type="submit"
-                    className="flex-1 py-2 bg-bakery-500 hover:bg-bakery-400 text-slate-950 font-black rounded text-xs transition-colors"
+                    disabled={currentUser?.role !== 'admin'}
+                    className="flex-1 py-2 bg-bakery-500 hover:bg-bakery-400 text-slate-950 font-black rounded text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Save Product
                   </button>
@@ -2749,6 +3006,28 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Account Security & Password Management */}
+              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Security & Account Passwords</span>
+                {currentUser?.role === 'admin' ? (
+                  <button
+                    onClick={() => {
+                      setShowSettingsModal(false);
+                      setChangePasswordModal(true);
+                    }}
+                    className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Change Admin or Employee Passwords</span>
+                  </button>
+                ) : (
+                  <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg text-[10px] text-slate-400 flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <span>Password Management is restricted. Only Admin accounts can change passwords.</span>
+                  </div>
+                )}
+              </div>
+
               {/* Bill Number Sequence Reset */}
               <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bill Number Sequence</span>
@@ -2808,15 +3087,23 @@ export default function App() {
                 {editingEmployee.id ? 'Edit Employee Details' : 'Add New Employee'}
               </h3>
 
+              {currentUser?.role !== 'admin' && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-3">
+                  <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                  <span>View Only Mode: Login as Admin to add, edit, or delete employee details.</span>
+                </div>
+              )}
+
               <form onSubmit={saveEmployee} className="flex flex-col gap-4 flex-1">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase">Full Name *</label>
                   <input
                     type="text"
                     required
+                    disabled={currentUser?.role !== 'admin'}
                     value={editingEmployee.name || ''}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
-                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none"
+                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                     placeholder="Enter full name"
                   />
                 </div>
@@ -2825,10 +3112,11 @@ export default function App() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Role / Position *</label>
                     <select
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.role || ''}
                       required
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                     >
                       <option value="" disabled>Select Role</option>
                       <option value="Manager">Manager</option>
@@ -2843,9 +3131,10 @@ export default function App() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
                     <select
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.status || 'Active'}
                       onChange={(e: any) => setEditingEmployee({ ...editingEmployee, status: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
@@ -2858,9 +3147,10 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Phone Number</label>
                     <input
                       type="text"
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.phone || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, phone: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. +91 98765 43210"
                     />
                   </div>
@@ -2869,9 +3159,10 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Email Address</label>
                     <input
                       type="email"
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.email || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, email: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. john@example.com"
                     />
                   </div>
@@ -2882,9 +3173,10 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Monthly Salary (₹)</label>
                     <input
                       type="number"
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.salary !== undefined && editingEmployee.salary !== null ? editingEmployee.salary : ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, salary: e.target.value ? Number(e.target.value) : null })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. 25000"
                     />
                   </div>
@@ -2893,9 +3185,10 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Joined Date</label>
                     <input
                       type="date"
+                      disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.joined_date || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, joined_date: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white focus:border-sky-500 focus:outline-none"
+                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white focus:border-sky-500 focus:outline-none disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -2903,7 +3196,8 @@ export default function App() {
                 <div className="flex space-x-2 mt-6">
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded text-xs transition-colors shadow-lg shadow-sky-600/10 active:scale-95"
+                    disabled={currentUser?.role !== 'admin'}
+                    className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded text-xs transition-colors shadow-lg shadow-sky-600/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {editingEmployee.id ? 'Update Employee' : 'Add Employee'}
                   </button>
@@ -3010,8 +3304,8 @@ export default function App() {
             {/* Header section with icon */}
             <div className="p-5 flex items-start gap-4">
               <div className={`p-3 rounded-lg ${confirmDialog.type === 'danger' ? 'bg-rose-500/10 text-rose-400' :
-                  confirmDialog.type === 'info' ? 'bg-sky-500/10 text-sky-400' :
-                    'bg-amber-500/10 text-amber-400'
+                confirmDialog.type === 'info' ? 'bg-sky-500/10 text-sky-400' :
+                  'bg-amber-500/10 text-amber-400'
                 }`}>
                 {confirmDialog.type === 'danger' ? (
                   <AlertTriangle className="w-6 h-6 animate-pulse" />
@@ -3049,14 +3343,91 @@ export default function App() {
                 type="button"
                 onClick={confirmDialog.onConfirm}
                 className={`px-4 py-2 text-white font-bold rounded-lg text-xs transition-colors shadow-lg active:scale-95 ${confirmDialog.type === 'danger' ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/10' :
-                    confirmDialog.type === 'info' ? 'bg-sky-600 hover:bg-sky-500 shadow-sky-600/10' :
-                      'bg-amber-600 hover:bg-amber-500 shadow-amber-600/10'
+                  confirmDialog.type === 'info' ? 'bg-sky-600 hover:bg-sky-500 shadow-sky-600/10' :
+                    'bg-amber-600 hover:bg-amber-500 shadow-amber-600/10'
                   }`}
                 autoFocus
               >
                 {confirmDialog.confirmText}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- CHANGE PASSWORD MODAL ----------------- */}
+      {changePasswordModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+              <span className="text-sm font-bold text-white flex items-center">
+                <KeyRound className="w-4 h-4 mr-2 text-amber-400" />
+                Change Password
+              </span>
+              <button
+                onClick={() => setChangePasswordModal(false)}
+                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="p-5 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Target User Account</label>
+                <select
+                  value={passwordForm.username}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, username: e.target.value }))}
+                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                >
+                  <option value="admin">Admin (admin)</option>
+                  <option value="employee">Employee (employee)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Current Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                  placeholder="Enter current password..."
+                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                  placeholder="Enter new password..."
+                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Confirm New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="Confirm new password..."
+                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-xs transition-colors mt-2"
+              >
+                Update Password
+              </button>
+            </form>
           </div>
         </div>
       )}

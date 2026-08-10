@@ -37,3 +37,7 @@ logs/
 *.db-journal
 *.sqlite
 bakery_pos.json
+
+# Temporary scratch files
+scratch/
+

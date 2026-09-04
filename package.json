@@ -1,7 +1,8 @@
 {
   "name": "regulavitae-pos",
   "version": "1.0.0",
-  "description": "RegulaVitae — High-Speed Bakery Billing & Point of Sale System",
+  "description": "RegulaVitae - High-Speed Bakery Billing and Point of Sale System",
+  "author": "RegulaVitae",
   "main": "dist-electron/src/main/main.js",
   "type": "commonjs",
   "scripts": {
@@ -13,6 +14,8 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:vite && npm run build:electron",
     "package": "npm run build && electron-builder",
+    "package:msix": "npm run build && electron-builder --win appx",
+    "package:msi": "npm run build && electron-builder --win msi",
     "start": "node dist-server/server.js"
   },
   "dependencies": {
@@ -66,7 +69,11 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "appx",
+        "msi"
+      ],
       "icon": "build/icon.ico"
     },
     "nsis": {
@@ -74,6 +81,14 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "runAfterFinish": true
+    },
+    "appx": {
+      "applicationId": "RegulaVitaePOS",
+      "identityName": "RegulaVitae.RegulaVitaePOS",
+      "publisherDisplayName": "RegulaVitae",
+      "publisher": "CN=RegulaVitae",
+      "backgroundColor": "#4f46e5",
+      "artifactName": "${productName} ${version}.msix"
     }
   }
 }

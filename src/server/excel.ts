@@ -9,7 +9,7 @@ export async function generateDailyExcel(reportData: {
   allBills: any[];
 }): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Billing Software";
+  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
   
   // Sheet 1: Summary Dashboard
   const dashSheet = workbook.addWorksheet("Sales Summary");
@@ -175,7 +175,7 @@ export async function generateWeeklyExcel(reportData: {
   topProducts: { name: string; quantity: number; total: number }[];
 }): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Billing Software";
+  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
 
   const sheet = workbook.addWorksheet("Weekly Report");
   sheet.views = [{ showGridLines: true }];
@@ -294,7 +294,7 @@ export async function generateYearlyExcel(reportData: {
   topProducts: { name: string; quantity: number; total: number }[];
 }): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Billing Software";
+  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
 
   const sheet = workbook.addWorksheet(`Year ${reportData.year} Report`);
   sheet.views = [{ showGridLines: true }];

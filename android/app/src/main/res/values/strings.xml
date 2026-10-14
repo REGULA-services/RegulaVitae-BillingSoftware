@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Billing Software</string>
-    <string name="title_activity_main">Billing Software</string>
-    <string name="package_name">com.billingsoftware.billing</string>
-    <string name="custom_url_scheme">com.billingsoftware.billing</string>
+    <string name="app_name">MADRAS ORTHO CLINIC SOFTWARE</string>
+    <string name="title_activity_main">MADRAS ORTHO CLINIC SOFTWARE</string>
+    <string name="package_name">com.madrasorthoclinic.pos</string>
+    <string name="custom_url_scheme">com.madrasorthoclinic.pos</string>
 </resources>

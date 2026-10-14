@@ -2,9 +2,16 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Plus, Search, Trash2, CreditCard, DollarSign, Smartphone, ShoppingBag,
   Settings, BarChart2, FileText, X, Check, AlertCircle, Edit, RefreshCw, AlertTriangle,
-  Users, Lock, LogOut, Shield, KeyRound
+  Users, Lock, LogOut, Shield, KeyRound, Wifi, Bluetooth, Printer
 } from 'lucide-react';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import {
+  isBluetoothSupported,
+  connectBluetoothPrinter,
+  disconnectBluetoothPrinter,
+  printViaBluetooth,
+  getActiveBluetoothDevice
+} from './utils/bluetoothPrinter';
 
 // Safe Electron detection and fallback
 const isElectron = typeof window !== 'undefined' && (window as any).electron !== undefined;
@@ -13,20 +20,25 @@ const electronAPI = isElectron ? (window as any).electron : {
     console.log("[MOCK PRINT]", receiptData, printerName);
     try {
       const {
-        bakeryName = "Billing Software",
-        address = "123 Gourmet Lane, Foodie City",
+        bakeryName = "MADRAS ORTHO CLINIC SOFTWARE",
+        address = "Chennai, Tamil Nadu",
         phone = "+91 98765 43210",
+        gstin = "",
+        dlNo = "",
         billNumber,
         date,
         time,
-        cashierName = "Cashier",
+        cashierName = "Pharmacist",
         items = [],
         subtotal = 0,
         discount = 0,
+        tax = 0,
         grandTotal = 0,
         paymentMethod = "Cash",
         width = "80mm" // "58mm" or "80mm"
       } = receiptData;
+      const cgst = tax > 0 ? tax / 2 : 0;
+      const sgst = tax > 0 ? tax / 2 : 0;
 
       const thermalHtml = `
         <!DOCTYPE html>
@@ -73,8 +85,11 @@ const electronAPI = isElectron ? (window as any).electron : {
         <body>
           <div class="center">
             <div class="header-title">${bakeryName}</div>
+            <div class="bold" style="font-size:11px;">Mission for Cure</div>
             <div>${address}</div>
             <div>Phone: ${phone}</div>
+            ${gstin ? `<div><strong>GSTIN: ${gstin}</strong></div>` : ''}
+            ${dlNo ? `<div>Drug Lic: ${dlNo}</div>` : ''}
           </div>
           <div class="separator"></div>
           <table class="info-table">
@@ -112,7 +127,7 @@ const electronAPI = isElectron ? (window as any).electron : {
           <div class="totals-container">
             <table class="totals-table">
               <tr>
-                <td>Subtotal:</td>
+                <td>Subtotal (excl. GST):</td>
                 <td class="right">₹${Number(subtotal).toFixed(2)}</td>
               </tr>
               ${discount > 0 ? `
@@ -121,8 +136,22 @@ const electronAPI = isElectron ? (window as any).electron : {
                   <td class="right">-₹${Number(discount).toFixed(2)}</td>
                 </tr>
               ` : ''}
+              ${tax > 0 ? `
+                <tr>
+                  <td>CGST:</td>
+                  <td class="right">+₹${cgst.toFixed(2)}</td>
+                </tr>
+                <tr>
+                  <td>SGST:</td>
+                  <td class="right">+₹${sgst.toFixed(2)}</td>
+                </tr>
+                <tr class="bold">
+                  <td>Total GST Added:</td>
+                  <td class="right">+₹${tax.toFixed(2)}</td>
+                </tr>
+              ` : ''}
               <tr class="bold">
-                <td>Grand Total:</td>
+                <td>Grand Total (incl. GST):</td>
                 <td class="right" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0;">
                   ₹${Number(grandTotal).toFixed(2)}
                 </td>
@@ -135,8 +164,8 @@ const electronAPI = isElectron ? (window as any).electron : {
           </div>
           <div class="separator"></div>
           <div class="center footer">
-            <div class="bold">Thank You. Visit Again!</div>
-            <div style="font-size: 9px; color: #666; margin-top: 4px;">Powered by RegulaVitae</div>
+            <div class="bold">Thank You. Stay Healthy!</div>
+            <div style="font-size: 9px; color: #666; margin-top: 4px;">MADRAS ORTHO CLINIC SOFTWARE | Mission for Cure</div>
           </div>
         </body>
         </html>
@@ -174,7 +203,7 @@ interface Product {
   sku: string | null;
   tax_percent: number;
   status: 'Available' | 'Out of Stock';
-  quantity_type: 'pcs' | 'kg' | 'g' | 'pack';
+  quantity_type: 'pcs' | 'kg' | 'g' | 'pack' | 'strip' | 'ml' | 'L';
 }
 
 interface Employee {
@@ -209,6 +238,15 @@ interface BillingSession {
   cashierName: string;
 }
 
+interface ClinicBranding {
+  name: string;
+  description: string;
+  address: string;
+  phone: string;
+  gstin: string;
+  dlNo: string;
+}
+
 export default function App() {
   // App states
   const [sessions, setSessions] = useState<BillingSession[]>([]);
@@ -230,11 +268,11 @@ export default function App() {
 
   // Authentication & Role State
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: 'admin' | 'employee'; name: string } | null>(() => {
-    const saved = localStorage.getItem("bakers_pos_user");
+    const saved = localStorage.getItem("madrasortho_pos_user");
     return saved ? JSON.parse(saved) : null;
   });
   const [isFirstTimeEver, setIsFirstTimeEver] = useState<boolean>(() => {
-    return !localStorage.getItem("bakers_pos_has_logged_in_ever");
+    return !localStorage.getItem("madrasortho_pos_has_logged_in_ever");
   });
   const [loginForm, setLoginForm] = useState({ username: 'admin', password: '' });
   const [loginError, setLoginError] = useState('');
@@ -259,8 +297,8 @@ export default function App() {
       const data = await res.json();
       if (res.ok && data.success) {
         setCurrentUser(data.user);
-        localStorage.setItem("bakers_pos_user", JSON.stringify(data.user));
-        localStorage.setItem("bakers_pos_has_logged_in_ever", "true");
+        localStorage.setItem("madrasortho_pos_user", JSON.stringify(data.user));
+        localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
         setIsFirstTimeEver(false);
         showToast(`Logged in as ${data.user.name} (${data.user.role.toUpperCase()})`, "success");
       } else {
@@ -271,17 +309,17 @@ export default function App() {
       if (loginForm.username === 'admin' && (loginForm.password === 'admin123' || loginForm.password === 'admin')) {
         const u = { id: 1, username: 'admin', role: 'admin' as const, name: 'Administrator' };
         setCurrentUser(u);
-        localStorage.setItem("bakers_pos_user", JSON.stringify(u));
-        localStorage.setItem("bakers_pos_has_logged_in_ever", "true");
+        localStorage.setItem("madrasortho_pos_user", JSON.stringify(u));
+        localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
         setIsFirstTimeEver(false);
         showToast("Logged in as Administrator", "success");
       } else if (loginForm.username === 'employee' && (loginForm.password === 'employee123' || loginForm.password === 'employee' || loginForm.password === '1234')) {
-        const u = { id: 2, username: 'employee', role: 'employee' as const, name: 'Employee' };
+        const u = { id: 2, username: 'employee', role: 'employee' as const, name: 'Pharmacist' };
         setCurrentUser(u);
-        localStorage.setItem("bakers_pos_user", JSON.stringify(u));
-        localStorage.setItem("bakers_pos_has_logged_in_ever", "true");
+        localStorage.setItem("madrasortho_pos_user", JSON.stringify(u));
+        localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
         setIsFirstTimeEver(false);
-        showToast("Logged in as Employee", "success");
+        showToast("Logged in as Pharmacist", "success");
       } else {
         setLoginError(isFirstTimeEver ? "Invalid username or password. Default Admin: admin / admin123. Default Employee: employee / employee123" : "Invalid username or password.");
       }
@@ -292,7 +330,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem("bakers_pos_user");
+    localStorage.removeItem("madrasortho_pos_user");
     setLoginForm({ username: 'admin', password: '' });
     setLoginError('');
     showToast("Logged out successfully.", "info");
@@ -413,11 +451,55 @@ export default function App() {
   const [printers, setPrinters] = useState<any[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState('Default');
   const [paperWidth, setPaperWidth] = useState<'58mm' | '80mm'>('80mm');
-  const [bakeryDetails, setBakeryDetails] = useState({
-    name: "Billing Software",
-    address: "123 Gourmet Lane, Foodie City",
-    phone: "+91 98765 43210"
+  const [printerInterface, setPrinterInterface] = useState<'usb' | 'wifi' | 'bluetooth'>(() => {
+    return (localStorage.getItem("madrasortho_printer_interface") as any) || 'usb';
   });
+  const [wifiPrinterIp, setWifiPrinterIp] = useState(() => {
+    return localStorage.getItem("madrasortho_wifi_printer_ip") || '192.168.1.100';
+  });
+  const [wifiPrinterPort, setWifiPrinterPort] = useState(() => {
+    return localStorage.getItem("madrasortho_wifi_printer_port") || '9100';
+  });
+  const [bluetoothDeviceName, setBluetoothDeviceName] = useState<string | null>(() => {
+    const dev = getActiveBluetoothDevice();
+    return dev ? dev.name : null;
+  });
+  const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("madrasortho_printer_interface", printerInterface);
+  }, [printerInterface]);
+
+  useEffect(() => {
+    localStorage.setItem("madrasortho_wifi_printer_ip", wifiPrinterIp);
+  }, [wifiPrinterIp]);
+
+  useEffect(() => {
+    localStorage.setItem("madrasortho_wifi_printer_port", wifiPrinterPort);
+  }, [wifiPrinterPort]);
+
+  const [bakeryDetails, setBakeryDetails] = useState<ClinicBranding>(() => {
+    const saved = localStorage.getItem("madrasortho_clinic_branding");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // fallback
+      }
+    }
+    return {
+      name: "MADRAS ORTHO CLINIC SOFTWARE",
+      description: "Mission for Cure",
+      address: "Chennai, Tamil Nadu",
+      phone: "+91 98765 43210",
+      gstin: "33AAAAA0000A1Z5",
+      dlNo: "TN/CHE/2026/001"
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem("madrasortho_clinic_branding", JSON.stringify(bakeryDetails));
+  }, [bakeryDetails]);
 
   // Mobile navigation active tab ('menu', 'ticket', 'queue')
   const [mobileTab, setMobileTab] = useState<'menu' | 'ticket' | 'queue'>('menu');
@@ -488,15 +570,15 @@ export default function App() {
     // Restore sessions from localStorage, with daily auto-reset and conflict resolution
     const restoreSessions = async () => {
       const todayStr = new Date().toISOString().split('T')[0];
-      const storedDate = localStorage.getItem('bakers_pos_bill_date');
-      const saved = localStorage.getItem("bakers_pos_sessions");
+      const storedDate = localStorage.getItem('madrasortho_pos_bill_date');
+      const saved = localStorage.getItem("madrasortho_pos_sessions");
 
       // Auto-reset: if sessions were saved on a previous day, start fresh
       if (storedDate && storedDate !== todayStr) {
-        localStorage.removeItem('bakers_pos_sessions');
-        localStorage.removeItem('bakers_pos_active_session');
-        localStorage.removeItem('bakers_pos_last_bill_num');
-        localStorage.removeItem('bakers_pos_bill_date');
+        localStorage.removeItem('madrasortho_pos_sessions');
+        localStorage.removeItem('madrasortho_pos_active_session');
+        localStorage.removeItem('madrasortho_pos_last_bill_num');
+        localStorage.removeItem('madrasortho_pos_bill_date');
         createNewBill();
         return;
       }
@@ -520,20 +602,18 @@ export default function App() {
           const finalSessions: BillingSession[] = [];
           restored.forEach(s => {
             let num = s.billNumber;
-            // If this number is already saved in db (< dbNextNum), find a free one
             while (num < dbNextNum || finalSessions.some(fs => fs.billNumber === num)) {
               num++;
             }
             finalSessions.push({ ...s, billNumber: num });
           });
 
-          // Update the local counter to the highest assigned
           const maxAssigned = Math.max(...finalSessions.map(s => s.billNumber));
-          localStorage.setItem('bakers_pos_last_bill_num', String(maxAssigned));
-          localStorage.setItem('bakers_pos_bill_date', todayStr);
+          localStorage.setItem('madrasortho_pos_last_bill_num', String(maxAssigned));
+          localStorage.setItem('madrasortho_pos_bill_date', todayStr);
 
           setSessions(finalSessions);
-          const activeId = localStorage.getItem("bakers_pos_active_session");
+          const activeId = localStorage.getItem("madrasortho_pos_active_session");
           setActiveSessionId(
             activeId && finalSessions.some(fs => fs.id === activeId)
               ? activeId
@@ -542,7 +622,7 @@ export default function App() {
         } catch (err) {
           console.warn("Could not check conflicts with server on startup. Restoring as saved.", err);
           setSessions(restored);
-          const activeId = localStorage.getItem("bakers_pos_active_session");
+          const activeId = localStorage.getItem("madrasortho_pos_active_session");
           setActiveSessionId(activeId || restored[0].id);
         }
       } else {
@@ -556,8 +636,8 @@ export default function App() {
   // Sync sessions with localStorage
   useEffect(() => {
     if (sessions.length > 0) {
-      localStorage.setItem("bakers_pos_sessions", JSON.stringify(sessions));
-      localStorage.setItem("bakers_pos_active_session", activeSessionId);
+      localStorage.setItem("madrasortho_pos_sessions", JSON.stringify(sessions));
+      localStorage.setItem("madrasortho_pos_active_session", activeSessionId);
     }
   }, [sessions, activeSessionId]);
 
@@ -572,17 +652,20 @@ export default function App() {
     return sessions.find(s => s.id === activeSessionId) || null;
   }, [sessions, activeSessionId]);
 
-  // Subtotals calculations for active bill
+  // Subtotals calculations for active bill — GST per Indian pharma standards
   const billSummary = useMemo(() => {
     if (!activeSession) {
       return {
         subtotal: 0,
         discount: 0,
         tax: 0,
+        cgst: 0,
+        sgst: 0,
         grandTotal: 0
       };
     }
 
+    // Subtotal: prices in DB are EXCLUSIVE of GST (MRP base price)
     const subtotal = activeSession.items.reduce((sum, item) => sum + item.total, 0);
 
     let discount = 0;
@@ -592,13 +675,23 @@ export default function App() {
       discount = Math.min(subtotal, activeSession.discountAmount);
     }
 
-    const tax = 0; // tax is completely disabled/removed
-    const grandTotal = Math.max(0, subtotal - discount);
+    // GST = sum of (item.total * item.tax_percent / 100) — per-item GST
+    const gstTotal = activeSession.items.reduce((sum, item) => {
+      return sum + (item.total * (item.tax_percent / 100));
+    }, 0);
+    // Discount reduces the taxable base proportionally
+    const discountRatio = subtotal > 0 ? discount / subtotal : 0;
+    const tax = gstTotal * (1 - discountRatio);
+    const cgst = tax / 2;
+    const sgst = tax / 2;
+    const grandTotal = Math.max(0, subtotal - discount + tax);
 
     return {
       subtotal,
       discount,
       tax,
+      cgst,
+      sgst,
       grandTotal
     };
   }, [activeSession]);
@@ -647,24 +740,17 @@ export default function App() {
   const getNextBillNumber = (currentSessions: BillingSession[], dbNextNum: number): number => {
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Check if the stored counter is from a different day — if so, reset it
-    const storedDate = localStorage.getItem('bakers_pos_bill_date');
+    const storedDate = localStorage.getItem('madrasortho_pos_bill_date');
     if (storedDate !== todayStr) {
-      localStorage.removeItem('bakers_pos_last_bill_num');
-      localStorage.setItem('bakers_pos_bill_date', todayStr);
+      localStorage.removeItem('madrasortho_pos_last_bill_num');
+      localStorage.setItem('madrasortho_pos_bill_date', todayStr);
     }
 
-    const storedLast = parseInt(localStorage.getItem('bakers_pos_last_bill_num') || '0', 10);
-
-    // Start from the highest of: db next, local counter+1. We do not use activeMax+1
-    // to allow reusing gaps from closed tabs, and collision checks are handled below.
+    const storedLast = parseInt(localStorage.getItem('madrasortho_pos_last_bill_num') || '0', 10);
     let candidate = Math.max(dbNextNum, storedLast + 1);
-
-    // Ensure it doesn't collide with any open session
     while (currentSessions.some(s => s.billNumber === candidate)) {
       candidate++;
     }
-
     return candidate;
   };
 
@@ -710,7 +796,7 @@ export default function App() {
           paymentMethod: null,
           holdStatus: false,
           selectedItemIndex: -1,
-          cashierName: "Cashier A"
+          cashierName: currentUser?.name || "Pharmacist"
         }];
       });
       setActiveSessionId(newId);
@@ -942,6 +1028,107 @@ export default function App() {
   };
 
   // ----------------------------------------------------
+  // UNIFIED THERMAL PRINTER DISPATCHER (USB / WiFi / Bluetooth)
+  // ----------------------------------------------------
+  const executeReceiptPrint = async (printData: any) => {
+    try {
+      if (printerInterface === 'bluetooth') {
+        const activeDev = getActiveBluetoothDevice();
+        if (!activeDev) {
+          showToast("Bluetooth printer not connected. Please pair from Settings.", "error");
+          // Fallback to browser/system print so invoice receipt is never lost
+          electronAPI.printReceipt(printData, selectedPrinter).catch(() => {});
+          return;
+        }
+        await printViaBluetooth(printData);
+        showToast(`Receipt sent to Bluetooth printer (${activeDev.name})!`, "success");
+      } else if (printerInterface === 'wifi') {
+        if (!wifiPrinterIp) {
+          showToast("Please enter WiFi Printer IP in Settings.", "error");
+          electronAPI.printReceipt(printData, selectedPrinter).catch(() => {});
+          return;
+        }
+        // Direct Electron TCP socket printing or server proxy
+        if (isElectron && (electronAPI as any).printNetwork) {
+          await (electronAPI as any).printNetwork(wifiPrinterIp, Number(wifiPrinterPort) || 9100, printData);
+          showToast(`Receipt sent to WiFi printer (${wifiPrinterIp})!`, "success");
+        } else {
+          const res = await fetch("http://localhost:4848/api/print/network", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ host: wifiPrinterIp, port: Number(wifiPrinterPort) || 9100, receiptData: printData })
+          });
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "WiFi network print failed.");
+          }
+          showToast(`Receipt sent to WiFi printer (${wifiPrinterIp})!`, "success");
+        }
+      } else {
+        // USB / Default OS Printer Driver
+        await electronAPI.printReceipt(printData, selectedPrinter);
+      }
+    } catch (err: any) {
+      console.error("Printer pipeline error:", err);
+      showToast(err.message || "Print failure, check printer connection.", "error");
+    }
+  };
+
+  const handleConnectBluetooth = async () => {
+    if (!isBluetoothSupported()) {
+      showToast("Web Bluetooth API is not available on this browser/environment.", "error");
+      return;
+    }
+    setIsConnectingBluetooth(true);
+    try {
+      const dev = await connectBluetoothPrinter();
+      setBluetoothDeviceName(dev.name);
+      showToast(`Connected to Bluetooth printer: ${dev.name}`, "success");
+    } catch (err: any) {
+      console.error("Bluetooth pairing error:", err);
+      showToast(err.message || "Bluetooth pairing failed.", "error");
+    } finally {
+      setIsConnectingBluetooth(false);
+    }
+  };
+
+  const handleDisconnectBluetooth = async () => {
+    try {
+      await disconnectBluetoothPrinter();
+      setBluetoothDeviceName(null);
+      showToast("Bluetooth printer disconnected.", "info");
+    } catch (err: any) {
+      showToast("Failed to disconnect Bluetooth.", "error");
+    }
+  };
+
+  const handleTestPrint = async () => {
+    const testData = {
+      bakeryName: bakeryDetails.name,
+      description: bakeryDetails.description || "Mission for Cure",
+      address: bakeryDetails.address,
+      phone: bakeryDetails.phone,
+      gstin: (bakeryDetails as any).gstin || '',
+      dlNo: (bakeryDetails as any).dlNo || '',
+      billNumber: 9999,
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString(),
+      cashierName: currentUser?.name || "Pharmacist",
+      items: [
+        { product_name: "Diclofenac 50mg Tablets (10s)", quantity: 2, rate: 28.50, total: 57.00, tax_percent: 5 },
+        { product_name: "Calcium + D3 Tablets (30s)", quantity: 1, rate: 145.00, total: 145.00, tax_percent: 12 }
+      ],
+      subtotal: 202.00,
+      discount: 0,
+      tax: 20.25,
+      grandTotal: 222.25,
+      paymentMethod: "Test Print",
+      width: paperWidth
+    };
+    await executeReceiptPrint(testData);
+  };
+
+  // ----------------------------------------------------
   // PAYMENT COMPLETION HANDLERS
   // ----------------------------------------------------
 
@@ -988,14 +1175,16 @@ export default function App() {
       showToast(`Bill #${savedBill.bill_number} finalized!`, "success");
 
       // Persist the finalized bill number to local storage
-      localStorage.setItem('bakers_pos_last_bill_num', String(savedBill.bill_number));
-      localStorage.setItem('bakers_pos_bill_date', savedBill.date);
+      localStorage.setItem('madrasortho_pos_last_bill_num', String(savedBill.bill_number));
+      localStorage.setItem('madrasortho_pos_bill_date', savedBill.date);
 
       // Build thermal printer payload
       const printData = {
         bakeryName: bakeryDetails.name,
         address: bakeryDetails.address,
         phone: bakeryDetails.phone,
+        gstin: (bakeryDetails as any).gstin || '',
+        dlNo: (bakeryDetails as any).dlNo || '',
         billNumber: savedBill.bill_number,
         date: savedBill.date,
         time: savedBill.time,
@@ -1009,10 +1198,9 @@ export default function App() {
         width: paperWidth
       };
 
-      // Trigger Electron silent printer
-      electronAPI.printReceipt(printData, selectedPrinter).catch((err: any) => {
+      // Execute thermal receipt print across active interface (USB, WiFi, or Bluetooth)
+      executeReceiptPrint(printData).catch((err: any) => {
         console.error("Printer pipeline error:", err);
-        showToast("Silent print failed, but invoice saved.", "info");
       });
 
       // Clear completed tab & open a new fresh bill tab
@@ -1162,8 +1350,8 @@ export default function App() {
       return;
     }
     showConfirm({
-      title: "Delete Product",
-      message: "Are you sure you want to delete this bakery product?",
+      title: "Delete Medicine",
+      message: "Are you sure you want to delete this medicine/product from the database?",
       type: "danger",
       confirmText: "Delete",
       onConfirm: async () => {
@@ -1357,10 +1545,14 @@ export default function App() {
   };
 
   const handleReprintReceipt = (bill: any, items: any[]) => {
+    // Recalculate GST from stored items
+    const storedTax = bill.tax || 0;
     const printData = {
       bakeryName: bakeryDetails.name,
       address: bakeryDetails.address,
       phone: bakeryDetails.phone,
+      gstin: (bakeryDetails as any).gstin || '',
+      dlNo: (bakeryDetails as any).dlNo || '',
       billNumber: bill.bill_number,
       date: bill.date,
       time: bill.time,
@@ -1371,21 +1563,20 @@ export default function App() {
         quantity: item.quantity,
         rate: item.rate,
         total: item.total,
-        tax_percent: 0
+        tax_percent: item.tax_percent || 0
       })),
       subtotal: bill.subtotal,
       discount: bill.discount,
-      tax: 0,
+      tax: storedTax,
       grandTotal: bill.grand_total,
       paymentMethod: bill.payment_method,
       width: paperWidth
     };
 
-    electronAPI.printReceipt(printData, selectedPrinter)
+    executeReceiptPrint(printData)
       .then(() => showToast(`Bill #${bill.bill_number} receipt reprinted!`, "success"))
       .catch((err: any) => {
         console.error("Printer pipeline error:", err);
-        showToast("Silent print failed.", "error");
       });
   };
 
@@ -1577,14 +1768,14 @@ export default function App() {
       <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100 p-4 font-sans select-none">
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
           {/* Header Banner */}
-          <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-500 p-6 text-slate-950">
+          <div className="bg-gradient-to-r from-sky-700 via-sky-600 to-cyan-500 p-6 text-white">
             <div className="flex items-center space-x-3">
-              <div className="bg-slate-950/20 backdrop-blur rounded-xl overflow-hidden w-12 h-12 flex-shrink-0">
-                <img src="./icon.png" alt="RegulaVitae Logo" className="w-12 h-12 object-cover" />
+              <div className="bg-white/20 backdrop-blur rounded-xl overflow-hidden w-12 h-12 flex-shrink-0 flex items-center justify-center">
+                <img src="./icon.png" alt="MADRAS ORTHO CLINIC" className="w-12 h-12 object-cover" />
               </div>
               <div>
-                <h2 className="text-xl font-black tracking-tight">RegulaVitae POS</h2>
-                <p className="text-xs font-bold text-slate-900/80">Select Account & Enter Password</p>
+                <h2 className="text-xl font-black tracking-tight">MADRAS ORTHO CLINIC SOFTWARE</h2>
+                <p className="text-xs font-bold text-white/80">Mission for Cure — Select Account</p>
               </div>
             </div>
           </div>
@@ -1643,7 +1834,7 @@ export default function App() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-98 disabled:opacity-50"
+              className="w-full py-3.5 bg-gradient-to-r from-sky-600 to-cyan-500 hover:from-sky-700 hover:to-cyan-600 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-sky-500/20 active:scale-98 disabled:opacity-50"
             >
               {isLoggingIn ? "Authenticating..." : `Login as ${loginForm.username.toUpperCase()}`}
             </button>
@@ -1662,7 +1853,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 font-sans text-slate-100 select-none overflow-hidden theme-orange-white">
+    <div className="flex flex-col h-screen bg-slate-950 font-sans text-slate-100 select-none overflow-hidden theme-pharmacy-blue">
 
       {/* ----------------- TOP NAVBAR PANEL ----------------- */}
       <header className="flex items-center justify-between px-4 lg:px-6 py-2.5 lg:py-3 bg-slate-900 border-b border-slate-800 shadow-md">
@@ -1670,14 +1861,14 @@ export default function App() {
           <div className="flex-shrink-0">
             <img
               src="./icon.png"
-              alt="RegulaVitae Logo"
-              className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl object-cover shadow-md shadow-yellow-900/30"
+              alt="MADRAS ORTHO CLINIC"
+              className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl object-cover shadow-md shadow-sky-900/30"
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
           <div>
             <h1 className="text-sm lg:text-lg font-bold tracking-tight text-white">{bakeryDetails.name}</h1>
-            <p className="text-[10px] lg:text-xs text-slate-400 font-medium font-mono">RegulaVitae POS Terminal</p>
+            <p className="text-[10px] lg:text-xs text-slate-400 font-medium font-mono">Mission for Cure | Pharmacy POS Terminal</p>
           </div>
         </div>
 
@@ -1687,8 +1878,8 @@ export default function App() {
             onClick={() => setShowProductCrudModal(true)}
             className="flex items-center px-2 py-1.5 lg:px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-md border border-slate-700 text-slate-200"
           >
-            <Edit className="w-3.5 h-3.5 lg:mr-2 text-bakery-400" />
-            <span className="hidden lg:inline">Manage Products [CTRL+N]</span>
+            <Edit className="w-3.5 h-3.5 lg:mr-2 text-sky-400" />
+            <span className="hidden lg:inline">Manage Medicines [CTRL+N]</span>
           </button>
 
           <button
@@ -1744,7 +1935,7 @@ export default function App() {
         {/* === LEFT PANEL: Categories & Visual Products Grid === */}
         <section className={`flex flex-col w-full lg:w-5/12 bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'menu' ? 'flex flex-1' : 'hidden lg:flex'}`}>
           <div className="p-3 bg-slate-900/50 border-b border-slate-800 flex items-center space-x-2">
-            <span className="text-xs font-bold text-bakery-400 uppercase tracking-widest">Menu</span>
+            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest">Medicines Catalogue</span>
           </div>
 
           {/* Quick Categories list */}
@@ -1752,18 +1943,18 @@ export default function App() {
             <button
               onClick={() => setSelectedCategory('All')}
               className={`px-3 py-1 text-xs font-bold rounded-full transition-all flex-shrink-0 ${selectedCategory === 'All'
-                ? 'bg-bakery-500 text-slate-950 font-black scale-105 shadow-md shadow-bakery-500/20'
+                ? 'bg-sky-500 text-white font-black scale-105 shadow-md shadow-sky-500/20'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
             >
-              All Items
+              All Medicines
             </button>
             {categories.map(c => (
               <button
                 key={c}
                 onClick={() => setSelectedCategory(c)}
                 className={`px-3 py-1 text-xs font-bold rounded-full transition-all flex-shrink-0 ${selectedCategory === c
-                  ? 'bg-bakery-500 text-slate-950 font-black scale-105 shadow-md shadow-bakery-500/20'
+                  ? 'bg-sky-500 text-white font-black scale-105 shadow-md shadow-sky-500/20'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                   }`}
               >
@@ -1781,14 +1972,17 @@ export default function App() {
                 disabled={p.status === 'Out of Stock'}
                 className={`flex flex-col p-3 rounded-lg border text-left active:scale-95 transition-all shadow-sm ${p.status === 'Out of Stock'
                   ? 'bg-slate-950/40 border-slate-900 text-slate-600 cursor-not-allowed'
-                  : 'bg-slate-800/50 border-slate-700 hover:border-bakery-500 hover:bg-slate-800'
+                  : 'bg-slate-800/50 border-slate-700 hover:border-sky-500 hover:bg-slate-800'
                   }`}
               >
-                <span className="text-[10px] uppercase font-bold text-bakery-400/80 mb-1">{p.category}</span>
+                <span className="text-[10px] uppercase font-bold text-sky-400/80 mb-1">{p.category}</span>
                 <span className="text-xs font-bold text-white line-clamp-2 flex-1">{p.name}</span>
                 <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-700/50 w-full">
                   <span className="text-xs font-mono font-bold text-emerald-400">₹{p.price.toFixed(2)}</span>
-                  <span className="text-[9px] px-1 bg-slate-700 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
+                  <div className="flex items-center gap-1">
+                    {p.tax_percent > 0 && <span className="text-[8px] px-1 bg-amber-500/20 rounded text-amber-400 font-bold">{p.tax_percent}%GST</span>}
+                    <span className="text-[9px] px-1 bg-slate-700 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
+                  </div>
                 </div>
               </button>
             ))}
@@ -1939,8 +2133,8 @@ export default function App() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
                 <ShoppingBag className="w-12 h-12 stroke-[1.2]" />
-                <span className="text-sm font-semibold">Active Billing Ticket is empty</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-700">Type or scan items to begin</span>
+                <span className="text-sm font-semibold">Prescription / Pharmacy Bill is empty</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-700">Search or scan medicines to begin</span>
               </div>
             )}
           </div>
@@ -1985,10 +2179,10 @@ export default function App() {
                 />
               </div>
 
-              {/* Quick totals list */}
+              {/* Quick totals list with GST breakdown */}
               <div className="flex flex-col justify-end text-right font-mono text-xs text-slate-400 space-y-1">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
+                  <span>Subtotal (excl. GST):</span>
                   <span>₹{billSummary.subtotal.toFixed(2)}</span>
                 </div>
                 {billSummary.discount > 0 && (
@@ -1997,14 +2191,27 @@ export default function App() {
                     <span>-₹{billSummary.discount.toFixed(2)}</span>
                   </div>
                 )}
+                {billSummary.tax > 0 && (
+                  <>
+                    <div className="flex justify-between text-amber-400">
+                      <span>CGST:</span>
+                      <span>+₹{(billSummary.cgst || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-amber-400">
+                      <span>SGST:</span>
+                      <span>+₹{(billSummary.sgst || 0).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Total Balance Actions panel */}
             <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 mt-1">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none">Net Amount Due</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none">Total (incl. GST)</span>
                 <span className="text-2xl font-bold font-mono text-emerald-400">₹{billSummary.grandTotal.toFixed(2)}</span>
+                {billSummary.tax > 0 && <span className="text-[10px] text-amber-400 font-mono block">GST: ₹{billSummary.tax.toFixed(2)}</span>}
               </div>
 
               <div className="flex space-x-2">
@@ -2035,7 +2242,7 @@ export default function App() {
         {/* === RIGHT PANEL: Active Customer Sessions List / Queue === */}
         <section className={`flex flex-col w-full lg:w-3/12 bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'queue' ? 'flex flex-1' : 'hidden lg:flex'}`}>
           <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-            <span className="text-xs font-bold text-bakery-400 uppercase tracking-widest">Active Queue</span>
+            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest">Active Queue</span>
             <button
               onClick={createNewBill}
               className="p-1 hover:bg-slate-800 text-slate-300 hover:text-white rounded border border-slate-700/60"
@@ -2071,8 +2278,8 @@ export default function App() {
                     }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold ${isActive ? 'text-bakery-400' : 'text-slate-400'}`}>
-                      Bill #{sess.billNumber}
+                    <span className={`text-xs font-bold ${isActive ? 'text-sky-400' : 'text-slate-400'}`}>
+                      Rx #{sess.billNumber}
                     </span>
                     <button
                       onClick={(e) => {
@@ -2107,7 +2314,7 @@ export default function App() {
                       )}
                     </div>
                     {isActive && (
-                      <span className="text-[9px] uppercase font-extrabold text-bakery-400 tracking-wider">ACTIVE</span>
+                      <span className="text-[9px] uppercase font-extrabold text-sky-400 tracking-wider">ACTIVE</span>
                     )}
                   </div>
                 </div>
@@ -2248,8 +2455,17 @@ export default function App() {
 
               {/* Grand Total banner */}
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/60 text-center flex flex-col">
-                <span className="text-xs font-bold text-slate-400 uppercase">Grand Total Invoice</span>
+                <span className="text-xs font-bold text-slate-400 uppercase">Grand Total Invoice (incl. GST)</span>
                 <span className="text-4xl font-extrabold font-mono text-emerald-400 mt-1">₹{billSummary.grandTotal.toFixed(2)}</span>
+                <div className="flex justify-center items-center gap-3 text-xs font-mono text-slate-400 mt-2">
+                  <span>Base: ₹{billSummary.subtotal.toFixed(2)}</span>
+                  {billSummary.discount > 0 && <span className="text-rose-400">Disc: -₹{billSummary.discount.toFixed(2)}</span>}
+                  {billSummary.tax > 0 && (
+                    <span className="text-amber-400 font-semibold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
+                      GST (+₹{billSummary.tax.toFixed(2)})
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Cash Calculator */}
@@ -2319,7 +2535,7 @@ export default function App() {
             {/* Left Column: Form Editor */}
             <div className="w-5/12 bg-slate-900 border-r border-slate-800 p-5 flex flex-col overflow-y-auto">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-                {editingProduct?.id ? 'Edit Product' : 'Add New Product'}
+                {editingProduct?.id ? 'Edit Medicine / Product' : 'Add New Medicine / Product'}
               </h3>
 
               {currentUser?.role !== 'admin' && (
@@ -2349,7 +2565,7 @@ export default function App() {
                       type="text"
                       required
                       disabled={currentUser?.role !== 'admin'}
-                      placeholder="e.g. Cakes, Puffs"
+                      placeholder="e.g. NSAIDs, Ortho Supports"
                       value={editingProduct?.category || ''}
                       onChange={(e) => setEditingProduct(prev => ({ ...prev, category: e.target.value }))}
                       className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
@@ -2360,14 +2576,17 @@ export default function App() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity Type *</label>
                     <select
                       disabled={currentUser?.role !== 'admin'}
-                      value={editingProduct?.quantity_type || 'pcs'}
+                      value={editingProduct?.quantity_type || 'strip'}
                       onChange={(e: any) => setEditingProduct(prev => ({ ...prev, quantity_type: e.target.value }))}
                       className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
                     >
+                      <option value="strip">strip</option>
                       <option value="pcs">pcs</option>
-                      <option value="kg">kg</option>
-                      <option value="g">g</option>
                       <option value="pack">pack</option>
+                      <option value="ml">ml</option>
+                      <option value="L">L (litre)</option>
+                      <option value="g">g (gram)</option>
+                      <option value="kg">kg</option>
                     </select>
                   </div>
                 </div>
@@ -2420,11 +2639,11 @@ export default function App() {
                       onChange={(e) => setEditingProduct(prev => ({ ...prev, tax_percent: Number(e.target.value) }))}
                       className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
                     >
-                      <option value={0}>0% (Exempt / Nil Rated)</option>
-                      <option value={5}>5% (Bakery & Food GST)</option>
-                      <option value={12}>12% (Packaged Food GST)</option>
-                      <option value={18}>18% (Standard Goods GST)</option>
-                      <option value={28}>28% (Luxury Goods GST)</option>
+                      <option value={0}>0% (Nil-rated / Exempt Medicine)</option>
+                      <option value={5}>5% (Pharma / Essential Medicine)</option>
+                      <option value={12}>12% (Medical Device / Ortho Support)</option>
+                      <option value={18}>18% (Supplement / OTC Non-essential)</option>
+                      <option value={28}>28% (Luxury / Non-medical Goods)</option>
                     </select>
                   </div>
 
@@ -2466,7 +2685,7 @@ export default function App() {
             {/* Right Column: Existing Products List Table */}
             <div className="flex-1 p-5 flex flex-col overflow-hidden bg-slate-950/20">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Existing Products List</h3>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Medicine / Product Database</h3>
                 <button
                   onClick={() => setShowProductCrudModal(false)}
                   className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
@@ -2478,7 +2697,7 @@ export default function App() {
               {/* Fast filter */}
               <input
                 type="text"
-                placeholder="Search products by typing... [CTRL+F]"
+                placeholder="Search medicines by name or category... [CTRL+F]"
                 value={crudSearch}
                 onChange={(e) => setCrudSearch(e.target.value)}
                 className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs rounded mb-3"
@@ -2882,7 +3101,7 @@ export default function App() {
                           {/* Financial Summary */}
                           <div className="flex flex-col gap-1.5 text-xs font-mono text-slate-400 bg-slate-950/40 p-3 rounded border border-slate-800 flex-shrink-0">
                             <div className="flex justify-between">
-                              <span>Subtotal:</span>
+                              <span>Subtotal (excl. GST):</span>
                               <span className="text-white">₹{selectedBill.subtotal.toFixed(2)}</span>
                             </div>
                             {selectedBill.discount > 0 && (
@@ -2891,8 +3110,24 @@ export default function App() {
                                 <span>-₹{selectedBill.discount.toFixed(2)}</span>
                               </div>
                             )}
+                            {selectedBill.tax > 0 && (
+                              <>
+                                <div className="flex justify-between text-amber-400">
+                                  <span>CGST (Half):</span>
+                                  <span>+₹{(selectedBill.tax / 2).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-amber-400">
+                                  <span>SGST (Half):</span>
+                                  <span>+₹{(selectedBill.tax / 2).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-amber-400 font-semibold">
+                                  <span>Total GST Added:</span>
+                                  <span>+₹{selectedBill.tax.toFixed(2)}</span>
+                                </div>
+                              </>
+                            )}
                             <div className="flex justify-between border-t border-slate-800/80 pt-2 font-bold text-sm">
-                              <span className="text-white uppercase font-sans">Total Paid:</span>
+                              <span className="text-white uppercase font-sans">Total Paid (incl. GST):</span>
                               <span className="text-emerald-400">₹{selectedBill.grand_total.toFixed(2)}</span>
                             </div>
                           </div>
@@ -2914,12 +3149,12 @@ export default function App() {
 
       {/* ----------------- HARDWARE & RECEIPT SETTINGS MODAL ----------------- */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }}>
 
             <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
               <span className="text-sm font-bold text-white flex items-center">
-                <Settings className="w-4 h-4 mr-2 text-bakery-400" />
+                <Settings className="w-4 h-4 mr-2 text-sky-400" />
                 POS Settings & Printer Alignment
               </span>
               <button
@@ -2930,18 +3165,28 @@ export default function App() {
               </button>
             </div>
 
-            <div className="p-5 flex flex-col gap-4">
+            <div className="p-5 flex flex-col gap-4 overflow-y-auto flex-1">
 
-              {/* Bakery Details */}
+              {/* Pharmacy/Clinic Details */}
               <div className="flex flex-col gap-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Store Custom Branding</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Clinic / Pharmacy Branding</span>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">Bakery Shop Name</label>
+                  <label className="text-[9px] font-bold text-slate-500 uppercase">Clinic / Pharmacy Name</label>
                   <input
                     type="text"
                     value={bakeryDetails.name}
                     onChange={(e) => setBakeryDetails(prev => ({ ...prev, name: e.target.value }))}
+                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase">Tagline / Description</label>
+                  <input
+                    type="text"
+                    value={(bakeryDetails as any).description || 'Mission for Cure'}
+                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, description: e.target.value }))}
                     className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                   />
                 </div>
@@ -2965,45 +3210,201 @@ export default function App() {
                     className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                   />
                 </div>
-              </div>
-
-              {/* Printer Hardware */}
-              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Printer & Layout Settings</span>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">Select Connected Printer</label>
-                  <select
-                    value={selectedPrinter}
-                    onChange={(e) => setSelectedPrinter(e.target.value)}
-                    className="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 font-mono"
-                  >
-                    <option value="Default">System default print wrapper</option>
-                    {printers.map((p, idx) => (
-                      <option key={idx} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
+                  <label className="text-[9px] font-bold text-slate-500 uppercase">GSTIN (Indian GST Number)</label>
+                  <input
+                    type="text"
+                    value={(bakeryDetails as any).gstin || ''}
+                    placeholder="e.g. 33AAAAA0000A1Z5"
+                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, gstin: e.target.value }))}
+                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                  />
                 </div>
 
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-bold text-slate-500 uppercase">Drug License Number (D.L. No.)</label>
+                  <input
+                    type="text"
+                    value={(bakeryDetails as any).dlNo || ''}
+                    placeholder="e.g. TN/CHE/2026/001"
+                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo: e.target.value }))}
+                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Printer Hardware & Wireless Connectivity */}
+              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Printer className="w-3.5 h-3.5 text-sky-400" />
+                  Thermal Printer Connectivity (USB / WiFi / Bluetooth)
+                </span>
+
+                {/* Connection Mode Tabs */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setPrinterInterface('usb')}
+                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${
+                      printerInterface === 'usb'
+                        ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Printer className="w-3 h-3" />
+                    <span>USB / Driver</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrinterInterface('wifi')}
+                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${
+                      printerInterface === 'wifi'
+                        ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Wifi className="w-3 h-3" />
+                    <span>WiFi / Network</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPrinterInterface('bluetooth')}
+                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${
+                      printerInterface === 'bluetooth'
+                        ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Bluetooth className="w-3 h-3" />
+                    <span>Bluetooth</span>
+                  </button>
+                </div>
+
+                {/* USB / System Interface */}
+                {printerInterface === 'usb' && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Select Connected Printer</label>
+                    <select
+                      value={selectedPrinter}
+                      onChange={(e) => setSelectedPrinter(e.target.value)}
+                      className="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 font-mono"
+                    >
+                      <option value="Default">System default print wrapper</option>
+                      {printers.map((p, idx) => (
+                        <option key={idx} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* WiFi / Network Interface */}
+                {printerInterface === 'wifi' && (
+                  <div className="flex flex-col gap-2 p-3 bg-slate-950/70 border border-slate-800 rounded-lg">
+                    <span className="text-[10px] font-semibold text-slate-300">Network ESC/POS Printer (WiFi / Ethernet)</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2 flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Printer IP Address</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 192.168.1.100"
+                          value={wifiPrinterIp}
+                          onChange={(e) => setWifiPrinterIp(e.target.value)}
+                          className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white font-mono"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Port</label>
+                        <input
+                          type="number"
+                          placeholder="9100"
+                          value={wifiPrinterPort}
+                          onChange={(e) => setWifiPrinterPort(e.target.value)}
+                          className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[9px] text-slate-500">Communicates over standard RAW TCP port (9100). Works from computer and mobile app.</span>
+                  </div>
+                )}
+
+                {/* Bluetooth Interface */}
+                {printerInterface === 'bluetooth' && (
+                  <div className="flex flex-col gap-2.5 p-3 bg-slate-950/70 border border-slate-800 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold text-slate-300">Bluetooth Wireless ESC/POS Printer</span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                        bluetoothDeviceName
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}>
+                        {bluetoothDeviceName ? 'Connected' : 'Not Paired'}
+                      </span>
+                    </div>
+
+                    {bluetoothDeviceName ? (
+                      <div className="flex items-center justify-between p-2 bg-slate-900 border border-slate-800 rounded text-xs">
+                        <div className="flex items-center gap-2">
+                          <Bluetooth className="w-4 h-4 text-sky-400" />
+                          <span className="font-mono text-white font-semibold">{bluetoothDeviceName}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleDisconnectBluetooth}
+                          className="px-2 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold rounded"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleConnectBluetooth}
+                        disabled={isConnectingBluetooth}
+                        className="w-full py-2 bg-sky-500 hover:bg-sky-400 active:scale-95 text-slate-950 font-bold rounded text-xs transition-all flex items-center justify-center gap-2"
+                      >
+                        <Bluetooth className="w-4 h-4" />
+                        <span>{isConnectingBluetooth ? 'Scanning for Printers...' : 'Scan & Pair Bluetooth Printer'}</span>
+                      </button>
+                    )}
+                    <span className="text-[9px] text-slate-500">Supports standard portable Bluetooth thermal printers (58mm / 80mm).</span>
+                  </div>
+                )}
+
+                {/* Paper Roll Width */}
                 <div className="flex flex-col gap-1">
                   <label className="text-[9px] font-bold text-slate-500 uppercase">Thermal Paper Roll Width</label>
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     <button
+                      type="button"
                       onClick={() => setPaperWidth('58mm')}
-                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '58mm' ? 'bg-bakery-500 text-slate-950 border-bakery-500' : 'bg-slate-950 border-slate-800 hover:bg-slate-900'
+                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '58mm' ? 'bg-sky-500 text-slate-950 border-sky-500 font-extrabold' : 'bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-300'
                         }`}
                     >
                       58mm Narrow
                     </button>
                     <button
+                      type="button"
                       onClick={() => setPaperWidth('80mm')}
-                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '80mm' ? 'bg-bakery-500 text-slate-950 border-bakery-500' : 'bg-slate-950 border-slate-800 hover:bg-slate-900'
+                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '80mm' ? 'bg-sky-500 text-slate-950 border-sky-500 font-extrabold' : 'bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-300'
                         }`}
                     >
                       80mm Standard
                     </button>
                   </div>
                 </div>
+
+                {/* Test Print Button */}
+                <button
+                  type="button"
+                  onClick={handleTestPrint}
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 mt-1"
+                >
+                  <Printer className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Test Print Receipt ({printerInterface.toUpperCase()})</span>
+                </button>
               </div>
 
               {/* Account Security & Password Management */}

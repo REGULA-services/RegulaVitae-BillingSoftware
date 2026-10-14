@@ -1,5 +1,12 @@
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import path from 'path';
+import fs from 'fs';
+import net from 'net';
+
+// Set App User Model ID for Windows Taskbar grouping and high-res icon display
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.madrasorthoclinic.pos');
+}
 
 // Import and start Express backend directly in Electron's main process context
 // This makes compilation/packaging unified and single-process!
@@ -12,13 +19,19 @@ try {
 let mainWindow: BrowserWindow | null = null;
 
 function createMainWindow() {
+  const iconPath = process.platform === 'win32'
+    ? (fs.existsSync(path.join(app.getAppPath(), 'build', 'icon.ico'))
+        ? path.join(app.getAppPath(), 'build', 'icon.ico')
+        : path.join(app.getAppPath(), 'public', 'icon.png'))
+    : path.join(app.getAppPath(), 'public', 'icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 720,
-    title: "RegulaVitae POS",
-    icon: path.join(app.getAppPath(), 'public', 'icon.png'),
+    title: "MADRAS ORTHO CLINIC SOFTWARE",
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -107,15 +120,15 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
   return new Promise((resolve, reject) => {
     try {
       const {
-        bakeryName = "Billing Software POS",
-        address = "123 Gourmet Lane, Foodie City",
+        bakeryName = "MADRAS ORTHO CLINIC SOFTWARE",
+        address = "Chennai, Tamil Nadu",
         phone = "+91 98765 43210",
         gstin = "",
-        fssai = "",
+        dlNo = "",
         billNumber,
         date,
         time,
-        cashierName = "Cashier",
+        cashierName = "Pharmacist",
         items = [],
         subtotal = 0,
         discount = 0,
@@ -207,10 +220,11 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
         <body>
           <div class="center">
             <div class="header-title">${bakeryName}</div>
+            <div class="sub-info bold">Mission for Cure</div>
             <div class="sub-info">${address}</div>
             <div class="sub-info">Ph: ${phone}</div>
             ${gstin ? `<div class="sub-info bold">GSTIN: ${gstin}</div>` : ''}
-            ${fssai ? `<div class="sub-info">FSSAI Lic No: ${fssai}</div>` : ''}
+            ${dlNo ? `<div class="sub-info">Drug Lic No: ${dlNo}</div>` : ''}
           </div>
 
           <div class="separator"></div>
@@ -254,7 +268,7 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
           <div class="totals-container">
             <table class="totals-table">
               <tr>
-                <td>Subtotal:</td>
+                <td>Subtotal (excl. GST):</td>
                 <td class="right">₹${Number(subtotal).toFixed(2)}</td>
               </tr>
               ${discount > 0 ? `
@@ -265,16 +279,20 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
               ` : ''}
               ${tax > 0 ? `
                 <tr>
-                  <td>CGST (Half):</td>
-                  <td class="right">₹${cgst.toFixed(2)}</td>
+                  <td>CGST:</td>
+                  <td class="right">+₹${cgst.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td>SGST (Half):</td>
-                  <td class="right">₹${sgst.toFixed(2)}</td>
+                  <td>SGST:</td>
+                  <td class="right">+₹${sgst.toFixed(2)}</td>
+                </tr>
+                <tr class="bold">
+                  <td>Total GST Added:</td>
+                  <td class="right">+₹${Number(tax).toFixed(2)}</td>
                 </tr>
               ` : ''}
               <tr class="bold">
-                <td>Grand Total:</td>
+                <td>Grand Total (incl. GST):</td>
                 <td class="right" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0;">
                   ₹${Number(grandTotal).toFixed(2)}
                 </td>
@@ -291,8 +309,8 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
           <div class="separator"></div>
 
           <div class="center footer">
-            <div class="bold">Thank You. Visit Again!</div>
-            <div style="font-size: 9px; color: #666; margin-top: 4px;">GST Invoice | Powered by RegulaVitae POS</div>
+            <div class="bold">Thank You. Stay Healthy!</div>
+            <div style="font-size: 9px; color: #666; margin-top: 4px;">GST Invoice | MADRAS ORTHO CLINIC SOFTWARE | Mission for Cure</div>
           </div>
         </body>
         </html>
@@ -344,3 +362,155 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
     }
   });
 });
+
+// ----------------------------------------------------
+// IPC Handler: Print via WiFi / Ethernet TCP Socket (port 9100)
+// ----------------------------------------------------
+function formatMainEscPos(receiptData: any): Buffer {
+  const {
+    bakeryName = "MADRAS ORTHO CLINIC SOFTWARE",
+    description = "Mission for Cure",
+    address = "Chennai, Tamil Nadu",
+    phone = "+91 98765 43210",
+    gstin = "",
+    dlNo = "",
+    billNumber = 1,
+    date = new Date().toISOString().split('T')[0],
+    time = new Date().toLocaleTimeString(),
+    cashierName = "Pharmacist",
+    items = [],
+    subtotal = 0,
+    discount = 0,
+    tax = 0,
+    grandTotal = 0,
+    paymentMethod = "Cash",
+    width = "80mm"
+  } = receiptData || {};
+
+  const is58mm = width === "58mm";
+  const colWidth = is58mm ? 32 : 48;
+  const divider = "-".repeat(colWidth) + "\n";
+  const doubleDivider = "=".repeat(colWidth) + "\n";
+
+  const chunks: Buffer[] = [];
+  const pushAscii = (str: string) => {
+    chunks.push(Buffer.from(str.replace(/₹/g, "Rs."), 'latin1'));
+  };
+
+  const twoCol = (l: string, r: string) => {
+    const lClean = l.replace(/₹/g, "Rs.");
+    const rClean = r.replace(/₹/g, "Rs.");
+    const spaces = Math.max(1, colWidth - lClean.length - rClean.length);
+    return lClean + " ".repeat(spaces) + rClean + "\n";
+  };
+
+  // ESC @: Init
+  chunks.push(Buffer.from([0x1B, 0x40]));
+  // ESC a 1: Center
+  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
+  // ESC ! 0x18: Double height bold
+  chunks.push(Buffer.from([0x1B, 0x21, 0x18]));
+  pushAscii(bakeryName + "\n");
+  // ESC ! 0x08: Normal bold
+  chunks.push(Buffer.from([0x1B, 0x21, 0x08]));
+  pushAscii(description + "\n");
+  // ESC ! 0x00: Normal
+  chunks.push(Buffer.from([0x1B, 0x21, 0x00]));
+  if (address) pushAscii(address + "\n");
+  if (phone) pushAscii(`Ph: ${phone}\n`);
+  if (gstin) pushAscii(`GSTIN: ${gstin}\n`);
+  if (dlNo) pushAscii(`Drug Lic: ${dlNo}\n`);
+
+  // Left align: ESC a 0
+  chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
+  pushAscii(divider);
+  pushAscii(twoCol(`Bill No: #${billNumber}`, `Date: ${date}`));
+  pushAscii(twoCol(`Pharmacist: ${cashierName}`, `Time: ${time}`));
+  pushAscii(divider);
+
+  if (is58mm) {
+    pushAscii(twoCol("Item", "Qty   Total"));
+  } else {
+    pushAscii("Item".padEnd(24) + "Qty".padStart(6) + "Rate".padStart(8) + "Total".padStart(10) + "\n");
+  }
+  pushAscii(divider);
+
+  for (const it of items) {
+    const name = String(it.product_name || "Item");
+    const qty = String(it.quantity || 1);
+    const rate = Number(it.rate || 0).toFixed(2);
+    const tot = Number(it.total || 0).toFixed(2);
+
+    if (is58mm) {
+      pushAscii((name.length > 30 ? name.substring(0, 30) : name) + "\n");
+      pushAscii(twoCol(`  ${qty} x Rs.${rate}`, `Rs.${tot}`));
+    } else {
+      let tName = name.length > 23 ? name.substring(0, 21) + ".." : name;
+      pushAscii(tName.padEnd(24) + qty.padStart(6) + (`Rs.${rate}`).padStart(8) + (`Rs.${tot}`).padStart(10) + "\n");
+    }
+  }
+
+  pushAscii(divider);
+  pushAscii(twoCol("Subtotal (excl. GST):", `Rs.${Number(subtotal).toFixed(2)}`));
+  if (discount > 0) {
+    pushAscii(twoCol("Discount:", `-Rs.${Number(discount).toFixed(2)}`));
+  }
+  if (tax > 0) {
+    pushAscii(twoCol("CGST (Half):", `+Rs.${(tax / 2).toFixed(2)}`));
+    pushAscii(twoCol("SGST (Half):", `+Rs.${(tax / 2).toFixed(2)}`));
+    pushAscii(twoCol("Total GST Added:", `+Rs.${Number(tax).toFixed(2)}`));
+  }
+  pushAscii(doubleDivider);
+
+  // Grand Total Bold Double Height
+  chunks.push(Buffer.from([0x1B, 0x21, 0x18]));
+  pushAscii(twoCol("Grand Total (incl. GST):", `Rs.${Number(grandTotal).toFixed(2)}`));
+  chunks.push(Buffer.from([0x1B, 0x21, 0x00]));
+  pushAscii(doubleDivider);
+
+  // Center: ESC a 1
+  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
+  pushAscii(`Payment Mode: ${paymentMethod}\n\n`);
+  pushAscii("Thank You. Stay Healthy!\n");
+  pushAscii("MADRAS ORTHO CLINIC SOFTWARE\n");
+  pushAscii("Mission for Cure\n\n\n\n");
+
+  // Paper cut: GS V 66 0
+  chunks.push(Buffer.from([0x1D, 0x56, 0x42, 0x00]));
+
+  return Buffer.concat(chunks);
+}
+
+ipcMain.handle('print-network', async (event, { host, port = 9100, receiptData }) => {
+  return new Promise((resolve, reject) => {
+    if (!host) {
+      return reject(new Error("Printer IP address or hostname is required."));
+    }
+    const client = new net.Socket();
+    client.setTimeout(6000);
+
+    client.connect(Number(port), host, () => {
+      try {
+        const rawBytes = formatMainEscPos(receiptData);
+        client.write(rawBytes, () => {
+          client.end();
+          resolve({ success: true });
+        });
+      } catch (encodeErr) {
+        client.destroy();
+        reject(encodeErr);
+      }
+    });
+
+    client.on('error', (err: any) => {
+      client.destroy();
+      reject(new Error(`WiFi Printer connection failed (${host}:${port}): ${err.message}`));
+    });
+
+    client.on('timeout', () => {
+      client.destroy();
+      reject(new Error(`WiFi Printer timed out connecting to ${host}:${port}`));
+    });
+  });
+});
+

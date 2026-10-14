@@ -1,8 +1,8 @@
 {
-  "name": "regulavitae-pos",
+  "name": "madras-ortho-clinic-software",
   "version": "1.0.0",
-  "description": "RegulaVitae - High-Speed Bakery Billing and Point of Sale System",
-  "author": "RegulaVitae",
+  "description": "MADRAS ORTHO CLINIC SOFTWARE - Mission for Cure - Pharmacy Billing POS System",
+  "author": "MADRAS ORTHO CLINIC",
   "main": "dist-electron/src/main/main.js",
   "type": "commonjs",
   "scripts": {
@@ -54,8 +54,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.regulavitae.pos",
-    "productName": "RegulaVitae POS",
+    "appId": "com.madrasorthoclinic.pos",
+    "productName": "MADRAS ORTHO CLINIC SOFTWARE",
     "npmRebuild": false,
     "icon": "build/icon.ico",
     "directories": {
@@ -70,9 +70,7 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "appx",
-        "msi"
+        "nsis"
       ],
       "icon": "build/icon.ico"
     },
@@ -83,11 +81,11 @@
       "runAfterFinish": true
     },
     "appx": {
-      "applicationId": "RegulaVitaePOS",
-      "identityName": "RegulaVitae.RegulaVitaePOS",
-      "publisherDisplayName": "RegulaVitae",
-      "publisher": "CN=RegulaVitae",
-      "backgroundColor": "#4f46e5",
+      "applicationId": "MadrasOrthoClinicSoftware",
+      "identityName": "MadrasOrthoClinic.MadrasOrthoClinicSoftware",
+      "publisherDisplayName": "MADRAS ORTHO CLINIC",
+      "publisher": "CN=MadrasOrthoClinic",
+      "backgroundColor": "#0ea5e9",
       "artifactName": "${productName} ${version}.msix"
     }
   }

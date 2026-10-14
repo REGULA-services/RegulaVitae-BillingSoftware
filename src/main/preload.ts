@@ -7,5 +7,8 @@ contextBridge.exposeInMainWorld('electron', {
   },
   getPrinters: () => {
     return ipcRenderer.invoke('get-printers');
+  },
+  printNetwork: (host: string, port: number, receiptData: any) => {
+    return ipcRenderer.invoke('print-network', { host, port, receiptData });
   }
 });

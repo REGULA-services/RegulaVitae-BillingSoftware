@@ -1,4 +1,4 @@
-package com.billingsoftware.billing;
+package com.madrasorthoclinic.pos;
 
 import com.getcapacitor.BridgeActivity;
 

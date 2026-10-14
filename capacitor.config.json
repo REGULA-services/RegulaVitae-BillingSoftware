@@ -1,6 +1,6 @@
 {
-  "appId": "com.billingsoftware.billing",
-  "appName": "Billing Software",
+  "appId": "com.madrasorthoclinic.pos",
+  "appName": "MADRAS ORTHO CLINIC SOFTWARE",
   "webDir": "dist",
   "bundledWebRuntime": false
 }

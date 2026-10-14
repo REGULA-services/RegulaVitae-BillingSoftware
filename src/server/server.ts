@@ -293,7 +293,7 @@ app.post('/api/bills', async (req, res) => {
     const billResult = await db.run(
       `INSERT INTO bills (bill_number, subtotal, discount, tax, grand_total, payment_method, date, time, cashier_name) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [Number(bill_number), Number(subtotal), Number(discount), Number(tax), Number(grand_total), payment_method, dateStr, timeStr, cashier_name || 'Cashier']
+      [Number(bill_number), Number(subtotal), Number(discount), Number(tax), Number(grand_total), payment_method, dateStr, timeStr, cashier_name || 'Pharmacist']
     );
 
     const billId = billResult.lastID;
@@ -633,6 +633,159 @@ app.get('/api/reports/yearly', async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ----------------------------------------------------
+// NETWORK / WIFI THERMAL PRINTER ENDPOINT (ESC/POS: 9100)
+// ----------------------------------------------------
+function formatServerEscPos(receiptData: any): Buffer {
+  const {
+    bakeryName = "MADRAS ORTHO CLINIC SOFTWARE",
+    description = "Mission for Cure",
+    address = "Chennai, Tamil Nadu",
+    phone = "+91 98765 43210",
+    gstin = "",
+    dlNo = "",
+    billNumber = 1,
+    date = new Date().toISOString().split('T')[0],
+    time = new Date().toLocaleTimeString(),
+    cashierName = "Pharmacist",
+    items = [],
+    subtotal = 0,
+    discount = 0,
+    tax = 0,
+    grandTotal = 0,
+    paymentMethod = "Cash",
+    width = "80mm"
+  } = receiptData || {};
+
+  const is58mm = width === "58mm";
+  const colWidth = is58mm ? 32 : 48;
+  const divider = "-".repeat(colWidth) + "\n";
+  const doubleDivider = "=".repeat(colWidth) + "\n";
+
+  const chunks: Buffer[] = [];
+  const pushAscii = (str: string) => {
+    chunks.push(Buffer.from(str.replace(/₹/g, "Rs."), 'latin1'));
+  };
+
+  // Helper two col
+  const twoCol = (l: string, r: string) => {
+    const lClean = l.replace(/₹/g, "Rs.");
+    const rClean = r.replace(/₹/g, "Rs.");
+    const spaces = Math.max(1, colWidth - lClean.length - rClean.length);
+    return lClean + " ".repeat(spaces) + rClean + "\n";
+  };
+
+  // ESC @: Init
+  chunks.push(Buffer.from([0x1B, 0x40]));
+  // ESC a 1: Center
+  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
+  // ESC ! 0x18: Double height bold
+  chunks.push(Buffer.from([0x1B, 0x21, 0x18]));
+  pushAscii(bakeryName + "\n");
+  // ESC ! 0x08: Normal bold
+  chunks.push(Buffer.from([0x1B, 0x21, 0x08]));
+  pushAscii(description + "\n");
+  // ESC ! 0x00: Normal
+  chunks.push(Buffer.from([0x1B, 0x21, 0x00]));
+  if (address) pushAscii(address + "\n");
+  if (phone) pushAscii(`Ph: ${phone}\n`);
+  if (gstin) pushAscii(`GSTIN: ${gstin}\n`);
+  if (dlNo) pushAscii(`Drug Lic: ${dlNo}\n`);
+
+  // Left align: ESC a 0
+  chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
+  pushAscii(divider);
+  pushAscii(twoCol(`Bill No: #${billNumber}`, `Date: ${date}`));
+  pushAscii(twoCol(`Pharmacist: ${cashierName}`, `Time: ${time}`));
+  pushAscii(divider);
+
+  if (is58mm) {
+    pushAscii(twoCol("Item", "Qty   Total"));
+  } else {
+    pushAscii("Item".padEnd(24) + "Qty".padStart(6) + "Rate".padStart(8) + "Total".padStart(10) + "\n");
+  }
+  pushAscii(divider);
+
+  for (const it of items) {
+    const name = String(it.product_name || "Item");
+    const qty = String(it.quantity || 1);
+    const rate = Number(it.rate || 0).toFixed(2);
+    const tot = Number(it.total || 0).toFixed(2);
+
+    if (is58mm) {
+      pushAscii((name.length > 30 ? name.substring(0, 30) : name) + "\n");
+      pushAscii(twoCol(`  ${qty} x Rs.${rate}`, `Rs.${tot}`));
+    } else {
+      let tName = name.length > 23 ? name.substring(0, 21) + ".." : name;
+      pushAscii(tName.padEnd(24) + qty.padStart(6) + (`Rs.${rate}`).padStart(8) + (`Rs.${tot}`).padStart(10) + "\n");
+    }
+  }
+
+  pushAscii(divider);
+  pushAscii(twoCol("Subtotal (excl. GST):", `Rs.${Number(subtotal).toFixed(2)}`));
+  if (discount > 0) {
+    pushAscii(twoCol("Discount:", `-Rs.${Number(discount).toFixed(2)}`));
+  }
+  if (tax > 0) {
+    pushAscii(twoCol("CGST (Half):", `+Rs.${(tax / 2).toFixed(2)}`));
+    pushAscii(twoCol("SGST (Half):", `+Rs.${(tax / 2).toFixed(2)}`));
+    pushAscii(twoCol("Total GST Added:", `+Rs.${Number(tax).toFixed(2)}`));
+  }
+  pushAscii(doubleDivider);
+
+  // Grand Total Bold Double Height
+  chunks.push(Buffer.from([0x1B, 0x21, 0x18]));
+  pushAscii(twoCol("Grand Total (incl. GST):", `Rs.${Number(grandTotal).toFixed(2)}`));
+  chunks.push(Buffer.from([0x1B, 0x21, 0x00]));
+  pushAscii(doubleDivider);
+
+  // Center: ESC a 1
+  chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
+  pushAscii(`Payment Mode: ${paymentMethod}\n\n`);
+  pushAscii("Thank You. Stay Healthy!\n");
+  pushAscii("MADRAS ORTHO CLINIC SOFTWARE\n");
+  pushAscii("Mission for Cure\n\n\n\n");
+
+  // Paper cut: GS V 66 0
+  chunks.push(Buffer.from([0x1D, 0x56, 0x42, 0x00]));
+
+  return Buffer.concat(chunks);
+}
+
+app.post('/api/print/network', async (req, res) => {
+  const { host, port = 9100, receiptData } = req.body;
+  if (!host) {
+    return res.status(400).json({ error: "WiFi printer host IP is required." });
+  }
+
+  const net = require('net');
+  const socket = new net.Socket();
+  socket.setTimeout(6000);
+
+  socket.connect(Number(port), host, () => {
+    try {
+      const buffer = formatServerEscPos(receiptData);
+      socket.write(buffer, () => {
+        socket.end();
+        res.json({ success: true, message: `Receipt sent to WiFi printer ${host}:${port}` });
+      });
+    } catch (e: any) {
+      socket.destroy();
+      res.status(500).json({ error: "Failed to format ESC/POS receipt: " + e.message });
+    }
+  });
+
+  socket.on('error', (err: any) => {
+    socket.destroy();
+    res.status(502).json({ error: `Connection to WiFi printer at ${host}:${port} failed: ${err.message}` });
+  });
+
+  socket.on('timeout', () => {
+    socket.destroy();
+    res.status(504).json({ error: `Connection to WiFi printer at ${host}:${port} timed out.` });
+  });
 });
 
 // Start API server with EADDRINUSE guard.

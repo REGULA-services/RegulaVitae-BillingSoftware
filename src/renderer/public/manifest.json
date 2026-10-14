@@ -1,11 +1,11 @@
 {
-  "name": "RegulaVitae Billing Software",
-  "short_name": "RegulaVitae",
-  "description": "RegulaVitae — High-Speed Bakery Billing & Point of Sale System. Rule Your Finances.",
+  "name": "MADRAS ORTHO CLINIC SOFTWARE",
+  "short_name": "MadrasOrtho",
+  "description": "MADRAS ORTHO CLINIC SOFTWARE — Mission for Cure — Orthopaedic Pharmacy Billing & POS System.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d1117",
-  "theme_color": "#b8860b",
+  "theme_color": "#0ea5e9",
   "orientation": "any",
   "icons": [
     {

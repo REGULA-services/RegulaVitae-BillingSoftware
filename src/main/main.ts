@@ -8,6 +8,21 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.madrasorthoclinic.pos');
 }
 
+// Single instance lock: prevent duplicate running instances and zombie processes
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('[STARTUP] Another instance is already running. Quitting.');
+  app.quit();
+  process.exit(0);
+}
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
 // Import and start Express backend directly in Electron's main process context
 // This makes compilation/packaging unified and single-process!
 try {
@@ -98,7 +113,12 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+    process.exit(0);
   }
+});
+
+app.on('will-quit', () => {
+  process.exit(0);
 });
 
 // ----------------------------------------------------

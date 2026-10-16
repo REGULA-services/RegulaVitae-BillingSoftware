@@ -8,7 +8,10 @@ dist/
 dist-electron/
 release/
 out/
-build/
+build/*
+!build/installer.nsh
+!build/icon.ico
+!build/icon.png
 
 # IDE/Editors
 .vscode/

@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Plus, Search, Trash2, CreditCard, DollarSign, Smartphone, ShoppingBag,
   Settings, BarChart2, FileText, X, Check, AlertCircle, Edit, RefreshCw, AlertTriangle,
-  Users, Lock, LogOut, Shield, KeyRound, Wifi, Bluetooth, Printer
+  Users, Lock, LogOut, Shield, KeyRound, Wifi, Bluetooth, Printer,
+  FileSpreadsheet, UploadCloud, Download, Menu, CheckCircle,
+  Database, PlusCircle, ChevronRight
 } from 'lucide-react';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
@@ -265,6 +267,20 @@ export default function App() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [editingEmployee, setEditingEmployee] = useState<Partial<Employee>>({});
   const [employeeSearch, setEmployeeSearch] = useState('');
+
+  // Mobile navigation drawer & instant catalogue search
+  const [showMobileNav, setShowMobileNav] = useState(false);
+  const [catalogueSearch, setCatalogueSearch] = useState('');
+
+  // Medicine Management & Intelligent Excel Upload state
+  const [productModalTab, setProductModalTab] = useState<'manual' | 'excel' | 'list'>('manual');
+  const [excelParsing, setExcelParsing] = useState(false);
+  const [excelFileName, setExcelFileName] = useState('');
+  const [excelParsedMedicines, setExcelParsedMedicines] = useState<any[]>([]);
+  const [excelConflicts, setExcelConflicts] = useState<Array<{ excelItem: any; existingItem: Product; userChoice: 'skip' | 'add' }>>([]);
+  const [excelNewItems, setExcelNewItems] = useState<any[]>([]);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [isBatchImporting, setIsBatchImporting] = useState(false);
 
   // Authentication & Role State
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: 'admin' | 'employee'; name: string } | null>(() => {
@@ -1388,6 +1404,141 @@ export default function App() {
     });
   };
 
+  // ----------------------------------------------------
+  // INTELLIGENT EXCEL MEDICINE IMPORT HANDLERS
+  // ----------------------------------------------------
+
+  const handleDownloadTemplate = () => {
+    window.open("http://localhost:4848/api/products/template-excel", "_blank");
+    showToast("Downloading Ortho Medicines Excel template...", "info");
+  };
+
+  const handleExcelFileSelect = async (file: File) => {
+    if (!file) return;
+    setExcelFileName(file.name);
+    setExcelParsing(true);
+
+    try {
+      const isCsv = file.name.toLowerCase().endsWith('.csv');
+      let res: Response;
+
+      if (isCsv) {
+        const text = await file.text();
+        res = await fetch("http://localhost:4848/api/products/parse-excel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csvText: text, filename: file.name })
+        });
+      } else {
+        const buffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+
+        res = await fetch("http://localhost:4848/api/products/parse-excel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileBase64: base64, filename: file.name })
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to parse file.");
+      }
+
+      const data = await res.json();
+      const rows: any[] = data.medicines || [];
+
+      if (rows.length === 0) {
+        showToast("No valid medicine rows found in the uploaded file.", "error");
+        setExcelParsing(false);
+        return;
+      }
+
+      setExcelParsedMedicines(rows);
+
+      // Intelligently compare medicine names case-insensitively with current database
+      const existingMap = new Map<string, Product>();
+      products.forEach(p => {
+        existingMap.set((p.name || '').trim().toLowerCase(), p);
+      });
+
+      const conflicts: Array<{ excelItem: any; existingItem: Product; userChoice: 'skip' | 'add' }> = [];
+      const newItems: any[] = [];
+
+      rows.forEach(item => {
+        const key = (item.name || '').trim().toLowerCase();
+        const existing = existingMap.get(key);
+        if (existing) {
+          conflicts.push({
+            excelItem: item,
+            existingItem: existing,
+            userChoice: 'skip' // Default to skip, user can choose 'add' or 'skip'
+          });
+        } else {
+          newItems.push(item);
+        }
+      });
+
+      setExcelConflicts(conflicts);
+      setExcelNewItems(newItems);
+
+      if (conflicts.length > 0) {
+        // Warning: Found duplicate medicine names in the database
+        setShowConflictModal(true);
+      } else {
+        showToast(`Excel verified: All ${newItems.length} medicines are new and ready to import directly.`, "success");
+      }
+    } catch (err: any) {
+      console.error("Excel upload parse error:", err);
+      showToast("Error reading Excel sheet: " + err.message, "error");
+    } finally {
+      setExcelParsing(false);
+    }
+  };
+
+  const executeExcelImport = async (importList: any[], updateDuplicates: boolean) => {
+    if (!importList || importList.length === 0) {
+      showToast("No medicines selected to import.", "info");
+      return;
+    }
+
+    setIsBatchImporting(true);
+    try {
+      const res = await fetch("http://localhost:4848/api/products/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          products: importList,
+          updateExisting: updateDuplicates
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Batch import failed.");
+      }
+
+      const result = await res.json();
+      showToast(`Successfully processed ${result.totalProcessed || importList.length} medicines (${result.added || 0} added, ${result.updated || 0} updated)!`, "success");
+      setShowConflictModal(false);
+      setExcelParsedMedicines([]);
+      setExcelConflicts([]);
+      setExcelNewItems([]);
+      setExcelFileName('');
+      loadProducts();
+      setProductModalTab('list');
+    } catch (err: any) {
+      showToast("Import error: " + err.message, "error");
+    } finally {
+      setIsBatchImporting(false);
+    }
+  };
+
   const saveEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (currentUser?.role !== 'admin') {
@@ -1757,11 +1908,19 @@ export default function App() {
   // VISUAL RENDER NODES
   // ----------------------------------------------------
 
-  // Grid products after category filtering
+  // Grid products after category and instant catalogue search filtering
   const visibleGridProducts = useMemo(() => {
-    if (selectedCategory === 'All') return products;
-    return products.filter(p => p.category === selectedCategory);
-  }, [products, selectedCategory]);
+    return products.filter(p => {
+      const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
+      const q = catalogueSearch.trim().toLowerCase();
+      const matchSearch = !q ||
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q)) ||
+        (p.barcode && p.barcode.includes(q));
+      return matchCat && matchSearch;
+    });
+  }, [products, selectedCategory, catalogueSearch]);
 
   if (!currentUser) {
     return (
@@ -1872,14 +2031,28 @@ export default function App() {
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center space-x-2 lg:space-x-4">
+        {/* Desktop Action Controls */}
+        <div className="hidden lg:flex items-center space-x-3">
           <button
-            onClick={() => setShowProductCrudModal(true)}
-            className="flex items-center px-2 py-1.5 lg:px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-md border border-slate-700 text-slate-200"
+            onClick={() => {
+              setProductModalTab('manual');
+              setShowProductCrudModal(true);
+            }}
+            className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
           >
-            <Edit className="w-3.5 h-3.5 lg:mr-2 text-sky-400" />
-            <span className="hidden lg:inline">Manage Medicines [CTRL+N]</span>
+            <Edit className="w-3.5 h-3.5 mr-2 text-sky-400" />
+            <span>Manage Medicines [CTRL+N]</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setProductModalTab('excel');
+              setShowProductCrudModal(true);
+            }}
+            className="flex items-center px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-sky-500/30 text-sky-300"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-sky-400" />
+            <span>Upload Excel</span>
           </button>
 
           <button
@@ -1888,30 +2061,31 @@ export default function App() {
               setEditingEmployee({});
               loadEmployees();
             }}
-            className="flex items-center px-2 py-1.5 lg:px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-md border border-slate-700 text-slate-200"
+            className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
           >
-            <Users className="w-3.5 h-3.5 lg:mr-2 text-sky-400" />
-            <span className="hidden lg:inline">Manage Employees</span>
+            <Users className="w-3.5 h-3.5 mr-2 text-purple-400" />
+            <span>Manage Employees</span>
           </button>
 
           <button
             onClick={() => setShowAnalyticsModal(true)}
-            className="flex items-center px-2 py-1.5 lg:px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-md border border-slate-700 text-slate-200"
+            className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
           >
-            <BarChart2 className="w-3.5 h-3.5 lg:mr-2 text-emerald-400" />
-            <span className="hidden lg:inline">Analytics Reports</span>
+            <BarChart2 className="w-3.5 h-3.5 mr-2 text-emerald-400" />
+            <span>Analytics Reports</span>
           </button>
 
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 text-slate-400 hover:text-slate-100 transition-colors"
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400 hover:text-slate-100 transition-colors"
+            title="Settings & Hardware Alignment"
           >
             <Settings className="w-4 h-4" />
           </button>
 
           {/* User Profile Badge & Logout */}
-          <div className="flex items-center space-x-2 pl-2 lg:pl-3 border-l border-slate-800">
-            <div className="hidden sm:flex flex-col items-end">
+          <div className="flex items-center space-x-2 pl-3 border-l border-slate-800">
+            <div className="flex flex-col items-end">
               <span className="text-xs font-bold text-slate-200">{currentUser.name}</span>
               <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${currentUser.role === 'admin' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
                 {currentUser.role}
@@ -1922,10 +2096,30 @@ export default function App() {
               title="Logout / Switch User"
               className="flex items-center px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-md text-xs font-semibold transition-colors"
             >
-              <LogOut className="w-3.5 h-3.5 sm:mr-1" />
-              <span className="hidden sm:inline">Logout</span>
+              <LogOut className="w-3.5 h-3.5 mr-1" />
+              <span>Logout</span>
             </button>
           </div>
+        </div>
+
+        {/* Mobile Clean Top Controls (No congestion) */}
+        <div className="flex lg:hidden items-center space-x-2">
+          <button
+            onClick={createNewBill}
+            className="flex items-center px-2.5 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 active:scale-95 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-bold transition-all"
+          >
+            <Plus className="w-3.5 h-3.5 mr-1 stroke-[3]" />
+            <span>New Rx</span>
+          </button>
+
+          <button
+            onClick={() => setShowMobileNav(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 active:scale-95 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all"
+            aria-label="Open Navigation Menu"
+          >
+            <Menu className="w-4 h-4 text-sky-400" />
+            <span className="text-[11px]">Menu</span>
+          </button>
         </div>
       </header>
 
@@ -1933,18 +2127,41 @@ export default function App() {
       <main className="flex flex-col lg:flex-row flex-1 overflow-hidden p-2 lg:p-3 gap-2 lg:gap-3">
 
         {/* === LEFT PANEL: Categories & Visual Products Grid === */}
-        <section className={`flex flex-col w-full lg:w-5/12 bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'menu' ? 'flex flex-1' : 'hidden lg:flex'}`}>
-          <div className="p-3 bg-slate-900/50 border-b border-slate-800 flex items-center space-x-2">
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest">Medicines Catalogue</span>
+        <section className={`flex flex-col w-full lg:w-5/12 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'menu' ? 'flex flex-1' : 'hidden lg:flex'}`}>
+          
+          {/* Catalogue Search Header */}
+          <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={catalogueSearch}
+                onChange={(e) => setCatalogueSearch(e.target.value)}
+                placeholder="Search 550+ medicines, categories..."
+                className="w-full pl-8 pr-7 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+              />
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+              {catalogueSearch && (
+                <button
+                  onClick={() => setCatalogueSearch('')}
+                  className="absolute right-2 top-2 text-slate-400 hover:text-white p-0.5"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-2 rounded-xl whitespace-nowrap">
+              {visibleGridProducts.length} Meds
+            </span>
           </div>
 
-          {/* Quick Categories list */}
-          <div className="flex p-2 gap-1.5 overflow-x-auto bg-slate-900 border-b border-slate-800 scrollbar-none flex-shrink-0">
+          {/* Quick Categories horizontal list */}
+          <div className="flex p-2.5 gap-1.5 overflow-x-auto bg-slate-900/80 border-b border-slate-800 scrollbar-none flex-shrink-0">
             <button
               onClick={() => setSelectedCategory('All')}
-              className={`px-3 py-1 text-xs font-bold rounded-full transition-all flex-shrink-0 ${selectedCategory === 'All'
-                ? 'bg-sky-500 text-white font-black scale-105 shadow-md shadow-sky-500/20'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === 'All'
+                ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20 scale-105'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
                 }`}
             >
               All Medicines
@@ -1953,9 +2170,9 @@ export default function App() {
               <button
                 key={c}
                 onClick={() => setSelectedCategory(c)}
-                className={`px-3 py-1 text-xs font-bold rounded-full transition-all flex-shrink-0 ${selectedCategory === c
-                  ? 'bg-sky-500 text-white font-black scale-105 shadow-md shadow-sky-500/20'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === c
+                  ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20 scale-105'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
                   }`}
               >
                 {c}
@@ -1963,28 +2180,55 @@ export default function App() {
             ))}
           </div>
 
-          {/* Grid Products */}
-          <div className="flex-1 overflow-y-auto p-3 grid grid-cols-2 lg:grid-cols-3 gap-2">
+          {/* Grid Products with spacious cards */}
+          <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
             {visibleGridProducts.map(p => (
-              <button
+              <div
                 key={p.id}
-                onClick={() => addItemToBill(p, 1)}
-                disabled={p.status === 'Out of Stock'}
-                className={`flex flex-col p-3 rounded-lg border text-left active:scale-95 transition-all shadow-sm ${p.status === 'Out of Stock'
-                  ? 'bg-slate-950/40 border-slate-900 text-slate-600 cursor-not-allowed'
-                  : 'bg-slate-800/50 border-slate-700 hover:border-sky-500 hover:bg-slate-800'
-                  }`}
+                className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition-all shadow-sm ${
+                  p.status === 'Out of Stock'
+                    ? 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60'
+                    : 'bg-slate-800/40 border-slate-800/90 hover:border-sky-500/50 hover:bg-slate-800/70'
+                }`}
               >
-                <span className="text-[10px] uppercase font-bold text-sky-400/80 mb-1">{p.category}</span>
-                <span className="text-xs font-bold text-white line-clamp-2 flex-1">{p.name}</span>
-                <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-700/50 w-full">
-                  <span className="text-xs font-mono font-bold text-emerald-400">₹{p.price.toFixed(2)}</span>
-                  <div className="flex items-center gap-1">
-                    {p.tax_percent > 0 && <span className="text-[8px] px-1 bg-amber-500/20 rounded text-amber-400 font-bold">{p.tax_percent}%GST</span>}
-                    <span className="text-[9px] px-1 bg-slate-700 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20 truncate max-w-[140px]">
+                      {p.category}
+                    </span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 flex-shrink-0">
+                      {p.quantity_type}
+                    </span>
                   </div>
+                  <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug">
+                    {p.name}
+                  </h4>
                 </div>
-              </button>
+
+                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-800/70">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold font-mono text-emerald-400 leading-none">
+                      ₹{p.price.toFixed(2)}
+                    </span>
+                    <span className="text-[9px] text-amber-400/90 font-medium mt-0.5">
+                      {p.tax_percent}% GST
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => addItemToBill(p, 1)}
+                    disabled={p.status === 'Out of Stock'}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center space-x-1 active:scale-95 transition-all ${
+                      p.status === 'Out of Stock'
+                        ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed'
+                        : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 font-black'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-0.5 stroke-[3]" />
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </section>
@@ -2080,61 +2324,120 @@ export default function App() {
           </div>
 
 
-          {/* Ticket Items Grid */}
+          {/* Ticket Items View: Cards on Mobile, Table on Desktop */}
           <div className="flex-1 overflow-y-auto p-3">
             {activeSession && activeSession.items.length > 0 ? (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800 pb-2">
-                    <th className="py-2">Product Name</th>
-                    <th className="py-2 text-right">Qty</th>
-                    <th className="py-2 text-right">Price</th>
-                    <th className="py-2 text-right">Total</th>
-                    <th className="py-2 text-center w-12"></th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Mobile Touch-Friendly Card List */}
+                <div className="flex flex-col gap-2.5 lg:hidden">
                   {activeSession.items.map((item, idx) => (
-                    <tr
+                    <div
                       key={item.product_id}
-                      onClick={() => {
-                        setSessions(prev => prev.map(s => {
-                          if (s.id !== activeSessionId) return s;
-                          return { ...s, selectedItemIndex: idx };
-                        }));
-                      }}
-                      className={`text-xs border-b border-slate-800/40 hover:bg-slate-800/20 cursor-pointer ${activeSession.selectedItemIndex === idx ? 'bg-slate-800/40' : ''
-                        }`}
+                      className="p-3.5 bg-slate-800/60 border border-slate-700/80 rounded-2xl flex flex-col gap-2.5 shadow-sm"
                     >
-                      <td className="py-2.5 font-semibold text-white">{item.product_name}</td>
-                      <td className="py-2.5 text-right">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          min="1"
-                          onChange={(e) => updateItemQuantity(idx, Number(e.target.value))}
-                          className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-800 text-right font-mono rounded text-slate-200 focus:border-bakery-500"
-                        />
-                      </td>
-                      <td className="py-2.5 text-right font-mono text-slate-400">₹{item.rate.toFixed(2)}</td>
-                      <td className="py-2.5 text-right font-mono font-bold text-emerald-400">₹{item.total.toFixed(2)}</td>
-                      <td className="py-2.5 text-center">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-bold text-white block leading-snug">
+                            {item.product_name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                            ₹{item.rate.toFixed(2)} / unit {item.tax_percent > 0 ? `· ${item.tax_percent}% GST` : ''}
+                          </span>
+                        </div>
                         <button
                           onClick={() => deleteItemFromBill(idx)}
-                          className="p-1 hover:bg-slate-800 text-slate-500 hover:text-rose-400 rounded transition-colors"
+                          className="p-2 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-xl transition-colors active:scale-90"
+                          title="Remove item"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
+                        {/* Stepper with touch-friendly 36px buttons */}
+                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl overflow-hidden p-0.5">
+                          <button
+                            onClick={() => updateItemQuantity(idx, Math.max(1, item.quantity - 1))}
+                            className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-90 text-white font-black rounded-lg text-sm"
+                          >
+                            -
+                          </button>
+                          <span className="w-10 text-center font-mono font-bold text-sm text-sky-400">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateItemQuantity(idx, item.quantity + 1)}
+                            className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-90 text-white font-black rounded-lg text-sm"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">Total</span>
+                          <span className="text-sm font-bold font-mono text-emerald-400">
+                            ₹{item.total.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+
+                {/* Desktop High-Speed Table */}
+                <table className="hidden lg:table w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800 pb-2">
+                      <th className="py-2">Product Name</th>
+                      <th className="py-2 text-right">Qty</th>
+                      <th className="py-2 text-right">Price</th>
+                      <th className="py-2 text-right">Total</th>
+                      <th className="py-2 text-center w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeSession.items.map((item, idx) => (
+                      <tr
+                        key={item.product_id}
+                        onClick={() => {
+                          setSessions(prev => prev.map(s => {
+                            if (s.id !== activeSessionId) return s;
+                            return { ...s, selectedItemIndex: idx };
+                          }));
+                        }}
+                        className={`text-xs border-b border-slate-800/40 hover:bg-slate-800/20 cursor-pointer ${activeSession.selectedItemIndex === idx ? 'bg-slate-800/40' : ''
+                          }`}
+                      >
+                        <td className="py-2.5 font-semibold text-white">{item.product_name}</td>
+                        <td className="py-2.5 text-right">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            min="1"
+                            onChange={(e) => updateItemQuantity(idx, Number(e.target.value))}
+                            className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-800 text-right font-mono rounded text-slate-200 focus:border-sky-500"
+                          />
+                        </td>
+                        <td className="py-2.5 text-right font-mono text-slate-400">₹{item.rate.toFixed(2)}</td>
+                        <td className="py-2.5 text-right font-mono font-bold text-emerald-400">₹{item.total.toFixed(2)}</td>
+                        <td className="py-2.5 text-center">
+                          <button
+                            onClick={() => deleteItemFromBill(idx)}
+                            className="p-1 hover:bg-slate-800 text-slate-500 hover:text-rose-400 rounded transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2">
-                <ShoppingBag className="w-12 h-12 stroke-[1.2]" />
-                <span className="text-sm font-semibold">Prescription / Pharmacy Bill is empty</span>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-700">Search or scan medicines to begin</span>
+              <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2 p-6 text-center">
+                <ShoppingBag className="w-12 h-12 stroke-[1.2] text-slate-700" />
+                <span className="text-sm font-semibold text-slate-400">Active bill is currently empty</span>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-600">Select medicines from catalogue or scan barcode</span>
               </div>
             )}
           </div>
@@ -2336,30 +2639,30 @@ export default function App() {
 
       </main>
 
-      {/* ----------------- MOBILE BOTTOM TAB NAVIGATION BAR ----------------- */}
-      <div className="lg:hidden flex items-center justify-around bg-slate-900 border-t border-slate-800 py-2 px-4 shadow-lg flex-shrink-0 z-40">
+      {/* ----------------- MOBILE BOTTOM TAB NAVIGATION BAR (CLEAN & SPACIOUS) ----------------- */}
+      <nav aria-label="Mobile Navigation" className="lg:hidden flex items-center justify-around bg-slate-900/95 backdrop-blur-md border-t border-slate-800/90 py-2.5 px-4 shadow-2xl flex-shrink-0 z-40">
         <button
           onClick={() => setMobileTab('menu')}
-          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all ${mobileTab === 'menu'
-              ? 'text-bakery-400 font-bold'
-              : 'text-slate-500 hover:text-slate-300'
+          className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all active:scale-95 ${mobileTab === 'menu'
+              ? 'text-sky-400 font-bold bg-sky-500/10'
+              : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <ShoppingBag className="w-5 h-5" />
-          <span className="text-[10px] tracking-wide uppercase">Menu</span>
+          <span className="text-[11px] font-semibold tracking-wide">Catalogue</span>
         </button>
 
         <button
           onClick={() => setMobileTab('ticket')}
-          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all relative ${mobileTab === 'ticket'
-              ? 'text-bakery-400 font-bold'
-              : 'text-slate-500 hover:text-slate-300'
+          className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all relative active:scale-95 ${mobileTab === 'ticket'
+              ? 'text-sky-400 font-bold bg-sky-500/10'
+              : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <CreditCard className="w-5 h-5" />
-          <span className="text-[10px] tracking-wide uppercase">Ticket</span>
+          <span className="text-[11px] font-semibold tracking-wide">Current Bill</span>
           {activeSession && activeSession.items.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-bakery-500 text-slate-950 text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border border-slate-950">
+            <span className="absolute -top-0.5 right-1.5 bg-sky-500 text-slate-950 text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm">
               {activeSession.items.length}
             </span>
           )}
@@ -2367,20 +2670,20 @@ export default function App() {
 
         <button
           onClick={() => setMobileTab('queue')}
-          className={`flex flex-col items-center gap-1.5 py-1 px-3 rounded-lg transition-all relative ${mobileTab === 'queue'
-              ? 'text-bakery-400 font-bold'
-              : 'text-slate-500 hover:text-slate-300'
+          className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all relative active:scale-95 ${mobileTab === 'queue'
+              ? 'text-sky-400 font-bold bg-sky-500/10'
+              : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <Users className="w-5 h-5" />
-          <span className="text-[10px] tracking-wide uppercase">Queue</span>
+          <span className="text-[11px] font-semibold tracking-wide">Queue</span>
           {sessions.length > 0 && (
-            <span className="absolute -top-1 -right-1 bg-slate-700 text-slate-200 text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center border border-slate-950">
+            <span className="absolute -top-0.5 right-1.5 bg-slate-700 text-slate-200 text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm">
               {sessions.length}
             </span>
           )}
         </button>
-      </div>
+      </nav>
 
       {/* ----------------- SMART FUZZY PRODUCT SEARCH SEARCH MODAL ----------------- */}
       {showSearchModal && filteredSearchProducts.length > 0 && (
@@ -2527,227 +2830,880 @@ export default function App() {
         </div>
       )}
 
-      {/* ----------------- ADMIN PRODUCTS EDITOR CRUD MODAL ----------------- */}
-      {showProductCrudModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-4xl shadow-2xl h-[600px] flex overflow-hidden">
+      {/* ----------------- MOBILE NAVIGATION SHEET DRAWER ----------------- */}
+      {showMobileNav && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/80 backdrop-blur-sm lg:hidden transition-opacity">
+          {/* Overlay click to dismiss */}
+          <div className="absolute inset-0" onClick={() => setShowMobileNav(false)} />
 
-            {/* Left Column: Form Editor */}
-            <div className="w-5/12 bg-slate-900 border-r border-slate-800 p-5 flex flex-col overflow-y-auto">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-                {editingProduct?.id ? 'Edit Medicine / Product' : 'Add New Medicine / Product'}
-              </h3>
-
-              {currentUser?.role !== 'admin' && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-3">
-                  <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
-                  <span>View Only Mode: Login as Admin to add, edit, or delete items.</span>
+          {/* Drawer Content */}
+          <div className="relative w-5/6 max-w-sm h-full bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col p-5 z-10 overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 text-slate-950 font-black text-lg">
+                  +
                 </div>
-              )}
-
-              <form onSubmit={saveProduct} className="flex flex-col gap-4 flex-1">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Product Name *</label>
-                  <input
-                    type="text"
-                    required
-                    disabled={currentUser?.role !== 'admin'}
-                    value={editingProduct?.name || ''}
-                    onChange={(e) => setEditingProduct(prev => ({ ...prev, name: e.target.value }))}
-                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
-                  />
+                <div>
+                  <h3 className="text-sm font-black text-white leading-tight">Madras Ortho Clinic</h3>
+                  <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">Mission for Cure</span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Category *</label>
-                    <input
-                      type="text"
-                      required
-                      disabled={currentUser?.role !== 'admin'}
-                      placeholder="e.g. NSAIDs, Ortho Supports"
-                      value={editingProduct?.category || ''}
-                      onChange={(e) => setEditingProduct(prev => ({ ...prev, category: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity Type *</label>
-                    <select
-                      disabled={currentUser?.role !== 'admin'}
-                      value={editingProduct?.quantity_type || 'strip'}
-                      onChange={(e: any) => setEditingProduct(prev => ({ ...prev, quantity_type: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
-                    >
-                      <option value="strip">strip</option>
-                      <option value="pcs">pcs</option>
-                      <option value="pack">pack</option>
-                      <option value="ml">ml</option>
-                      <option value="L">L (litre)</option>
-                      <option value="g">g (gram)</option>
-                      <option value="kg">kg</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Selling Price (₹) *</label>
-                  <input
-                    type="number"
-                    required
-                    disabled={currentUser?.role !== 'admin'}
-                    step="0.01"
-                    value={editingProduct?.price || ''}
-                    onChange={(e) => setEditingProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
-                    className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Barcode</label>
-                    <input
-                      type="text"
-                      disabled={currentUser?.role !== 'admin'}
-                      placeholder="Optional"
-                      value={editingProduct?.barcode || ''}
-                      onChange={(e) => setEditingProduct(prev => ({ ...prev, barcode: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">SKU Code</label>
-                    <input
-                      type="text"
-                      disabled={currentUser?.role !== 'admin'}
-                      placeholder="Optional"
-                      value={editingProduct?.sku || ''}
-                      onChange={(e) => setEditingProduct(prev => ({ ...prev, sku: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">GST Rate (%) *</label>
-                    <select
-                      disabled={currentUser?.role !== 'admin'}
-                      value={editingProduct?.tax_percent !== undefined ? editingProduct.tax_percent : 5}
-                      onChange={(e) => setEditingProduct(prev => ({ ...prev, tax_percent: Number(e.target.value) }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
-                    >
-                      <option value={0}>0% (Nil-rated / Exempt Medicine)</option>
-                      <option value={5}>5% (Pharma / Essential Medicine)</option>
-                      <option value={12}>12% (Medical Device / Ortho Support)</option>
-                      <option value={18}>18% (Supplement / OTC Non-essential)</option>
-                      <option value={28}>28% (Luxury / Non-medical Goods)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Availability Status</label>
-                    <select
-                      disabled={currentUser?.role !== 'admin'}
-                      value={editingProduct?.status || 'Available'}
-                      onChange={(e: any) => setEditingProduct(prev => ({ ...prev, status: e.target.value }))}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 disabled:opacity-50"
-                    >
-                      <option value="Available">Available</option>
-                      <option value="Out of Stock">Out of Stock</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex space-x-2 mt-4">
-                  <button
-                    type="submit"
-                    disabled={currentUser?.role !== 'admin'}
-                    className="flex-1 py-2 bg-bakery-500 hover:bg-bakery-400 text-slate-950 font-black rounded text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Save Product
-                  </button>
-                  {editingProduct && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingProduct(null)}
-                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition-colors"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </form>
+              </div>
+              <button
+                onClick={() => setShowMobileNav(false)}
+                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Right Column: Existing Products List Table */}
-            <div className="flex-1 p-5 flex flex-col overflow-hidden bg-slate-950/20">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Medicine / Product Database</h3>
+            {/* User Info Card */}
+            <div className="my-4 p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-8 h-8 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold text-xs">
+                  {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white leading-tight">{currentUser?.name || 'Staff User'}</div>
+                  <div className="text-[10px] text-slate-400 font-medium">@{currentUser?.username || 'user'}</div>
+                </div>
+              </div>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                currentUser?.role === 'admin'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              }`}>
+                {currentUser?.role || 'Staff'}
+              </span>
+            </div>
+
+            {/* Navigation Actions */}
+            <div className="flex flex-col gap-2.5 flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mt-1">Management & Tools</span>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  setShowProductCrudModal(true);
+                  setProductModalTab('list');
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 group-hover:bg-sky-500 group-hover:text-slate-950 transition-colors">
+                    <Database className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Medicines Database</span>
+                    <span className="text-[10px] text-slate-400">557+ preloaded & manual entry</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition-colors" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  setShowProductCrudModal(true);
+                  setProductModalTab('excel');
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Upload Excel Sheet</span>
+                    <span className="text-[10px] text-slate-400">Intelligent bulk medicine import</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  setShowAnalyticsModal(true);
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                    <BarChart2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Sales & Reports</span>
+                    <span className="text-[10px] text-slate-400">Daily, weekly & yearly revenue</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  setShowEmployeeCrudModal(true);
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Staff Management</span>
+                    <span className="text-[10px] text-slate-400">Pharmacists & billing clerks</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  setShowSettingsModal(true);
+                }}
+                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors">
+                    <Settings className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Settings & Printers</span>
+                    <span className="text-[10px] text-slate-400">Thermal receipt, WiFi & Bluetooth</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+              </button>
+
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mt-3">Account</span>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  setChangePasswordModal(true);
+                }}
+                className="flex items-center space-x-3 p-3 bg-slate-950/50 hover:bg-slate-800 rounded-xl text-left transition-all border border-slate-800"
+              >
+                <KeyRound className="w-4 h-4 text-slate-400" />
+                <span className="text-xs font-medium text-slate-300">Change Password</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowMobileNav(false);
+                  showConfirm({
+                    title: "Sign Out",
+                    message: "Are you sure you want to sign out of the POS system?",
+                    type: "warning",
+                    confirmText: "Sign Out",
+                    onConfirm: () => {
+                      localStorage.removeItem("madrasortho_pos_user");
+                      setCurrentUser(null);
+                      closeConfirm();
+                    }
+                  });
+                }}
+                className="flex items-center space-x-3 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-left transition-all text-rose-400"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="text-xs font-bold">Sign Out</span>
+              </button>
+            </div>
+
+            {/* Clinic Info Footer */}
+            <div className="pt-4 border-t border-slate-800 text-center">
+              <div className="text-[10px] text-slate-500 font-medium">Madras Ortho Clinic Software v2.5</div>
+              <div className="text-[9px] text-emerald-400 font-semibold mt-0.5">557 Preloaded Formulations · Offline Ready</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- MEDICINE MANAGEMENT MODAL (MANUAL & EXCEL IMPORT) ----------------- */}
+      {showProductCrudModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl h-[92vh] max-h-[720px] flex flex-col overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:px-6 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white leading-tight">Medicine & Inventory Management</h3>
+                  <p className="text-[11px] text-slate-400">557+ Pre-loaded Formulations · Manual Entry · Intelligent Excel Upload</p>
+                </div>
+              </div>
+
+              {/* Segmented Tab Controls */}
+              <div className="flex items-center bg-slate-950 p-1 border border-slate-800 rounded-xl">
                 <button
-                  onClick={() => setShowProductCrudModal(false)}
-                  className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                  type="button"
+                  onClick={() => setProductModalTab('manual')}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    productModalTab === 'manual'
+                      ? 'bg-sky-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  <X className="w-4 h-4" />
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Manual Entry</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProductModalTab('excel')}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    productModalTab === 'excel'
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Upload Excel</span>
+                  <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${
+                    productModalTab === 'excel' ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-500/20 text-emerald-400'
+                  }`}>Smart</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProductModalTab('list')}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    productModalTab === 'list'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Database className="w-3.5 h-3.5" />
+                  <span>Browse ({products.length})</span>
                 </button>
               </div>
 
-              {/* Fast filter */}
-              <input
-                type="text"
-                placeholder="Search medicines by name or category... [CTRL+F]"
-                value={crudSearch}
-                onChange={(e) => setCrudSearch(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs rounded mb-3"
-              />
+              <button
+                onClick={() => {
+                  setShowProductCrudModal(false);
+                  setEditingProduct(null);
+                }}
+                className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <div className="flex-1 overflow-y-auto">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="text-[10px] uppercase font-bold text-slate-500 border-b border-slate-800">
-                      <th className="py-2">Item</th>
-                      <th className="py-2">Category</th>
-                      <th className="py-2 text-right">Price</th>
-                      <th className="py-2 text-center">Status</th>
-                      <th className="py-2 text-right w-16">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products
-                      .filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase()))
-                      .map(p => (
-                        <tr key={p.id} className="border-b border-slate-800/60 hover:bg-slate-900/40">
-                          <td className="py-2 font-semibold text-white">{p.name}</td>
-                          <td className="py-2 text-slate-400">{p.category}</td>
-                          <td className="py-2 text-right font-mono text-emerald-400">₹{p.price.toFixed(2)}</td>
-                          <td className="py-2 text-center">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${p.status === 'Available' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-500'
-                              }`}>
-                              {p.status === 'Available' ? 'AV' : 'OOS'}
-                            </span>
-                          </td>
-                          <td className="py-2 text-right flex justify-end space-x-1">
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              
+              {/* TAB 1: MANUAL ENTRY */}
+              {productModalTab === 'manual' && (
+                <div className="max-w-2xl mx-auto">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-white">
+                        {editingProduct?.id ? `Edit Medicine: ${editingProduct.name}` : 'Register New Medicine Manually'}
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {editingProduct?.id ? 'Update prices, GST rates, or SKU codes.' : 'Add custom orthopaedic medicines, ointments, or braces to the active catalogue.'}
+                      </p>
+                    </div>
+                    {editingProduct?.id && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingProduct(null)}
+                        className="px-2.5 py-1 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                  </div>
+
+                  {currentUser?.role !== 'admin' && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-4">
+                      <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                      <span>View Only Mode: Admin login required to save or modify medicines.</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={saveProduct} className="flex flex-col gap-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Medicine / Product Name *</label>
+                      <input
+                        type="text"
+                        required
+                        disabled={currentUser?.role !== 'admin'}
+                        placeholder="e.g. Aceclofenac 100mg + Paracetamol 325mg"
+                        value={editingProduct?.name || ''}
+                        onChange={(e) => setEditingProduct(prev => ({ ...prev, name: e.target.value }))}
+                        className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Category *</label>
+                        <input
+                          type="text"
+                          required
+                          disabled={currentUser?.role !== 'admin'}
+                          placeholder="e.g. NSAIDs, Muscle Relaxants, Osteoporosis"
+                          value={editingProduct?.category || ''}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, category: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Packaging / Unit Type *</label>
+                        <select
+                          disabled={currentUser?.role !== 'admin'}
+                          value={editingProduct?.quantity_type || 'strip'}
+                          onChange={(e: any) => setEditingProduct(prev => ({ ...prev, quantity_type: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        >
+                          <option value="strip">strip (tablets/capsules)</option>
+                          <option value="pcs">pcs (individual item / brace)</option>
+                          <option value="pack">pack</option>
+                          <option value="ml">ml (syrup/lotion/injection)</option>
+                          <option value="L">L (litre)</option>
+                          <option value="g">g (gram / ointment)</option>
+                          <option value="kg">kg</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Selling Price (₹ MRP) *</label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            required
+                            disabled={currentUser?.role !== 'admin'}
+                            step="0.01"
+                            placeholder="0.00"
+                            value={editingProduct?.price !== undefined ? editingProduct.price : ''}
+                            onChange={(e) => setEditingProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">GST Tax Rate *</label>
+                        <select
+                          disabled={currentUser?.role !== 'admin'}
+                          value={editingProduct?.tax_percent !== undefined ? editingProduct.tax_percent : 5}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, tax_percent: Number(e.target.value) }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        >
+                          <option value={0}>0% (Exempt Medicines)</option>
+                          <option value={5}>5% (Essential Pharma & Life-saving)</option>
+                          <option value={12}>12% (Medical Devices & Braces)</option>
+                          <option value={18}>18% (Supplements & OTC Topicals)</option>
+                          <option value={28}>28% (Specialized Goods)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Barcode (Optional)</label>
+                        <input
+                          type="text"
+                          disabled={currentUser?.role !== 'admin'}
+                          placeholder="Barcode scan"
+                          value={editingProduct?.barcode || ''}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, barcode: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50 font-mono"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">SKU Code (Optional)</label>
+                        <input
+                          type="text"
+                          disabled={currentUser?.role !== 'admin'}
+                          placeholder="Item SKU"
+                          value={editingProduct?.sku || ''}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, sku: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50 font-mono"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Stock Status</label>
+                        <select
+                          disabled={currentUser?.role !== 'admin'}
+                          value={editingProduct?.status || 'Available'}
+                          onChange={(e: any) => setEditingProduct(prev => ({ ...prev, status: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        >
+                          <option value="Available">Available</option>
+                          <option value="Out of Stock">Out of Stock</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3 pt-3 border-t border-slate-800">
+                      <button
+                        type="submit"
+                        disabled={currentUser?.role !== 'admin'}
+                        className="flex-1 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black rounded-xl text-xs tracking-wider uppercase transition-all shadow-lg shadow-sky-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
+                      >
+                        {editingProduct?.id ? 'Update Medicine' : 'Save Medicine to Database'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProduct(null);
+                          setProductModalTab('list');
+                        }}
+                        className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* TAB 2: INTELLIGENT EXCEL UPLOAD */}
+              {productModalTab === 'excel' && (
+                <div className="max-w-3xl mx-auto flex flex-col gap-6">
+                  
+                  {/* Informational Hero Card */}
+                  <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-slate-900 to-sky-500/10 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                        <h4 className="text-sm font-bold text-white">Intelligent Excel Medicine Importer</h4>
+                      </div>
+                      <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                        Upload Excel spreadsheets (.xlsx, .xls) or CSV files with your clinic’s custom medicines. 
+                        The system cross-checks medicine names (case-insensitive) against the 550+ existing database items.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadTemplate}
+                      className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Download Template (.xlsx)</span>
+                    </button>
+                  </div>
+
+                  {currentUser?.role !== 'admin' && (
+                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold">
+                      <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                      <span>Admin access required to import medicines into database.</span>
+                    </div>
+                  )}
+
+                  {/* Drag-and-Drop / Upload Zone */}
+                  <div
+                    onClick={() => {
+                      if (currentUser?.role === 'admin' && !excelParsing) {
+                        const input = document.getElementById('excel-file-upload-input') as HTMLInputElement;
+                        input?.click();
+                      }
+                    }}
+                    className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                      excelParsing
+                        ? 'border-sky-500 bg-sky-500/5 cursor-wait'
+                        : currentUser?.role !== 'admin'
+                          ? 'border-slate-800 bg-slate-950/40 opacity-50 cursor-not-allowed'
+                          : 'border-slate-700 hover:border-emerald-500 bg-slate-950/50 hover:bg-emerald-500/5 group'
+                    }`}
+                  >
+                    <input
+                      id="excel-file-upload-input"
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      className="hidden"
+                      disabled={currentUser?.role !== 'admin' || excelParsing}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleExcelFileSelect(file);
+                        e.target.value = '';
+                      }}
+                    />
+
+                    {excelParsing ? (
+                      <div className="flex flex-col items-center space-y-3">
+                        <RefreshCw className="w-10 h-10 text-sky-400 animate-spin" />
+                        <span className="text-sm font-bold text-white">Analyzing & Verifying Spreadsheet...</span>
+                        <span className="text-xs text-slate-400">Comparing medicine names with database formulations...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform mb-3">
+                          <UploadCloud className="w-8 h-8" />
+                        </div>
+                        <h5 className="text-sm font-bold text-white mb-1">
+                          Click to browse or drag & drop Excel / CSV file
+                        </h5>
+                        <p className="text-xs text-slate-400 max-w-sm mb-3">
+                          Supports Microsoft Excel (.xlsx, .xls) and CSV sheets with medicine name, category, MRP, and GST.
+                        </p>
+                        <span className="inline-flex items-center px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg text-[10px] text-slate-400 font-mono">
+                          Format: Name, Category, Price, GST, Quantity_Type
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Parse Results Status Card (if file was selected and processed) */}
+                  {excelFileName && !excelParsing && (
+                    <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col gap-4">
+                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                        <div className="flex items-center space-x-2.5">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                          <span className="text-xs font-bold text-white">{excelFileName}</span>
+                          <span className="text-[10px] text-slate-400">({excelParsedMedicines.length} rows processed)</span>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          Verified
+                        </span>
+                      </div>
+
+                      {/* Case 1: Duplicates Found -> Interactive Resolution Required */}
+                      {excelConflicts.length > 0 ? (
+                        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-start space-x-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <div className="text-xs font-bold text-amber-300">
+                                {excelConflicts.length} Potential Duplicate Medicine(s) Detected
+                              </div>
+                              <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                                {excelNewItems.length} new medicine(s) will be added directly. {excelConflicts.length} medicine(s) already exist in the database.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 w-full sm:w-auto">
                             <button
-                              onClick={() => setEditingProduct(p)}
-                              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-bakery-400 rounded"
+                              type="button"
+                              onClick={() => setShowConflictModal(true)}
+                              className="flex-1 sm:flex-none px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap"
                             >
-                              <Edit className="w-3.5 h-3.5" />
+                              Review & Resolve ({excelConflicts.length})
                             </button>
                             <button
-                              onClick={() => deleteProduct(p.id)}
-                              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded"
+                              type="button"
+                              onClick={() => executeExcelImport(excelNewItems, false)}
+                              className="flex-1 sm:flex-none px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-colors whitespace-nowrap"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              Skip Duplicates & Import ({excelNewItems.length})
                             </button>
-                          </td>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Case 2: Clean File -> No Duplicates -> Direct 1-Click Import */
+                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex items-center space-x-3">
+                            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                            <div>
+                              <div className="text-xs font-bold text-emerald-300">
+                                All {excelNewItems.length} Medicines are Clean & Ready
+                              </div>
+                              <p className="text-[11px] text-emerald-200/80">
+                                No duplicates detected against the existing 550+ formulations.
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isBatchImporting}
+                            onClick={() => executeExcelImport(excelNewItems, false)}
+                            className="w-full sm:w-auto px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
+                          >
+                            {isBatchImporting ? 'Importing...' : `Import All ${excelNewItems.length} Medicines Now`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Excel Structure Guidance */}
+                  <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 sm:p-5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">Excel Column Reference</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <strong className="text-white block">Name *</strong>
+                        <span className="text-[10px] text-slate-400">Medicine & formulation</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <strong className="text-white block">Category *</strong>
+                        <span className="text-[10px] text-slate-400">e.g. NSAIDs, Injections</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <strong className="text-white block">Price *</strong>
+                        <span className="text-[10px] text-slate-400">MRP in Indian Rupees (₹)</span>
+                      </div>
+                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <strong className="text-white block">GST_Percent *</strong>
+                        <span className="text-[10px] text-slate-400">0, 5, 12, or 18</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: BROWSE MEDICINE DATABASE */}
+              {productModalTab === 'list' && (
+                <div className="flex flex-col h-full gap-3">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Search 550+ medicines by name, category, or barcode..."
+                        value={crudSearch}
+                        onChange={(e) => setCrudSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                      />
+                      <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                        {products.filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase())).length} of {products.length} Items
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProduct(null);
+                          setProductModalTab('manual');
+                        }}
+                        className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center space-x-1"
+                      >
+                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Add New</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950/40">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="sticky top-0 bg-slate-900 border-b border-slate-800 z-10">
+                        <tr className="text-[10px] uppercase font-bold text-slate-400">
+                          <th className="py-2.5 px-3">Medicine Name</th>
+                          <th className="py-2.5 px-3">Category</th>
+                          <th className="py-2.5 px-3">Unit</th>
+                          <th className="py-2.5 px-3 text-right">Price (₹)</th>
+                          <th className="py-2.5 px-3 text-right">GST</th>
+                          <th className="py-2.5 px-3 text-center">Status</th>
+                          <th className="py-2.5 px-3 text-right w-24">Actions</th>
                         </tr>
-                      ))}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/40">
+                        {products
+                          .filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase()))
+                          .map(p => (
+                            <tr key={p.id} className="hover:bg-slate-900/60 transition-colors">
+                              <td className="py-2 px-3 font-semibold text-white">
+                                <div>{p.name}</div>
+                                {p.barcode && <div className="text-[9px] text-slate-500 font-mono">{p.barcode}</div>}
+                              </td>
+                              <td className="py-2 px-3 text-slate-400">{p.category}</td>
+                              <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{p.price.toFixed(2)}</td>
+                              <td className="py-2 px-3 text-right font-mono text-slate-400">{p.tax_percent}%</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                                  p.status === 'Available' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                }`}>
+                                  {p.status === 'Available' ? 'In Stock' : 'Out'}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-right">
+                                <div className="flex items-center justify-end space-x-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingProduct(p);
+                                      setProductModalTab('manual');
+                                    }}
+                                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-sky-400 rounded-lg transition-colors"
+                                    title="Edit medicine"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteProduct(p.id)}
+                                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
+                                    title="Delete medicine"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- INTELLIGENT DUPLICATE RESOLUTION MODAL ----------------- */}
+      {showConflictModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            
+            {/* Header */}
+            <div className="p-4 sm:p-5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Duplicate Medicine Names Detected</h3>
+                  <p className="text-xs text-amber-300/80">
+                    {excelConflicts.length} item(s) in "{excelFileName}" already exist in your database.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowConflictModal(false)}
+                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Bulk Choice Controls */}
+            <div className="px-5 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Choose action for existing medicines:
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExcelConflicts(prev => prev.map(c => ({ ...c, userChoice: 'skip' })));
+                  }}
+                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-colors"
+                >
+                  Skip All Duplicates
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExcelConflicts(prev => prev.map(c => ({ ...c, userChoice: 'add' })));
+                  }}
+                  className="px-3 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 font-bold text-xs rounded-lg transition-colors"
+                >
+                  Add / Overwrite All Anyway
+                </button>
               </div>
             </div>
+
+            {/* Conflicting Items Scrollable List */}
+            <div className="p-4 sm:p-5 flex-1 overflow-y-auto space-y-2.5">
+              {excelConflicts.map((conflict, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                    conflict.userChoice === 'add'
+                      ? 'bg-sky-500/5 border-sky-500/40'
+                      : 'bg-slate-950/60 border-slate-800'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-white block truncate">
+                      {conflict.excelItem.name}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px]">
+                      <span className="text-slate-400">
+                        In DB: <span className="font-mono text-emerald-400">₹{conflict.existingItem.price.toFixed(2)}</span> · {conflict.existingItem.tax_percent}% GST · {conflict.existingItem.category}
+                      </span>
+                      <span className="text-sky-300">
+                        In Excel: <span className="font-mono font-bold text-sky-400">₹{Number(conflict.excelItem.price).toFixed(2)}</span> · {conflict.excelItem.tax_percent}% GST · {conflict.excelItem.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Toggle Choice */}
+                  <div className="flex items-center space-x-1.5 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExcelConflicts(prev => prev.map((c, i) => i === idx ? { ...c, userChoice: 'skip' } : c));
+                      }}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
+                        conflict.userChoice === 'skip'
+                          ? 'bg-slate-700 text-white shadow-sm'
+                          : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Skip
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExcelConflicts(prev => prev.map((c, i) => i === idx ? { ...c, userChoice: 'add' } : c));
+                      }}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
+                        conflict.userChoice === 'add'
+                          ? 'bg-sky-500 text-slate-950 shadow-sm'
+                          : 'bg-slate-900 text-slate-400 hover:text-sky-400'
+                      }`}
+                    >
+                      Add Anyway
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer Summary & Proceed */}
+            <div className="p-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                Ready to import: <strong className="text-white">{excelNewItems.length} new</strong> +{' '}
+                <strong className="text-sky-400">{excelConflicts.filter(c => c.userChoice === 'add').length} duplicate</strong> medicines (
+                <span className="text-slate-500">{excelConflicts.filter(c => c.userChoice === 'skip').length} skipped</span>).
+              </div>
+
+              <div className="flex items-center space-x-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowConflictModal(false)}
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isBatchImporting}
+                  onClick={() => {
+                    const finalItems = [
+                      ...excelNewItems,
+                      ...excelConflicts.filter(c => c.userChoice === 'add').map(c => c.excelItem)
+                    ];
+                    executeExcelImport(finalItems, true);
+                  }}
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-sky-500/20 active:scale-95 disabled:opacity-50"
+                >
+                  {isBatchImporting ? 'Importing...' : 'Confirm & Import Medicines'}
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

@@ -405,3 +405,222 @@ export async function generateYearlyExcel(reportData: {
   const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
   return buffer;
 }
+
+// ----------------------------------------------------
+// MEDICINES IMPORT EXCEL TEMPLATE & PARSER
+// ----------------------------------------------------
+
+export async function generateMedicineImportTemplate(): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
+
+  const sheet = workbook.addWorksheet("Medicines Template");
+  sheet.views = [{ showGridLines: true }];
+
+  // Title Banner
+  sheet.mergeCells("A1:G1");
+  const titleCell = sheet.getCell("A1");
+  titleCell.value = "MADRAS ORTHO CLINIC - MEDICINE IMPORT TEMPLATE";
+  titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  sheet.getRow(1).height = 28;
+
+  // Guidance Row
+  sheet.mergeCells("A2:G2");
+  const noteCell = sheet.getCell("A2");
+  noteCell.value = "Instructions: Fill your medicine details below. Mandatory columns: Medicine Name, Category, Price. GST Rates: 0%, 5%, 12%, 18%.";
+  noteCell.font = { name: "Segoe UI", size: 9, italic: true, color: { argb: "475569" } };
+  noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F9FF" } };
+  noteCell.alignment = { vertical: "middle", horizontal: "left" };
+  sheet.getRow(2).height = 20;
+
+  // Header Row
+  const headerRow = sheet.getRow(3);
+  headerRow.height = 24;
+  const headers = [
+    "Medicine Name *",
+    "Category *",
+    "Price (₹) *",
+    "GST Rate (%)",
+    "Quantity Type",
+    "Barcode",
+    "SKU Code"
+  ];
+  headerRow.values = headers;
+
+  headers.forEach((_, idx) => {
+    const cell = headerRow.getCell(idx + 1);
+    cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border = {
+      top: { style: "thin", color: { argb: "0284C7" } },
+      bottom: { style: "medium", color: { argb: "0C4A6E" } },
+      left: { style: "thin", color: { argb: "0284C7" } },
+      right: { style: "thin", color: { argb: "0284C7" } }
+    };
+  });
+
+  // Sample Demo Data Rows
+  const sampleData = [
+    ["Diclofenac Sodium 50mg Tablets (10s)", "NSAIDs", 28.50, 5, "strip", "8901050001", "DCF-50-TAB"],
+    ["Thiocolchicoside 4mg Capsules (10s)", "Muscle Relaxants", 145.00, 5, "strip", "8901050030", "THC-4-CAP"],
+    ["Calcium Citrate Malate + Vit D3 Tablets (15s)", "Bone Supplements", 185.00, 12, "strip", "8901050050", "CCM-D3-15"],
+    ["Knee Immobilizer 19 inch (Universal)", "Ortho Supports", 750.00, 12, "pcs", "8901050100", "KNE-IMB-19"],
+    ["Normal Saline 0.9% 500mL IV Infusion", "Miscellaneous", 55.00, 0, "pcs", "8901050200", "NS-500-IV"]
+  ];
+
+  sampleData.forEach((rowValues, idx) => {
+    const row = sheet.addRow(rowValues);
+    row.height = 20;
+    const isAlt = idx % 2 === 1;
+    for (let c = 1; c <= 7; c++) {
+      const cell = row.getCell(c);
+      cell.font = { name: "Segoe UI", size: 9.5 };
+      if (isAlt) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F8FAFC" } };
+      }
+      cell.border = {
+        bottom: { style: "thin", color: { argb: "E2E8F0" } },
+        left: { style: "thin", color: { argb: "E2E8F0" } },
+        right: { style: "thin", color: { argb: "E2E8F0" } }
+      };
+      if (c === 3) {
+        cell.numFmt = "₹#,##0.00";
+        cell.alignment = { horizontal: "right" };
+      } else if (c === 4) {
+        cell.alignment = { horizontal: "center" };
+      }
+    }
+  });
+
+  sheet.getColumn("A").width = 38;
+  sheet.getColumn("B").width = 24;
+  sheet.getColumn("C").width = 16;
+  sheet.getColumn("D").width = 15;
+  sheet.getColumn("E").width = 16;
+  sheet.getColumn("F").width = 18;
+  sheet.getColumn("G").width = 18;
+
+  const raw = await workbook.xlsx.writeBuffer();
+  return Buffer.from(raw as any);
+}
+
+export interface ParsedMedicineRow {
+  name: string;
+  category: string;
+  price: number;
+  tax_percent: number;
+  quantity_type: string;
+  barcode: string | null;
+  sku: string | null;
+  status: string;
+}
+
+export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMedicineRow[]> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as any);
+  
+  const worksheet = workbook.getWorksheet(1);
+  if (!worksheet) {
+    throw new Error("Uploaded Excel file contains no worksheets.");
+  }
+
+  let headerRowIndex = -1;
+  let colMap: Record<string, number> = {};
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (headerRowIndex !== -1) return;
+    const values = Array.isArray(row.values) ? row.values : Object.values(row.values || {});
+    const strValues = values.map(v => String(v || '').toLowerCase().trim());
+
+    // Search for row containing medicine name / item / product
+    const nameIdx = strValues.findIndex(v => v.includes('name') || v.includes('medicine') || v.includes('item') || v.includes('product') || v.includes('drug'));
+    if (nameIdx !== -1) {
+      headerRowIndex = rowNumber;
+      strValues.forEach((val, idx) => {
+        if (!val) return;
+        if (val.includes('name') || val.includes('medicine') || val.includes('item') || val.includes('drug') || val.includes('product')) {
+          if (!colMap['name']) colMap['name'] = idx;
+        } else if (val.includes('category') || val.includes('cat') || val.includes('group') || val.includes('type')) {
+          if (!colMap['category']) colMap['category'] = idx;
+        } else if (val.includes('price') || val.includes('rate') || val.includes('mrp') || val.includes('cost') || val.includes('amount')) {
+          if (!colMap['price']) colMap['price'] = idx;
+        } else if (val.includes('gst') || val.includes('tax')) {
+          if (!colMap['tax']) colMap['tax'] = idx;
+        } else if (val.includes('quantity_type') || val.includes('unit') || val.includes('pkg') || val.includes('packaging')) {
+          if (!colMap['quantity_type']) colMap['quantity_type'] = idx;
+        } else if (val.includes('barcode') || val.includes('bar code')) {
+          if (!colMap['barcode']) colMap['barcode'] = idx;
+        } else if (val.includes('sku') || val.includes('code')) {
+          if (!colMap['sku']) colMap['sku'] = idx;
+        }
+      });
+    }
+  });
+
+  if (headerRowIndex === -1 || colMap['name'] === undefined) {
+    // Default fallback columns if header row wasn't automatically identified
+    colMap = { name: 1, category: 2, price: 3, tax: 4, quantity_type: 5, barcode: 6, sku: 7 };
+    headerRowIndex = 1;
+  }
+
+  const results: ParsedMedicineRow[] = [];
+
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber <= headerRowIndex) return; // skip header or title rows
+
+    const values = Array.isArray(row.values) ? row.values : Object.values(row.values || {});
+    const getVal = (colIdx: number | undefined): any => {
+      if (colIdx === undefined) return '';
+      return values[colIdx];
+    };
+
+    const rawName = getVal(colMap['name']);
+    const name = String(rawName || '').trim();
+    if (!name || name.toLowerCase().includes('medicine name') || name.startsWith('Instructions:')) {
+      return; // Skip empty rows or repeated headers
+    }
+
+    const rawCat = getVal(colMap['category']);
+    const category = String(rawCat || '').trim() || 'Orthopaedic Medicines';
+
+    const rawPrice = getVal(colMap['price']);
+    const parsedPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice || '0').replace(/[^0-9.]/g, ''));
+    const price = isNaN(parsedPrice) ? 0 : Math.max(0, parsedPrice);
+
+    const rawTax = getVal(colMap['tax']);
+    let tax_percent = 5;
+    if (rawTax !== undefined && rawTax !== '') {
+      const parsedTax = typeof rawTax === 'number' ? rawTax : parseFloat(String(rawTax).replace(/[^0-9.]/g, ''));
+      if (!isNaN(parsedTax)) {
+        tax_percent = [0, 5, 12, 18, 28].includes(parsedTax) ? parsedTax : parsedTax;
+      }
+    }
+
+    const rawQtyType = getVal(colMap['quantity_type']);
+    const cleanedQty = String(rawQtyType || '').toLowerCase().trim();
+    const validQtyTypes = ['strip', 'pcs', 'pack', 'ml', 'L', 'g', 'kg'];
+    const quantity_type = validQtyTypes.includes(cleanedQty) ? cleanedQty : 'strip';
+
+    const rawBarcode = getVal(colMap['barcode']);
+    const barcode = rawBarcode ? String(rawBarcode).trim() : null;
+
+    const rawSku = getVal(colMap['sku']);
+    const sku = rawSku ? String(rawSku).trim() : null;
+
+    results.push({
+      name,
+      category,
+      price,
+      tax_percent,
+      quantity_type,
+      barcode: barcode || null,
+      sku: sku || null,
+      status: 'Available'
+    });
+  });
+
+  return results;
+}

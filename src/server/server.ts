@@ -1,13 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import { getDatabase } from './database';
-import { generateDailyExcel, generateWeeklyExcel, generateYearlyExcel } from './excel';
+import { 
+  generateDailyExcel, 
+  generateWeeklyExcel, 
+  generateYearlyExcel,
+  generateMedicineImportTemplate,
+  parseMedicinesFromBuffer
+} from './excel';
 
 const app = express();
 const PORT = process.env.PORT || 4848;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 // Logger middleware
 app.use((req, res, next) => {
@@ -172,6 +178,124 @@ app.get('/api/products/barcode/:barcode', async (req, res) => {
     res.json(product);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Download sample Excel template for medicine uploads
+app.get('/api/products/template-excel', async (req, res) => {
+  try {
+    const buffer = await generateMedicineImportTemplate();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Ortho_Medicines_Import_Template.xlsx"');
+    res.send(buffer);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to generate Excel template: " + err.message });
+  }
+});
+
+// Parse uploaded Excel (.xlsx) or CSV file and return extracted medicine rows
+app.post('/api/products/parse-excel', async (req, res) => {
+  try {
+    const { fileBase64, csvText, filename } = req.body;
+    if (!fileBase64 && !csvText) {
+      return res.status(400).json({ error: "No file content provided." });
+    }
+
+    let buffer: Buffer;
+    if (fileBase64) {
+      buffer = Buffer.from(fileBase64, 'base64');
+    } else {
+      buffer = Buffer.from(csvText, 'utf8');
+    }
+
+    const medicines = await parseMedicinesFromBuffer(buffer);
+    res.json({
+      success: true,
+      count: medicines.length,
+      filename: filename || 'uploaded_medicines.xlsx',
+      medicines
+    });
+  } catch (err: any) {
+    console.error("Excel parse error:", err);
+    res.status(400).json({ error: "Unable to parse Excel file: " + err.message });
+  }
+});
+
+// Batch create or update products
+app.post('/api/products/batch', async (req, res) => {
+  try {
+    const { products, updateExisting } = req.body;
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: "No products array provided in payload." });
+    }
+
+    const db = await getDatabase();
+    let added = 0;
+    let updated = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i];
+      if (!p.name) continue;
+
+      const name = String(p.name).trim();
+      const category = String(p.category || 'Orthopaedic Medicines').trim();
+      const price = Math.max(0, Number(p.price) || 0);
+      const tax_percent = Math.max(0, Number(p.tax_percent) || 0);
+      const quantity_type = p.quantity_type || 'strip';
+      const status = p.status || 'Available';
+      const barcode = p.barcode ? String(p.barcode).trim() : null;
+      const sku = p.sku ? String(p.sku).trim() : null;
+
+      try {
+        // Check if existing product with same name exists
+        const existing = await db.get<any>(
+          "SELECT * FROM products WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))",
+          [name]
+        );
+
+        if (existing) {
+          if (updateExisting) {
+            await db.run(
+              `UPDATE products 
+               SET category = ?, price = ?, barcode = COALESCE(?, barcode), sku = COALESCE(?, sku), tax_percent = ?, status = ?, quantity_type = ? 
+               WHERE id = ?`,
+              [category, price, barcode, sku, tax_percent, status, quantity_type, existing.id]
+            );
+            updated++;
+          } else {
+            // Add as variant / duplicate entry
+            const variantName = `${name} (${Date.now().toString().slice(-4)})`;
+            await db.run(
+              `INSERT INTO products (name, category, price, barcode, sku, tax_percent, status, quantity_type) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [variantName, category, price, barcode ? `${barcode}-2` : null, sku ? `${sku}-2` : null, tax_percent, status, quantity_type]
+            );
+            added++;
+          }
+        } else {
+          // Fresh insertion
+          await db.run(
+            `INSERT INTO products (name, category, price, barcode, sku, tax_percent, status, quantity_type) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, category, price, barcode, sku, tax_percent, status, quantity_type]
+          );
+          added++;
+        }
+      } catch (itemErr: any) {
+        errors.push(`${name}: ${itemErr.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      added,
+      updated,
+      totalProcessed: products.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Batch product import failed: " + err.message });
   }
 });
 

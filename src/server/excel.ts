@@ -518,101 +518,215 @@ export interface ParsedMedicineRow {
   status: string;
 }
 
+/**
+ * Safely extracts textual content from any ExcelJS cell or primitive value,
+ * properly handling richText, formulas, hyperlinks, booleans, dates, nulls, etc.
+ */
+function extractCellValue(val: any): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number') return isNaN(val) ? '' : String(val);
+  if (typeof val === 'boolean') return String(val);
+  if (val instanceof Date) return val.toISOString();
+  if (typeof val === 'object') {
+    if (val.result !== undefined && val.result !== null) {
+      return extractCellValue(val.result);
+    }
+    if (Array.isArray(val.richText)) {
+      return val.richText.map((t: any) => (t && t.text) ? String(t.text) : '').join('').trim();
+    }
+    if (val.text !== undefined && val.text !== null) {
+      return extractCellValue(val.text);
+    }
+    if (val.error) return '';
+  }
+  return String(val).trim();
+}
+
+/**
+ * Normalizes quantity packaging types to standard clinic units.
+ */
+function normalizeQuantityType(raw: string): string {
+  const q = (raw || '').toLowerCase().trim();
+  if (!q) return 'strip';
+  if (q.includes('tab') || q.includes('cap') || q.includes('strip')) return 'strip';
+  if (q.includes('inj') || q.includes('vial') || q.includes('amp') || q.includes('syr') || q.includes('bot') || q.includes('tube') || q.includes('pc') || q.includes('unit')) return 'pcs';
+  if (q.includes('box') || q.includes('pack') || q.includes('kit') || q.includes('carton')) return 'pack';
+  if (q.includes('ml') || q.includes('ltr') || q.includes('liter') || q.includes('litre')) return 'ml';
+  if (q.includes('gm') || q.includes('gram') || q.includes('kg')) return 'g';
+  const valid = ['strip', 'pcs', 'pack', 'ml', 'L', 'g', 'kg'];
+  return valid.includes(q) ? q : 'strip';
+}
+
+/**
+ * Cleans and parses price string or numeric value into a valid float.
+ */
+function parsePrice(raw: any): number {
+  if (typeof raw === 'number') return isNaN(raw) ? 0 : Math.max(0, raw);
+  const s = String(raw || '').replace(/₹|rs\.?|inr|\$/gi, '').replace(/,/g, '').trim();
+  const num = parseFloat(s.replace(/[^0-9.]/g, ''));
+  return isNaN(num) ? 0 : Math.max(0, num);
+}
+
+/**
+ * Normalizes GST percentage from integer, percentage string, or decimal fraction.
+ */
+function parseTax(raw: any): number {
+  if (typeof raw === 'number') {
+    if (raw > 0 && raw <= 0.5) return Math.round(raw * 100);
+    return raw;
+  }
+  const s = String(raw || '').replace(/%/g, '').trim();
+  const num = parseFloat(s.replace(/[^0-9.]/g, ''));
+  if (isNaN(num)) return 5;
+  if (num > 0 && num <= 0.5) return Math.round(num * 100);
+  return num;
+}
+
+/**
+ * Parses raw CSV or TSV text into 2D string grid.
+ */
+function parseCsvGrid(text: string): string[][] {
+  const firstLine = text.split(/\r?\n/)[0] || '';
+  let delimiter = ',';
+  if (firstLine.includes('\t')) delimiter = '\t';
+  else if (firstLine.includes(';') && !firstLine.includes(',')) delimiter = ';';
+
+  const rows: string[][] = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const values: string[] = [];
+    let insideQuotes = false;
+    let current = '';
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === delimiter && !insideQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim());
+    rows.push(values);
+  }
+  return rows;
+}
+
 export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMedicineRow[]> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as any);
-  
-  const worksheet = workbook.getWorksheet(1);
-  if (!worksheet) {
-    throw new Error("Uploaded Excel file contains no worksheets.");
+  let grid: string[][] = [];
+
+  // Check if buffer starts with PK\x03\x04 (ZIP header for XLSX)
+  const isZip = buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+
+  if (isZip) {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer as any);
+      const worksheet = workbook.getWorksheet(1);
+      if (worksheet) {
+        worksheet.eachRow({ includeEmpty: false }, (row) => {
+          const rowValues: string[] = [];
+          const maxCols = Math.max(row.cellCount || 0, 15);
+          for (let c = 1; c <= maxCols; c++) {
+            const cell = row.getCell(c);
+            rowValues.push(extractCellValue(cell ? cell.value : ''));
+          }
+          if (rowValues.some(v => v.length > 0)) {
+            grid.push(rowValues);
+          }
+        });
+      }
+    } catch (zipErr) {
+      console.warn("XLSX parsing failed, falling back to CSV text parsing:", zipErr);
+      grid = parseCsvGrid(buffer.toString('utf8'));
+    }
+  } else {
+    // Plain CSV, TSV, or text spreadsheet
+    grid = parseCsvGrid(buffer.toString('utf8'));
   }
 
-  let headerRowIndex = -1;
+  if (grid.length === 0) {
+    throw new Error("Uploaded spreadsheet contains no readable rows.");
+  }
+
+  // Scan rows 0 to 25 to intelligently locate the header row
+  let headerRowIdx = -1;
   let colMap: Record<string, number> = {};
 
-  worksheet.eachRow((row, rowNumber) => {
-    if (headerRowIndex !== -1) return;
-    const values = Array.isArray(row.values) ? row.values : Object.values(row.values || {});
-    const strValues = values.map(v => String(v || '').toLowerCase().trim());
+  for (let r = 0; r < Math.min(grid.length, 25); r++) {
+    const row = grid[r];
+    const candidateMap: Record<string, number> = {};
 
-    // Search for row containing medicine name / item / product
-    const nameIdx = strValues.findIndex(v => v.includes('name') || v.includes('medicine') || v.includes('item') || v.includes('product') || v.includes('drug'));
-    if (nameIdx !== -1) {
-      headerRowIndex = rowNumber;
-      strValues.forEach((val, idx) => {
-        if (!val) return;
-        if (val.includes('name') || val.includes('medicine') || val.includes('item') || val.includes('drug') || val.includes('product')) {
-          if (!colMap['name']) colMap['name'] = idx;
-        } else if (val.includes('category') || val.includes('cat') || val.includes('group') || val.includes('type')) {
-          if (!colMap['category']) colMap['category'] = idx;
-        } else if (val.includes('price') || val.includes('rate') || val.includes('mrp') || val.includes('cost') || val.includes('amount')) {
-          if (!colMap['price']) colMap['price'] = idx;
-        } else if (val.includes('gst') || val.includes('tax')) {
-          if (!colMap['tax']) colMap['tax'] = idx;
-        } else if (val.includes('quantity_type') || val.includes('unit') || val.includes('pkg') || val.includes('packaging')) {
-          if (!colMap['quantity_type']) colMap['quantity_type'] = idx;
-        } else if (val.includes('barcode') || val.includes('bar code')) {
-          if (!colMap['barcode']) colMap['barcode'] = idx;
-        } else if (val.includes('sku') || val.includes('code')) {
-          if (!colMap['sku']) colMap['sku'] = idx;
-        }
-      });
-    }
-  });
+    for (let c = 0; c < row.length; c++) {
+      const cellText = (row[c] || '').toLowerCase().trim();
+      if (!cellText) continue;
+      // Skip title banners and instruction notes
+      if (cellText.includes('template') || cellText.includes('instruction') || cellText.includes('bulk import')) {
+        continue;
+      }
 
-  if (headerRowIndex === -1 || colMap['name'] === undefined) {
-    // Default fallback columns if header row wasn't automatically identified
-    colMap = { name: 1, category: 2, price: 3, tax: 4, quantity_type: 5, barcode: 6, sku: 7 };
-    headerRowIndex = 1;
-  }
-
-  const results: ParsedMedicineRow[] = [];
-
-  worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber <= headerRowIndex) return; // skip header or title rows
-
-    const values = Array.isArray(row.values) ? row.values : Object.values(row.values || {});
-    const getVal = (colIdx: number | undefined): any => {
-      if (colIdx === undefined) return '';
-      return values[colIdx];
-    };
-
-    const rawName = getVal(colMap['name']);
-    const name = String(rawName || '').trim();
-    if (!name || name.toLowerCase().includes('medicine name') || name.startsWith('Instructions:')) {
-      return; // Skip empty rows or repeated headers
-    }
-
-    const rawCat = getVal(colMap['category']);
-    const category = String(rawCat || '').trim() || 'Orthopaedic Medicines';
-
-    const rawPrice = getVal(colMap['price']);
-    const parsedPrice = typeof rawPrice === 'number' ? rawPrice : parseFloat(String(rawPrice || '0').replace(/[^0-9.]/g, ''));
-    const price = isNaN(parsedPrice) ? 0 : Math.max(0, parsedPrice);
-
-    const rawTax = getVal(colMap['tax']);
-    let tax_percent = 5;
-    if (rawTax !== undefined && rawTax !== '') {
-      const parsedTax = typeof rawTax === 'number' ? rawTax : parseFloat(String(rawTax).replace(/[^0-9.]/g, ''));
-      if (!isNaN(parsedTax)) {
-        tax_percent = [0, 5, 12, 18, 28].includes(parsedTax) ? parsedTax : parsedTax;
+      if ((cellText.includes('name') || cellText.includes('medicine') || cellText.includes('drug') || cellText.includes('product') || cellText.includes('item') || cellText.includes('description') || cellText.includes('particulars') || cellText.includes('brand') || cellText.includes('formulation')) && candidateMap.name === undefined) {
+        candidateMap.name = c;
+      } else if ((cellText.includes('category') || cellText.includes('cat') || cellText.includes('group') || cellText.includes('class') || cellText.includes('type') || cellText.includes('dept') || cellText.includes('section')) && candidateMap.category === undefined) {
+        candidateMap.category = c;
+      } else if ((cellText.includes('price') || cellText.includes('mrp') || cellText.includes('rate') || cellText.includes('cost') || cellText.includes('amount') || cellText.includes('₹') || cellText.includes('rs') || cellText.includes('selling')) && candidateMap.price === undefined) {
+        candidateMap.price = c;
+      } else if ((cellText.includes('gst') || cellText.includes('tax') || cellText.includes('vat') || cellText.includes('igst')) && candidateMap.tax === undefined) {
+        candidateMap.tax = c;
+      } else if ((cellText.includes('unit') || cellText.includes('pack') || cellText.includes('pkg') || cellText.includes('quantity') || cellText.includes('uom') || cellText.includes('packing')) && candidateMap.quantity_type === undefined) {
+        candidateMap.quantity_type = c;
+      } else if ((cellText.includes('barcode') || cellText.includes('bar code') || cellText.includes('upc') || cellText.includes('ean')) && candidateMap.barcode === undefined) {
+        candidateMap.barcode = c;
+      } else if ((cellText.includes('sku') || cellText.includes('item code') || cellText.includes('product code') || cellText.includes('code')) && candidateMap.sku === undefined) {
+        candidateMap.sku = c;
       }
     }
 
-    const rawQtyType = getVal(colMap['quantity_type']);
-    const cleanedQty = String(rawQtyType || '').toLowerCase().trim();
-    const validQtyTypes = ['strip', 'pcs', 'pack', 'ml', 'L', 'g', 'kg'];
-    const quantity_type = validQtyTypes.includes(cleanedQty) ? cleanedQty : 'strip';
+    const recognizedCount = Object.keys(candidateMap).length;
+    if (candidateMap.name !== undefined && (recognizedCount >= 2 || candidateMap.price !== undefined || candidateMap.category !== undefined)) {
+      headerRowIdx = r;
+      colMap = candidateMap;
+      break;
+    }
+  }
 
-    const rawBarcode = getVal(colMap['barcode']);
-    const barcode = rawBarcode ? String(rawBarcode).trim() : null;
+  // Fallback defaults if no header row could be identified
+  if (headerRowIdx === -1 || colMap.name === undefined) {
+    colMap = { name: 0, category: 1, price: 2, tax: 3, quantity_type: 4, barcode: 5, sku: 6 };
+    headerRowIdx = -1;
+  }
 
-    const rawSku = getVal(colMap['sku']);
-    const sku = rawSku ? String(rawSku).trim() : null;
+  const results: ParsedMedicineRow[] = [];
+  const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 0;
+
+  for (let r = startRow; r < grid.length; r++) {
+    const row = grid[r];
+    const name = (row[colMap.name !== undefined ? colMap.name : 0] || '').trim();
+
+    // Skip empty rows, header repeats, or instructions
+    if (!name || name.toLowerCase().includes('medicine name') || name.toLowerCase().includes('instructions:') || name.toLowerCase().includes('bulk import')) {
+      continue;
+    }
+    // Skip summary footer rows (e.g. Total, Grand Total, Summary)
+    const lowerName = name.toLowerCase();
+    if (lowerName === 'total' || lowerName === 'grand total' || lowerName === 'subtotal' || lowerName.startsWith('page ')) {
+      continue;
+    }
+
+    const category = (colMap.category !== undefined && row[colMap.category]) ? row[colMap.category].trim() : 'Orthopaedic Medicines';
+    const price = colMap.price !== undefined ? parsePrice(row[colMap.price]) : 0;
+    const tax_percent = colMap.tax !== undefined ? parseTax(row[colMap.tax]) : 5;
+    const quantity_type = colMap.quantity_type !== undefined ? normalizeQuantityType(row[colMap.quantity_type]) : 'strip';
+    const barcode = (colMap.barcode !== undefined && row[colMap.barcode]) ? row[colMap.barcode].trim() : null;
+    const sku = (colMap.sku !== undefined && row[colMap.sku]) ? row[colMap.sku].trim() : null;
 
     results.push({
       name,
-      category,
+      category: category || 'Orthopaedic Medicines',
       price,
       tax_percent,
       quantity_type,
@@ -620,7 +734,7 @@ export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMe
       sku: sku || null,
       status: 'Available'
     });
-  });
+  }
 
   return results;
 }

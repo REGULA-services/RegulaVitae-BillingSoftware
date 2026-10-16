@@ -6318,6 +6318,37 @@ export function initMockFetch() {
         }
       }
 
+      if (path === '/api/products/parse-excel' && method === 'POST') {
+        const body = JSON.parse(init?.body as string || '{}');
+        const text = body.csvText || '';
+        // Fast mock CSV parsing
+        const lines = text.split(/\r?\n/).filter((l: string) => l.trim().length > 0);
+        const medicines: any[] = [];
+        let headerPassed = false;
+        lines.forEach((line: string) => {
+          if (!headerPassed) {
+            if (line.toLowerCase().includes('name') || line.toLowerCase().includes('medicine') || line.toLowerCase().includes('product')) {
+              headerPassed = true;
+            }
+            return;
+          }
+          const parts = line.split(',').map((p: string) => p.replace(/^"|"$/g, '').trim());
+          if (parts[0] && !parts[0].toLowerCase().includes('instructions:')) {
+            medicines.push({
+              name: parts[0],
+              category: parts[1] || 'Orthopaedic Medicines',
+              price: parseFloat((parts[2] || '0').replace(/[^0-9.]/g, '')) || 0,
+              tax_percent: parseFloat((parts[3] || '5').replace(/[^0-9.]/g, '')) || 5,
+              quantity_type: parts[4] || 'strip',
+              barcode: parts[5] || null,
+              sku: parts[6] || null,
+              status: 'Available'
+            });
+          }
+        });
+        return makeResponse({ success: true, count: medicines.length, filename: body.filename || 'uploaded.csv', medicines });
+      }
+
       if (path === '/api/products/batch') {
         if (method === 'POST') {
           const body = JSON.parse(init?.body as string || '{}');

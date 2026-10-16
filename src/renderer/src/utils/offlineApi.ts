@@ -54,6 +54,101 @@ function nextId(items: any[]): number {
   return Math.max(...items.map(i => Number(i.id) || 0)) + 1;
 }
 
+function parseOfflineCsv(text: string): any[] {
+  if (!text) return [];
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  if (lines.length === 0) return [];
+
+  const first = lines[0];
+  let delimiter = ',';
+  if (first.includes('\t')) delimiter = '\t';
+  else if (first.includes(';') && !first.includes(',')) delimiter = ';';
+
+  const grid: string[][] = lines.map(line => {
+    const values: string[] = [];
+    let insideQuotes = false;
+    let current = '';
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === delimiter && !insideQuotes) {
+        values.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim());
+    return values;
+  });
+
+  let headerRowIdx = -1;
+  let colMap: Record<string, number> = {};
+
+  for (let r = 0; r < Math.min(grid.length, 25); r++) {
+    const row = grid[r];
+    const candidateMap: Record<string, number> = {};
+    for (let c = 0; c < row.length; c++) {
+      const val = (row[c] || '').toLowerCase().trim();
+      if (!val || val.includes('template') || val.includes('instruction')) continue;
+      if ((val.includes('name') || val.includes('medicine') || val.includes('drug') || val.includes('item') || val.includes('product')) && candidateMap.name === undefined) {
+        candidateMap.name = c;
+      } else if ((val.includes('category') || val.includes('cat') || val.includes('group') || val.includes('type')) && candidateMap.category === undefined) {
+        candidateMap.category = c;
+      } else if ((val.includes('price') || val.includes('mrp') || val.includes('rate') || val.includes('cost') || val.includes('amount') || val.includes('₹') || val.includes('rs')) && candidateMap.price === undefined) {
+        candidateMap.price = c;
+      } else if ((val.includes('gst') || val.includes('tax')) && candidateMap.tax === undefined) {
+        candidateMap.tax = c;
+      } else if ((val.includes('unit') || val.includes('pack') || val.includes('quantity')) && candidateMap.quantity_type === undefined) {
+        candidateMap.quantity_type = c;
+      } else if (val.includes('barcode') && candidateMap.barcode === undefined) {
+        candidateMap.barcode = c;
+      } else if (val.includes('sku') && candidateMap.sku === undefined) {
+        candidateMap.sku = c;
+      }
+    }
+    if (candidateMap.name !== undefined && (Object.keys(candidateMap).length >= 2 || candidateMap.price !== undefined || candidateMap.category !== undefined)) {
+      headerRowIdx = r;
+      colMap = candidateMap;
+      break;
+    }
+  }
+
+  if (headerRowIdx === -1 || colMap.name === undefined) {
+    colMap = { name: 0, category: 1, price: 2, tax: 3, quantity_type: 4, barcode: 5, sku: 6 };
+    headerRowIdx = -1;
+  }
+
+  const items: any[] = [];
+  const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 0;
+  for (let r = startRow; r < grid.length; r++) {
+    const row = grid[r];
+    const name = (row[colMap.name !== undefined ? colMap.name : 0] || '').trim();
+    if (!name || name.toLowerCase().includes('medicine name') || name.toLowerCase().includes('instructions:')) continue;
+    const lower = name.toLowerCase();
+    if (lower === 'total' || lower === 'grand total' || lower.startsWith('page ')) continue;
+
+    const rawPrice = (colMap.price !== undefined ? row[colMap.price] : '') || '';
+    const numPrice = parseFloat(String(rawPrice).replace(/[^0-9.]/g, '')) || 0;
+
+    const rawTax = (colMap.tax !== undefined ? row[colMap.tax] : '') || '';
+    const numTax = parseFloat(String(rawTax).replace(/[^0-9.]/g, '')) || 5;
+
+    items.push({
+      name,
+      category: (colMap.category !== undefined && row[colMap.category]) ? row[colMap.category].trim() : 'Orthopaedic Medicines',
+      price: numPrice,
+      tax_percent: numTax,
+      quantity_type: (colMap.quantity_type !== undefined && row[colMap.quantity_type]) ? row[colMap.quantity_type].trim() : 'strip',
+      barcode: (colMap.barcode !== undefined && row[colMap.barcode]) ? row[colMap.barcode].trim() : null,
+      sku: (colMap.sku !== undefined && row[colMap.sku]) ? row[colMap.sku].trim() : null,
+      status: 'Available'
+    });
+  }
+  return items;
+}
+
 // ─── Default Ortho Medicine Catalogue ────────────────────────────────────────
 const DEFAULT_PRODUCTS = [
   { id: 1, name: 'Diclofenac 50mg Tablets (10s)', category: 'Pain Relief', price: 28.50, tax_percent: 5, status: 'Available', barcode: null, sku: 'DICLO50', quantity_type: 'strip' },
@@ -390,6 +485,63 @@ export async function apiFetch(path: string, options?: RequestInit): Promise<Res
   // ── Network print (no-op on mobile — handled by Bluetooth only) ──
   if (path === '/api/print/network' && method === 'POST') {
     return err('Direct WiFi TCP printing is not supported on mobile. Use Bluetooth printing instead.', 400);
+  }
+
+  // ── Parse Excel / CSV spreadsheet offline ──
+  if (path === '/api/products/parse-excel' && method === 'POST') {
+    try {
+      const text = body.csvText || '';
+      const medicines = parseOfflineCsv(text);
+      return ok({
+        success: true,
+        count: medicines.length,
+        filename: body.filename || 'uploaded_medicines.csv',
+        medicines
+      });
+    } catch (e: any) {
+      return err("Unable to parse file: " + e.message, 400);
+    }
+  }
+
+  // ── Batch products import offline ──
+  if (path === '/api/products/batch' && method === 'POST') {
+    const list = body.products || [];
+    const updateExisting = !!body.updateExisting;
+    const current = load<any[]>(KEYS.PRODUCTS, []);
+    let maxId = current.reduce((m, p) => Math.max(m, Number(p.id) || 0), 0);
+    let added = 0;
+    let updated = 0;
+
+    list.forEach((item: any) => {
+      if (!item.name) return;
+      const key = (item.name || '').trim().toLowerCase();
+      const idx = current.findIndex(p => (p.name || '').trim().toLowerCase() === key);
+      if (idx !== -1) {
+        if (updateExisting) {
+          current[idx] = {
+            ...current[idx],
+            category: item.category || current[idx].category,
+            price: Number(item.price) || current[idx].price,
+            tax_percent: item.tax_percent !== undefined ? Number(item.tax_percent) : current[idx].tax_percent,
+            quantity_type: item.quantity_type || current[idx].quantity_type,
+            barcode: item.barcode || current[idx].barcode,
+            sku: item.sku || current[idx].sku
+          };
+          updated++;
+        } else {
+          maxId++;
+          current.push({ ...item, id: maxId, name: `${item.name} (${maxId})` });
+          added++;
+        }
+      } else {
+        maxId++;
+        current.push({ ...item, id: maxId });
+        added++;
+      }
+    });
+
+    save(KEYS.PRODUCTS, current);
+    return ok({ success: true, added, updated, totalProcessed: list.length });
   }
 
   // ── Wipe all data from this device (uninstall/reset) ──

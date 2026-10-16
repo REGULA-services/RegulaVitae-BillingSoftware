@@ -56,3 +56,20 @@
   Pop $R0
   Sleep 500
 !macroend
+
+!macro customUnInstall
+  ; Enable the option for the user to either delete and remove all data from the device or keep it
+  ${ifNot} ${Silent}
+    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 "Would you like to completely delete and remove all clinic data, databases, and billing records from this device?$\r$\n$\r$\n• Click YES to permanently wipe ALL data, medicines, and bill records from this computer.$\r$\n• Click NO to preserve your clinic records for future use or reinstallation." IDNO keepData
+  ${endif}
+    DetailPrint "Deleting all clinic databases and local records..."
+    RMDir /r "$APPDATA\MadrasOrthoClinicPOS"
+    RMDir /r "$APPDATA\madras-ortho-clinic-software"
+    RMDir /r "$APPDATA\MADRAS ORTHO CLINIC SOFTWARE"
+    RMDir /r "$LOCALAPPDATA\madras-ortho-clinic-software"
+    RMDir /r "$LOCALAPPDATA\madras-ortho-clinic-software-updater"
+    RMDir /r "$APPDATA\BakersChestPOS"
+    RMDir /r "$APPDATA\RegulaVitaePOS"
+    DetailPrint "All clinic data and databases have been permanently removed."
+  keepData:
+!macroend

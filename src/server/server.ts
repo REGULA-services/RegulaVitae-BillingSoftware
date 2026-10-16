@@ -912,6 +912,21 @@ app.post('/api/print/network', async (req, res) => {
   });
 });
 
+// ----------------------------------------------------
+// SYSTEM DATA MANAGEMENT & UNINSTALL CLEANUP
+// ----------------------------------------------------
+
+// Permanently wipe all clinic records and data from this device
+app.post('/api/system/wipe-all-data', async (req, res) => {
+  try {
+    const { wipeAllData } = await import('./database');
+    await wipeAllData();
+    res.json({ success: true, message: "All clinic data, bills, and records have been completely wiped from this device." });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to wipe data: " + err.message });
+  }
+});
+
 // Start API server with EADDRINUSE guard.
 // If the port is already in use (e.g., zombie process from a previous run),
 // log clearly instead of crashing silently which would cause a blank screen.

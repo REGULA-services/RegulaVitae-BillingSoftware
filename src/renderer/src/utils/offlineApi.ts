@@ -392,6 +392,19 @@ export async function apiFetch(path: string, options?: RequestInit): Promise<Res
     return err('Direct WiFi TCP printing is not supported on mobile. Use Bluetooth printing instead.', 400);
   }
 
+  // ── Wipe all data from this device (uninstall/reset) ──
+  if (path === '/api/system/wipe-all-data' && method === 'POST') {
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('bakers_pos_last_bill_num');
+    localStorage.removeItem('bakers_pos_bill_date');
+    localStorage.removeItem('bakers_pos_sessions');
+    localStorage.removeItem('bakers_pos_active_session');
+    localStorage.removeItem('bakery_pos_details');
+    ensureDefaultProducts();
+    ensureDefaultUsers();
+    return ok({ success: true, message: 'All local data has been wiped from this device.' });
+  }
+
   // Catch-all
   console.warn('[offlineApi] Unhandled offline route:', method, path);
   return err(`Offline: route not implemented: ${method} ${path}`, 501);

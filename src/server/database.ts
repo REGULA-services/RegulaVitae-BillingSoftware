@@ -1165,3 +1165,38 @@ export async function getDatabase(): Promise<DatabaseEngine> {
     return dbInstance;
   }
 }
+
+/**
+ * Permanently wipe and reset all clinic databases, bills, items, and records from this device.
+ */
+export async function wipeAllData(): Promise<void> {
+  const db = await getDatabase();
+  try {
+    await db.run("DELETE FROM bill_items");
+    await db.run("DELETE FROM bills");
+    await db.run("DELETE FROM deleted_items_history");
+    await db.run("DELETE FROM employees");
+    await db.run("DELETE FROM products");
+    if (fs.existsSync(jsonDbPath)) {
+      try { fs.unlinkSync(jsonDbPath); } catch (e) {}
+    }
+    // Reset users to default admin
+    await db.run("DELETE FROM users WHERE username != 'admin'");
+    await db.run("UPDATE users SET password = 'admin' WHERE username = 'admin'");
+    // Re-seed baseline medicines catalog
+    const seeds = getSeedProducts();
+    for (const p of seeds) {
+      try {
+        await db.run(
+          `INSERT OR IGNORE INTO products (name, category, price, barcode, sku, tax_percent, status, quantity_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [p.name, p.category, p.price, p.barcode, p.sku, p.tax_percent, p.status, p.quantity_type]
+        );
+      } catch (e) {}
+    }
+    console.log("[DB] All clinic data successfully wiped and re-initialized.");
+  } catch (err) {
+    console.error("[DB] Failed to wipe all data:", err);
+    throw err;
+  }
+}
+

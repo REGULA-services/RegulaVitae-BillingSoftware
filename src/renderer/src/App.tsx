@@ -4423,6 +4423,76 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {/* Device Data & Uninstall Management */}
+              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-rose-400" />
+                  Device Storage & Uninstall Options
+                </span>
+                <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-1.5 text-[10px] text-slate-400 leading-relaxed">
+                    <p className="flex items-start gap-1.5">
+                      <span className="text-sky-400 font-bold shrink-0">💻 Windows Desktop:</span>
+                      <span>When you uninstall via Windows Settings / Control Panel, you will be prompted with a choice to permanently delete all clinic databases, bill archives, and patient records, or keep them for future reinstallation.</span>
+                    </p>
+                    <p className="flex items-start gap-1.5">
+                      <span className="text-emerald-400 font-bold shrink-0">📱 Android Mobile:</span>
+                      <span>When uninstalling the APK, Android prompts whether to preserve or remove all local app storage from your device.</span>
+                    </p>
+                  </div>
+
+                  <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
+                    <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-rose-400" />
+                      Clean Device Wipe (Pre-Uninstall / Factory Reset)
+                    </span>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      Permanently wipe all local billing history, sales records, employee lists, and database files stored on this device.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showConfirm({
+                          title: "Delete All Data From Device?",
+                          message: "WARNING: This will permanently delete ALL local bills, sales history, employee lists, and local database files stored on this device.\n\nUse this option if you are planning to uninstall the software, transfer the device, or perform a complete factory wipe.\n\nAre you sure you want to proceed?",
+                          type: "danger",
+                          confirmText: "Yes, Delete All Data",
+                          onConfirm: async () => {
+                            try {
+                              const res = await fetch('http://localhost:4848/api/system/wipe-all-data', { method: 'POST' });
+                              const data = await res.json();
+                              // Clear client storage
+                              localStorage.clear();
+                              sessionStorage.clear();
+                              setShowSettingsModal(false);
+                              closeConfirm();
+                              showToast(data.message || "All clinic records deleted from device.", "success");
+                              setTimeout(() => {
+                                window.location.reload();
+                              }, 1200);
+                            } catch (err: any) {
+                              // If offline / mobile fallback
+                              localStorage.clear();
+                              sessionStorage.clear();
+                              setShowSettingsModal(false);
+                              closeConfirm();
+                              showToast("All local mobile storage deleted.", "success");
+                              setTimeout(() => {
+                                window.location.reload();
+                              }, 1200);
+                            }
+                          }
+                        });
+                      }}
+                      className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 active:scale-[0.98] transition-all border border-rose-800/60 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-100 flex items-center justify-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Wipe & Remove All Data From This Device</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="p-3 bg-slate-950 text-[10px] text-slate-500 font-mono text-center border-t border-slate-800">

@@ -4475,13 +4475,40 @@ export default function App() {
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
                       className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none disabled:opacity-50"
                     >
-                      <option value="" disabled>Select Role</option>
-                      <option value="Manager">Manager</option>
-                      <option value="Cashier">Cashier</option>
-                      <option value="Baker">Baker / Chef</option>
-                      <option value="Store Assistant">Store Assistant</option>
-                      <option value="Delivery Partner">Delivery Partner</option>
-                      <option value="Cleaner">Cleaner</option>
+                      <option value="" disabled>Select Role / Position</option>
+                      <optgroup label="── Ownership ──">
+                        <option value="Owner">Owner</option>
+                      </optgroup>
+                      <optgroup label="── Medical Staff ──">
+                        <option value="Orthopaedic Surgeon">Orthopaedic Surgeon</option>
+                        <option value="Consultant Physician">Consultant Physician</option>
+                        <option value="Physiotherapist">Physiotherapist</option>
+                        <option value="Anaesthesiologist">Anaesthesiologist</option>
+                        <option value="Radiologist">Radiologist</option>
+                      </optgroup>
+                      <optgroup label="── Pharmacy & Billing ──">
+                        <option value="Pharmacist">Pharmacist</option>
+                        <option value="Pharmacy Assistant">Pharmacy Assistant</option>
+                        <option value="Billing Clerk">Billing Clerk</option>
+                        <option value="Cashier">Cashier</option>
+                      </optgroup>
+                      <optgroup label="── Allied Health ──">
+                        <option value="Nursing Staff">Nursing Staff</option>
+                        <option value="Lab Technician">Lab Technician</option>
+                        <option value="X-Ray Technician">X-Ray Technician</option>
+                        <option value="Operation Theatre Technician">Operation Theatre Technician</option>
+                      </optgroup>
+                      <optgroup label="── Administration ──">
+                        <option value="Receptionist">Receptionist</option>
+                        <option value="Hospital Administrator">Hospital Administrator</option>
+                        <option value="Medical Records Officer">Medical Records Officer</option>
+                      </optgroup>
+                      <optgroup label="── Support Staff ──">
+                        <option value="Ward Attendant">Ward Attendant</option>
+                        <option value="Security Guard">Security Guard</option>
+                        <option value="Housekeeping">Housekeeping</option>
+                        <option value="Driver">Driver</option>
+                      </optgroup>
                     </select>
                   </div>
 
@@ -4572,7 +4599,7 @@ export default function App() {
             {/* Right Column: Existing Employees List Table */}
             <div className="flex-1 p-5 flex flex-col overflow-hidden bg-slate-950/20">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Store Employees List</h3>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Clinic Employees List</h3>
                 <button
                   onClick={() => setShowEmployeeCrudModal(false)}
                   className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"

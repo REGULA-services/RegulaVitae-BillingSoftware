@@ -1,1 +1,0 @@
-chore: add build utility scripts for icon generation

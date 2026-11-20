@@ -1,3 +1,4 @@
+// @ts-nocheck
 const CACHE_NAME = 'billing-pos-v1';
 const ASSETS = [
   './',

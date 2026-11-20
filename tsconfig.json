@@ -1,7 +1,27 @@
 {
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "strict": false
+  },
   "files": [],
   "references": [
     { "path": "./tsconfig.electron.json" },
     { "path": "./tsconfig.renderer.json" }
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-electron",
+    "android",
+    "scratch",
+    "release"
   ]
 }

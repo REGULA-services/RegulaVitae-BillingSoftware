@@ -14,7 +14,6 @@ export function encodeReceiptToEscPos(receiptData: any): Uint8Array {
     billNumber = 1,
     date = new Date().toISOString().split('T')[0],
     time = new Date().toLocaleTimeString(),
-    cashierName = "Pharmacist",
     items = [],
     subtotal = 0,
     discount = 0,
@@ -89,7 +88,7 @@ export function encodeReceiptToEscPos(receiptData: any): Uint8Array {
 
   // Bill Meta
   pushLine(formatTwoCol(`Bill No: #${billNumber}`, `Date: ${date}`));
-  pushLine(formatTwoCol(`Pharmacist: ${cashierName}`, `Time: ${time}`));
+  pushLine(formatTwoCol(`Time: ${time}`, `Status: Issued`));
   pushLine(divider);
 
   // Table Headers
@@ -158,6 +157,10 @@ export function encodeReceiptToEscPos(receiptData: any): Uint8Array {
   // Payment Mode & Footer
   bytes.push(0x1B, 0x61, 0x01); // Center
   pushLine(`Payment Mode: ${paymentMethod}`);
+  pushLine();
+  bytes.push(0x1B, 0x45, 0x01); // Bold on
+  pushLine("Drugs sold cannot be refunded");
+  bytes.push(0x1B, 0x45, 0x00); // Bold off
   pushLine();
   pushLine("Thank You. Stay Healthy!");
   pushLine("MADRAS ORTHO CLINIC SOFTWARE");

@@ -44,3 +44,11 @@ bakery_pos.json
 # Temporary scratch files
 scratch/
 
+
+# Android build outputs
+android/app/build/
+android/.gradle/
+android/build/
+android/app/src/main/assets/public/
+
+*.tsbuildinfo

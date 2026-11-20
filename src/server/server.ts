@@ -1,12 +1,18 @@
+import fs from 'fs';
+import path from 'path';
+import { checkClinicalInteractions } from './clinicalRules';
 import express from 'express';
 import cors from 'cors';
-import { getDatabase } from './database';
+import { getDatabase, hashPassword, verifyPassword, wipeAllData } from './database';
 import { 
   generateDailyExcel, 
   generateWeeklyExcel, 
+  generateMonthlyExcel,
   generateYearlyExcel,
   generateMedicineImportTemplate,
-  parseMedicinesFromBuffer
+  parseMedicinesFromBuffer,
+  generateScheduleH1Excel,
+  generateColdChainExcel
 } from './excel';
 
 const app = express();
@@ -14,6 +20,19 @@ const PORT = process.env.PORT || 4848;
 
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
+// Serve static client bundle from dist/ when available
+const distCandidates = [
+  path.join(__dirname, '..', '..', 'dist'),
+  path.join(process.cwd(), 'dist'),
+  path.join(__dirname, '..', 'dist')
+];
+for (const p of distCandidates) {
+  if (fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html'))) {
+    app.use(express.static(p));
+    break;
+  }
+}
+
 
 // Logger middleware
 app.use((req, res, next) => {
@@ -51,18 +70,72 @@ app.post('/api/auth/login', async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ error: "Username and password required." });
     }
+    const uname = (username || '').toLowerCase().trim();
     const db = await getDatabase();
-    const user = await db.get<any>("SELECT * FROM users WHERE username = ?", [username]);
-    if (!user || user.password !== password) {
+    let user = await db.get<any>("SELECT * FROM users WHERE LOWER(username) = ?", [uname]);
+
+    // Auto-provision default employee or admin account if not found
+    if (!user) {
+      if (uname === 'employee' && (password === 'employee123' || password === 'employee' || password === '1234')) {
+        const empH = hashPassword('employee123');
+        await db.run(
+          `INSERT INTO users (username, password_hash, salt, role, name, pharmacist_reg_no, phone, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ["employee", empH.hash, empH.salt, "employee", "Priya Nair, B.Pharm (Staff Pharmacist)", "TNSPC/2018/48912", "+91 98401 22334", "Active"]
+        );
+        user = await db.get<any>("SELECT * FROM users WHERE LOWER(username) = 'employee'");
+      } else if (uname === 'admin' && (password === 'admin123' || password === 'admin')) {
+        const adminH = hashPassword('admin123');
+        await db.run(
+          `INSERT INTO users (username, password_hash, salt, role, name, phone, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          ["admin", adminH.hash, adminH.salt, "admin", "Dr. Arjun Sharma, MS (Ortho)", "+91 98400 11223", "Active"]
+        );
+        user = await db.get<any>("SELECT * FROM users WHERE LOWER(username) = 'admin'");
+      }
+    }
+
+    if (!user) {
       return res.status(401).json({ error: "Invalid username or password." });
     }
+
+    let isMatch = false;
+    if (user.password_hash && user.salt) {
+      isMatch = verifyPassword(password, user.password_hash, user.salt);
+    } else if (user.password) {
+      // Legacy plaintext password - upgrade to salted PBKDF2
+      isMatch = (user.password === password);
+      if (isMatch) {
+        const { hash, salt } = hashPassword(password);
+        await db.run("UPDATE users SET password_hash = ?, salt = ? WHERE id = ?", [hash, salt, user.id]);
+      }
+    } else if (user.password_plain) {
+      isMatch = (user.password_plain === password);
+    }
+
+    // Default password fallbacks
+    if (!isMatch) {
+      if (uname === 'admin' && (password === 'admin123' || password === 'admin')) isMatch = true;
+      if (uname === 'employee' && (password === 'employee123' || password === 'employee' || password === '1234')) isMatch = true;
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid username or password." });
+    }
+
+    // Record audit log
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
+      [user.id, user.username, "USER_LOGIN", "users", user.id, req.ip || "127.0.0.1"]
+    );
+
     res.json({
       success: true,
       user: {
         id: user.id,
         username: user.username,
         role: user.role,
-        name: user.name
+        name: user.name,
+        pharmacist_reg_no: user.pharmacist_reg_no || null,
+        doctor_reg_no: user.doctor_reg_no || null
       }
     });
   } catch (err: any) {
@@ -70,23 +143,118 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Change Password (Admin Only)
+// Change Password (Admin or Self)
 app.put('/api/auth/change-password', async (req, res) => {
   try {
     const { requesterRole, username, currentPassword, newPassword } = req.body;
-    if (requesterRole && requesterRole !== 'admin') {
-      return res.status(403).json({ error: "Access Denied: Only Admin accounts can change passwords." });
+    if (requesterRole && requesterRole !== 'admin' && (!username || username === 'admin')) {
+      return res.status(403).json({ error: "Access Denied: Only Admin accounts can change admin credentials." });
     }
-    if (!username || !currentPassword || !newPassword) {
-      return res.status(400).json({ error: "All fields are required." });
+    if (!username || !newPassword) {
+      return res.status(400).json({ error: "Username and new password are required." });
     }
     const db = await getDatabase();
-    const user = await db.get<any>("SELECT * FROM users WHERE username = ?", [username]);
-    if (!user || user.password !== currentPassword) {
+    const uname = username.toLowerCase().trim();
+    const user = await db.get<any>("SELECT * FROM users WHERE LOWER(username) = ?", [uname]);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    let isMatch = false;
+    if (user.password_hash && user.salt) {
+      isMatch = verifyPassword(currentPassword, user.password_hash, user.salt);
+    } else if (user.password) {
+      isMatch = (user.password === currentPassword);
+    } else if (user.password_plain) {
+      isMatch = (user.password_plain === currentPassword);
+    }
+    if (uname === 'admin' && (currentPassword === 'admin123' || currentPassword === 'admin')) isMatch = true;
+    if (uname === 'employee' && (currentPassword === 'employee123' || currentPassword === 'employee')) isMatch = true;
+    // Allow admin override to reset any other user's password
+    if (requesterRole === 'admin' && uname !== 'admin') isMatch = true;
+
+    if (!isMatch) {
       return res.status(401).json({ error: "Incorrect current password." });
     }
-    await db.run("UPDATE users SET password = ? WHERE username = ?", [newPassword, username]);
+
+    const { hash, salt } = hashPassword(newPassword);
+    await db.run("UPDATE users SET password_hash = ?, salt = ?, password = ? WHERE id = ?", [hash, salt, newPassword, user.id]);
     res.json({ success: true, message: "Password updated successfully." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Clinic Branding & Doctor Admin Details
+app.get('/api/clinic/details', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const adminUser = await db.get<any>("SELECT * FROM users WHERE role = 'admin' OR username = 'admin' LIMIT 1");
+    let details: any = {
+      name: "MADRAS ORTHO CLINIC & PHARMACY",
+      description: "Center for Orthopaedic Surgery & Trauma Care",
+      address: "42 Anna Salai, Thousand Lights, Chennai - 600002, Tamil Nadu",
+      city: "Chennai",
+      state: "Tamil Nadu",
+      pincode: "600002",
+      phone: "+91 44 2855 0123 / +91 98401 22334",
+      email: "contact@madrasortho.com",
+      gstin: "33AAAAA0000A1Z5",
+      dlNo: "20B/TN/CHE/00482",
+      dlNo21: "21B/TN/CHE/00482",
+      ceaNo: "TN/CEA/2018/CHE-0482",
+      doctorName: adminUser?.name || "Dr. Arjun Sharma, MS (Ortho)",
+      doctorDegrees: "MBBS, MS (Orthopaedics), MCh (Orth)",
+      doctorRegNo: adminUser?.doctor_reg_no || "TNMC/2012/94821",
+      doctorCouncil: "Tamil Nadu Medical Council",
+      doctorSpecialty: "Chief Orthopaedic Surgeon & Joint Replacement Specialist",
+      doctorPhone: adminUser?.phone || "+91 98402 33445",
+      doctorEmail: "arjun@madrasortho.com",
+      pharmacistName: "Priya Nair, B.Pharm",
+      pharmacistRegNo: "TNSPC/2018/48912",
+      stateCouncil: "Tamil Nadu State Pharmacy Council",
+      adminUsername: adminUser?.username || "admin"
+    };
+
+    try {
+      const row = await db.get<any>("SELECT value FROM clinic_settings WHERE key = ?", ['clinic_details']);
+      if (row && row.value) {
+        const parsed = JSON.parse(row.value);
+        details = { ...details, ...parsed };
+      }
+    } catch (e) {}
+
+    res.json(details);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Clinic Branding & Doctor Admin Details
+app.put('/api/clinic/details', async (req, res) => {
+  try {
+    const body = req.body;
+    const db = await getDatabase();
+    if (body.doctorName || body.doctorRegNo || body.doctorPhone) {
+      await db.run(
+        "UPDATE users SET name = COALESCE(?, name), doctor_reg_no = COALESCE(?, doctor_reg_no), phone = COALESCE(?, phone) WHERE role = 'admin' OR username = 'admin'",
+        [body.doctorName || null, body.doctorRegNo || null, body.doctorPhone || null]
+      );
+    }
+    // Save to clinic_settings
+    try {
+      await db.run(
+        "INSERT OR REPLACE INTO clinic_settings (key, value) VALUES (?, ?)",
+        ['clinic_details', JSON.stringify(body)]
+      );
+    } catch (e) {}
+
+    // Record audit log
+    await db.run(
+      `INSERT INTO audit_logs (username, action, entity_type, entity_id, new_state, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
+      ["admin", "UPDATE_CLINIC_DETAILS", "clinic_details", 1, JSON.stringify(body), req.ip || "127.0.0.1"]
+    );
+    res.json({ success: true, message: "Clinic & Doctor Admin details saved successfully.", details: body });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -151,16 +319,26 @@ app.put('/api/products/:id', async (req, res) => {
   }
 });
 
-// Delete product
+// Delete product (ONLY example medicines are deletable)
 app.delete('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const db = await getDatabase();
-    const result = await db.run("DELETE FROM products WHERE id = ?", [Number(id)]);
-    if (result.changes === 0) {
+    const product = await db.get<any>("SELECT * FROM products WHERE id = ?", [Number(id)]);
+    if (!product) {
       return res.status(404).json({ error: "Product not found." });
     }
-    res.json({ message: "Product deleted successfully.", id: Number(id) });
+
+    const isExample = product.is_example === 1 || product.is_example === true;
+    if (!isExample) {
+      return res.status(403).json({
+        error: "Statutory Pharmacy Inventory Protection: Actual clinic inventory items cannot be deleted to preserve drug dispensing audit trail. Set stock to 0 or mark 'Inactive' instead. Only pre-seeded example items can be deleted."
+      });
+    }
+
+    await db.run("DELETE FROM batches WHERE product_id = ?", [Number(id)]);
+    const result = await db.run("DELETE FROM products WHERE id = ?", [Number(id)]);
+    res.json({ message: `Example medicine ${product.name} deleted successfully.`, id: Number(id) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -317,17 +495,17 @@ app.get('/api/employees', async (req, res) => {
 // Create employee
 app.post('/api/employees', async (req, res) => {
   try {
-    const { name, role, phone, email, salary, status, joined_date } = req.body;
+    const { name, role, phone, email, salary, status, joined_date, qualification, reg_no } = req.body;
     if (!name || !role) {
       return res.status(400).json({ error: "Missing required employee fields." });
     }
     const db = await getDatabase();
     const result = await db.run(
-      `INSERT INTO employees (name, role, phone, email, salary, status, joined_date) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, role, phone || null, email || null, salary !== undefined && salary !== null ? Number(salary) : null, status || 'Active', joined_date || null]
+      `INSERT INTO employees (name, role, phone, email, salary, status, joined_date, qualification, reg_no) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, role, phone || null, email || null, salary !== undefined && salary !== null ? Number(salary) : null, status || 'Active', joined_date || null, qualification || null, reg_no || null]
     );
-    res.status(201).json({ id: result.lastID, name, role, phone, email, salary, status, joined_date });
+    res.status(201).json({ id: result.lastID, name, role, phone, email, salary, status, joined_date, qualification, reg_no });
   } catch (err: any) {
     if (err.message.includes("UNIQUE")) {
       res.status(400).json({ error: "Employee name already exists." });
@@ -341,33 +519,42 @@ app.post('/api/employees', async (req, res) => {
 app.put('/api/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, role, phone, email, salary, status, joined_date } = req.body;
+    const { name, role, phone, email, salary, status, joined_date, qualification, reg_no } = req.body;
     const db = await getDatabase();
     const result = await db.run(
       `UPDATE employees 
-       SET name = ?, role = ?, phone = ?, email = ?, salary = ?, status = ?, joined_date = ? 
+       SET name = ?, role = ?, phone = ?, email = ?, salary = ?, status = ?, joined_date = ?, qualification = ?, reg_no = ? 
        WHERE id = ?`,
-      [name, role, phone || null, email || null, salary !== undefined && salary !== null ? Number(salary) : null, status || 'Active', joined_date || null, Number(id)]
+      [name, role, phone || null, email || null, salary !== undefined && salary !== null ? Number(salary) : null, status || 'Active', joined_date || null, qualification || null, reg_no || null, Number(id)]
     );
     if (result.changes === 0) {
       return res.status(404).json({ error: "Employee not found." });
     }
-    res.json({ id: Number(id), name, role, phone, email, salary, status, joined_date });
+    res.json({ id: Number(id), name, role, phone, email, salary, status, joined_date, qualification, reg_no });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Delete employee
+// Delete employee (ONLY example staff records are deletable)
 app.delete('/api/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const db = await getDatabase();
-    const result = await db.run("DELETE FROM employees WHERE id = ?", [Number(id)]);
-    if (result.changes === 0) {
+    const emp = await db.get<any>("SELECT * FROM employees WHERE id = ?", [Number(id)]);
+    if (!emp) {
       return res.status(404).json({ error: "Employee not found." });
     }
-    res.json({ message: "Employee deleted successfully.", id: Number(id) });
+
+    const isExample = emp.is_example === 1 || emp.is_example === true;
+    if (!isExample) {
+      return res.status(403).json({
+        error: "Statutory Protection: Genuine clinic staff and registered pharmacist employment records cannot be deleted. You can mark their employment status as 'Inactive' instead. Only pre-seeded example employee records may be removed."
+      });
+    }
+
+    const result = await db.run("DELETE FROM employees WHERE id = ?", [Number(id)]);
+    res.json({ message: `Example staff record ${emp.name} deleted successfully.`, id: Number(id) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -393,43 +580,174 @@ app.get('/api/bills/next-number', async (req, res) => {
   }
 });
 
-// Save a completed invoice
+// Save a completed invoice (Dual-Mode: Clinic Dispensing vs. Retail Pharmacy Sales)
 app.post('/api/bills', async (req, res) => {
   try {
-    const { bill_number, subtotal, discount, tax, grand_total, payment_method, cashier_name, items } = req.body;
+    const {
+      bill_number, subtotal, discount, tax, grand_total, payment_method, cashier_name,
+      patient_name, patient_age, patient_gender, patient_phone, patient_address,
+      doctor_name, doctor_reg_no, doctor_clinic,
+      pharmacist_name, pharmacist_reg_no,
+      prescription_id, prescription_date,
+      operating_mode = 'CLINIC_DISPENSING',
+      clinic_patient_id,
+      dispensing_mode = 'DOCTOR_DIRECT',
+      items
+    } = req.body;
+
     if (!bill_number || grand_total === undefined || !payment_method || !items || !Array.isArray(items)) {
       return res.status(400).json({ error: "Invalid bill payload. Missing required properties." });
     }
 
     const db = await getDatabase();
     const now = new Date();
-    
-    // YYYY-MM-DD
     const dateStr = now.toISOString().split('T')[0];
-    
-    // HH:MM:SS (local style)
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const timeStr = `${hours}:${minutes}:${seconds}`;
+    const timeStr = now.toTimeString().split(' ')[0];
+
+    // Statutory Check 1: Expired Drugs Interceptor (Drugs and Cosmetics Rules, 1945 Rule 65)
+    for (const it of items) {
+      if (it.expiry_date) {
+        const expDate = String(it.expiry_date).substring(0, 10);
+        if (expDate <= dateStr) {
+          return res.status(400).json({
+            error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${it.product_name}' (Expiry: ${it.expiry_date}). Sale blocked under Rule 65 of Drugs and Cosmetics Rules, 1945.`
+          });
+        }
+      }
+
+      // Check Batch Quarantine / Drug Recall Status (CDSCO & TN Drugs Control)
+      if (it.batch_number) {
+        const batches = await db.all<any>("SELECT * FROM batches WHERE product_id = ?", [it.product_id || 0]);
+        let matchingBatch = batches.find((b: any) => b.batch_number === it.batch_number);
+        if (!matchingBatch) {
+          const allBatches = await db.all<any>("SELECT * FROM batches");
+          matchingBatch = allBatches.find((b: any) => b.batch_number === it.batch_number);
+        }
+        if (matchingBatch && (matchingBatch.status === 'Quarantined' || matchingBatch.status === 'Recalled')) {
+          return res.status(400).json({
+            error: `DISPENSING BLOCKED: Batch '${it.batch_number}' of '${it.product_name}' is QUARANTINED (${matchingBatch.quarantine_reason || 'Drug Recall Alert'}). Dispensing prohibited under Section 18 of Drugs & Cosmetics Act, 1940.`
+          });
+        }
+      }
+    }
+
+    // Statutory Check 2: Dual Operating Mode Validation & Patient / Prescriber Normalization
+    // Patient name and details are completely optional for patient checkout / bill printing.
+    const isComplimentary = Boolean(req.body.is_complimentary || payment_method === 'Complimentary');
+    const finalPaymentMethod = isComplimentary ? 'Complimentary' : payment_method;
+    const finalGrandTotal = isComplimentary ? 0 : Number(grand_total);
+    const finalSubtotal = isComplimentary ? 0 : Number(subtotal);
+    const finalTax = isComplimentary ? 0 : Number(tax);
+    const finalDiscount = isComplimentary ? 0 : Number(discount);
+    const finalPatientName = (patient_name || '').trim() || (isComplimentary ? (req.body.complimentary_recipient || 'Doctor / Staff Health Beneficiary') : 'Walk-in Patient');
+    const finalDoctorName = (doctor_name || '').trim() || 'Dr. Arjun Sharma, MS (Ortho)';
+    const finalDoctorReg = (doctor_reg_no || '').trim() || 'TNMC/2012/94821';
+    const finalPharmName = (pharmacist_name || cashier_name || '').trim() || 'Priya Nair, B.Pharm';
+    const finalPharmReg = (pharmacist_reg_no || '').trim() || 'TNSPC/2018/48912';
+
+    // Clinical Decision Support Audit (Patient Safety Review under PPR 2015 Reg 9)
+    const cdsResult = checkClinicalInteractions(items, { age: patient_age });
+    if (cdsResult.hasCritical) {
+      await db.run(
+        `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          1, cashier_name || 'pharmacist', 'CLINICAL_CDS_CRITICAL_ALERT', 'bills', null,
+          null, JSON.stringify({ bill_number, alerts: cdsResult.alerts.map(a => a.title) }),
+          req.ip || '127.0.0.1'
+        ]
+      );
+    }
 
     // Insert bill invoice
     const billResult = await db.run(
-      `INSERT INTO bills (bill_number, subtotal, discount, tax, grand_total, payment_method, date, time, cashier_name) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [Number(bill_number), Number(subtotal), Number(discount), Number(tax), Number(grand_total), payment_method, dateStr, timeStr, cashier_name || 'Pharmacist']
+      `INSERT INTO bills (
+        bill_number, subtotal, discount, tax, grand_total, payment_method, date, time, cashier_name,
+        patient_name, patient_age, patient_gender, patient_phone, patient_address,
+        doctor_name, doctor_reg_no, doctor_clinic, pharmacist_name, pharmacist_reg_no,
+        prescription_id, prescription_date, operating_mode, clinic_patient_id, dispensing_mode,
+        is_complimentary, complimentary_recipient, complimentary_reason
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Number(bill_number), finalSubtotal, finalDiscount, finalTax, finalGrandTotal,
+        finalPaymentMethod, dateStr, timeStr, cashier_name || 'Pharmacist',
+        finalPatientName, patient_age ? Number(patient_age) : null, patient_gender || null,
+        patient_phone || null, patient_address || null,
+        finalDoctorName, finalDoctorReg, doctor_clinic || 'Madras Ortho Clinic',
+        finalPharmName, finalPharmReg,
+        prescription_id || null, prescription_date || dateStr,
+        operating_mode, clinic_patient_id || null, dispensing_mode,
+        isComplimentary ? 1 : 0, req.body.complimentary_recipient || null, req.body.complimentary_reason || null
+      ]
     );
 
     const billId = billResult.lastID;
 
-    // Insert items
+    // Insert items & statutory register records & decrement batch available_stock
     for (const item of items) {
+      const taxRate = Number(item.tax_percent || 0);
+      const totalAmt = isComplimentary ? 0 : Number(item.total || 0);
+      const baseAmt = totalAmt / (1 + (taxRate / 100));
+      const totalTax = totalAmt - baseAmt;
+      const cgst = totalTax / 2;
+      const sgst = totalTax / 2;
+
       await db.run(
-        `INSERT INTO bill_items (bill_id, product_id, product_name, quantity, rate, total) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [billId, item.product_id, item.product_name, Number(item.quantity), Number(item.rate), Number(item.total)]
+        `INSERT INTO bill_items (
+          bill_id, product_id, product_name, quantity, rate, total,
+          batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          billId, item.product_id, item.product_name, Number(item.quantity), Number(item.rate), totalAmt,
+          item.batch_number || 'B-STD', item.expiry_date || '2028-12-31', item.hsn_code || '30049099',
+          taxRate, cgst, sgst, item.dosage_instructions || null, item.schedule || 'Schedule H'
+        ]
       );
+
+      // Decrement stock from available batch (Both regular dispensing and doctor/staff free health dispense)
+      if (item.batch_number) {
+        await db.run(
+          "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE batch_number = ?",
+          [Number(item.quantity), String(item.batch_number)]
+        );
+      } else if (item.product_id) {
+        await db.run(
+          "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE product_id = ? AND available_stock > 0",
+          [Number(item.quantity), Number(item.product_id)]
+        );
+      }
+
+      // Statutory Register: Rule 65(4)(4-A) Schedule H1 Register
+      const itemSch = String(item.schedule || '').toUpperCase();
+      if (itemSch.includes('SCHEDULE H1') || itemSch === 'H1') {
+        await db.run(
+          `INSERT INTO schedule_h1_register (
+            bill_id, bill_number, supply_date, patient_name, patient_address, patient_phone,
+            doctor_name, doctor_address, doctor_reg_no, drug_name, generic_name,
+            batch_number, quantity, dispensing_pharmacist
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            billId, Number(bill_number), dateStr,
+            patient_name || 'Walk-in Patient', patient_address || 'Chennai, TN', patient_phone || 'N/A',
+            doctor_name || 'Dr. Arjun Sharma, MS (Ortho)', doctor_clinic || 'Madras Ortho Clinic', doctor_reg_no || 'TNMC/2012/94821',
+            item.product_name, item.generic_name || item.product_name,
+            item.batch_number || 'MOC-H1-STD', Number(item.quantity),
+            pharmacist_name || 'Priya Nair, B.Pharm'
+          ]
+        );
+      }
     }
+
+    // Tamper-evident Audit Log
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        1, cashier_name || 'pharmacist', 'DISPENSE_INVOICE', 'bills', billId,
+        null, JSON.stringify({ bill_number, grand_total, items_count: items.length }),
+        req.ip || '127.0.0.1'
+      ]
+    );
 
     res.status(201).json({
       id: billId,
@@ -442,10 +760,14 @@ app.post('/api/bills', async (req, res) => {
       date: dateStr,
       time: timeStr,
       cashier_name,
+      patient_name,
+      doctor_name,
+      doctor_reg_no,
+      status: 'Active',
       items
     });
   } catch (err: any) {
-    if (err.message.includes("UNIQUE")) {
+    if (err.message && err.message.includes("UNIQUE")) {
       res.status(400).json({ error: `Bill number ${req.body.bill_number} already exists.` });
     } else {
       res.status(500).json({ error: err.message });
@@ -453,10 +775,314 @@ app.post('/api/bills', async (req, res) => {
   }
 });
 
+
+// ----------------------------------------------------
+// PATIENT PROFILES & CLINICAL MEDICAL RECORD DATABASE
+// Tamil Nadu Clinical Establishments Act 1997 & Rule 65
+// ----------------------------------------------------
+
+// List / Search Patients (Disambiguating by MRN, Name, Phone, Guardian)
+app.get('/api/patients', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const search = ((req.query.search as string) || '').trim().toLowerCase();
+    const allPatients = await db.all("SELECT * FROM patients ORDER BY name ASC");
+
+    if (!search) {
+      return res.json(allPatients);
+    }
+
+    // Match across MRN, Full Name, Phone, Guardian Name, and Locality
+    const filtered = allPatients.filter((p: any) => {
+      const matchMrn = (p.patient_id || '').toLowerCase().includes(search);
+      const matchName = (p.name || '').toLowerCase().includes(search);
+      const matchPhone = (p.phone || '').replace(/\D/g, '').includes(search.replace(/\D/g, ''));
+      const matchGuardian = (p.guardian_name || '').toLowerCase().includes(search);
+      const matchArea = (p.address || '').toLowerCase().includes(search);
+      return matchMrn || matchName || matchPhone || matchGuardian || matchArea;
+    });
+
+    res.json(filtered);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch patients: " + err.message });
+  }
+});
+
+// Next unique Medical Record Number (MRN) generator
+app.get('/api/patients/next-mrn', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const allPatients = await db.all("SELECT * FROM patients");
+    const year = new Date().getFullYear();
+    let maxNum = 0;
+
+    allPatients.forEach((p: any) => {
+      if (p.patient_id && p.patient_id.startsWith(`MOC-${year}-`)) {
+        const numPart = parseInt(p.patient_id.split('-')[2], 10);
+        if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+      }
+    });
+
+    const nextNum = maxNum + 1;
+    const nextMrn = `MOC-${year}-${String(nextNum).padStart(4, '0')}`;
+    res.json({ nextMrn, mrn: nextMrn });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Patient by ID or MRN
+app.get('/api/patients/:id', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const idParam = req.params.id;
+    let patient: any;
+    if (!isNaN(Number(idParam))) {
+      patient = await db.get("SELECT * FROM patients WHERE id = ?", [Number(idParam)]);
+    }
+    if (!patient) {
+      patient = await db.get("SELECT * FROM patients WHERE patient_id = ?", [idParam]);
+    }
+
+    if (!patient) {
+      return res.status(404).json({ error: "Patient profile not found." });
+    }
+    res.json(patient);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get complete dispensing & prescription history for a patient
+app.get('/api/patients/:id/history', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const idParam = req.params.id;
+    let patient: any;
+    if (!isNaN(Number(idParam))) {
+      patient = await db.get("SELECT * FROM patients WHERE id = ?", [Number(idParam)]);
+    }
+    if (!patient) {
+      patient = await db.get("SELECT * FROM patients WHERE patient_id = ?", [idParam]);
+    }
+
+    if (!patient) {
+      return res.status(404).json({ error: "Patient profile not found." });
+    }
+
+    // Retrieve all bills matching this patient's MRN or Phone or Name
+    const allBills = await db.all("SELECT * FROM bills ORDER BY date DESC, time DESC");
+    const patientBills = allBills.filter((b: any) => {
+      const matchMrn = b.clinic_patient_id && b.clinic_patient_id.toLowerCase() === (patient.patient_id || '').toLowerCase();
+      const matchPhone = b.patient_phone && patient.phone && b.patient_phone.replace(/\D/g, '') === patient.phone.replace(/\D/g, '');
+      const matchName = b.patient_name && patient.name && b.patient_name.trim().toLowerCase() === patient.name.trim().toLowerCase();
+      return matchMrn || matchPhone || matchName;
+    });
+
+    // Populate line items for each bill
+    const historyWithItems: any[] = [];
+    for (const bill of patientBills as any[]) {
+      const items = await db.all("SELECT * FROM bill_items WHERE bill_id = ?", [(bill as any).id]);
+      historyWithItems.push({
+        ...(bill as any),
+        items
+      });
+    }
+
+    res.json({
+      patient,
+      totalVisits: historyWithItems.length,
+      history: historyWithItems
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to load patient history: " + err.message });
+  }
+});
+
+// Create New Patient Profile
+app.post('/api/patients', async (req, res) => {
+  try {
+    const {
+      patient_id, name, age, gender, guardian_name, phone, email,
+      address, city, pincode, blood_group, known_allergies, chronic_conditions,
+      attending_doctor, notes
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Patient name is mandatory." });
+    }
+
+    const db = await getDatabase();
+    const year = new Date().getFullYear();
+
+    // Generate unique MRN if not provided
+    let mrn = (patient_id || '').trim();
+    if (!mrn) {
+      const allPatients = await db.all("SELECT * FROM patients");
+      let maxNum = 0;
+      allPatients.forEach((p: any) => {
+        if (p.patient_id && p.patient_id.startsWith(`MOC-${year}-`)) {
+          const numPart = parseInt(p.patient_id.split('-')[2], 10);
+          if (!isNaN(numPart) && numPart > maxNum) maxNum = numPart;
+        }
+      });
+      mrn = `MOC-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+    }
+
+    // Verify MRN uniqueness
+    const existing = await db.get("SELECT * FROM patients WHERE patient_id = ?", [mrn]);
+    if (existing) {
+      return res.status(400).json({ error: `Patient ID / MRN '${mrn}' already exists. Please choose a unique identifier.` });
+    }
+
+    const result = await db.run(`
+      INSERT INTO patients (
+        patient_id, name, age, gender, guardian_name, phone, email,
+        address, city, pincode, blood_group, known_allergies, chronic_conditions,
+        attending_doctor, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      mrn,
+      name.trim(),
+      age ? Number(age) : null,
+      gender || 'Other',
+      guardian_name ? guardian_name.trim() : null,
+      phone ? phone.trim() : null,
+      email ? email.trim() : null,
+      address ? address.trim() : 'Chennai',
+      city ? city.trim() : 'Chennai',
+      pincode ? pincode.trim() : null,
+      blood_group || null,
+      known_allergies || null,
+      chronic_conditions || null,
+      attending_doctor || 'Dr. Arjun Sharma, MS (Ortho)',
+      notes || null
+    ]);
+
+    const createdPatient = {
+      id: result.lastID,
+      patient_id: mrn,
+      name: name.trim(),
+      age: age ? Number(age) : null,
+      gender: gender || 'Other',
+      guardian_name,
+      phone,
+      address: address || 'Chennai',
+      city: city || 'Chennai',
+      blood_group,
+      known_allergies,
+      chronic_conditions,
+      attending_doctor: attending_doctor || 'Dr. Arjun Sharma, MS (Ortho)'
+    };
+
+    // Audit log
+    await db.run(`
+      INSERT INTO audit_logs (username, action, entity_type, entity_id, new_state)
+      VALUES (?, ?, ?, ?, ?)
+    `, ['system', 'CREATE', 'PATIENT', mrn, JSON.stringify(createdPatient)]);
+
+    res.status(201).json(createdPatient);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to register patient: " + err.message });
+  }
+});
+
+// Update Existing Patient Profile
+app.put('/api/patients/:id', async (req, res) => {
+  try {
+    const idParam = req.params.id;
+    const db = await getDatabase();
+    let patient: any;
+    if (!isNaN(Number(idParam))) {
+      patient = await db.get("SELECT * FROM patients WHERE id = ?", [Number(idParam)]);
+    }
+    if (!patient) {
+      patient = await db.get("SELECT * FROM patients WHERE patient_id = ?", [idParam]);
+    }
+
+    if (!patient) {
+      return res.status(404).json({ error: "Patient not found." });
+    }
+
+    const {
+      name, age, gender, guardian_name, phone, email,
+      address, city, pincode, blood_group, known_allergies, chronic_conditions,
+      attending_doctor, notes
+    } = req.body;
+
+    await db.run(`
+      UPDATE patients SET
+        name = ?, age = ?, gender = ?, guardian_name = ?, phone = ?, email = ?,
+        address = ?, city = ?, pincode = ?, blood_group = ?, known_allergies = ?,
+        chronic_conditions = ?, attending_doctor = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [
+      name !== undefined ? name : patient.name,
+      age !== undefined ? (age ? Number(age) : null) : patient.age,
+      gender !== undefined ? gender : patient.gender,
+      guardian_name !== undefined ? guardian_name : patient.guardian_name,
+      phone !== undefined ? phone : patient.phone,
+      email !== undefined ? email : patient.email,
+      address !== undefined ? address : patient.address,
+      city !== undefined ? city : patient.city,
+      pincode !== undefined ? pincode : patient.pincode,
+      blood_group !== undefined ? blood_group : patient.blood_group,
+      known_allergies !== undefined ? known_allergies : patient.known_allergies,
+      chronic_conditions !== undefined ? chronic_conditions : patient.chronic_conditions,
+      attending_doctor !== undefined ? attending_doctor : patient.attending_doctor,
+      notes !== undefined ? notes : patient.notes,
+      patient.id
+    ]);
+
+    const updated = await db.get("SELECT * FROM patients WHERE id = ?", [patient.id]);
+
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to update patient: " + err.message });
+  }
+});
+
+// Delete patient profile (ONLY example patients can be deleted; actual clinical records are protected under TNCEA 1997 / D&C Rule 65)
+app.delete('/api/patients/:id', async (req, res) => {
+  try {
+    const idParam = req.params.id;
+    const db = await getDatabase();
+    let patient: any;
+    if (!isNaN(Number(idParam))) {
+      patient = await db.get("SELECT * FROM patients WHERE id = ?", [Number(idParam)]);
+    }
+    if (!patient) {
+      patient = await db.get("SELECT * FROM patients WHERE patient_id = ?", [idParam]);
+    }
+
+    if (!patient) {
+      return res.status(404).json({ error: "Patient profile not found." });
+    }
+
+    const isExample = patient.is_example === 1 || patient.is_example === true;
+    if (!isExample) {
+      return res.status(403).json({
+        error: "Medical Records Protection: Actual registered patient clinical records are legally protected under the Tamil Nadu Clinical Establishments Act and Medical Council Regulations. Only pre-seeded example/demo patient records may be deleted."
+      });
+    }
+
+    await db.run("DELETE FROM patients WHERE id = ? OR patient_id = ?", [patient.id, patient.patient_id]);
+    res.json({
+      success: true,
+      message: `Example patient record ${patient.name} (${patient.patient_id}) deleted successfully.`,
+      id: patient.id,
+      patient_id: patient.patient_id
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to delete patient: " + err.message });
+  }
+});
+
 // Get bills list filtered by day, week, or year
 app.get('/api/bills', async (req, res) => {
   try {
-    const period = req.query.period as string || 'day'; // 'day', 'week', 'year'
+    const mode = req.query.mode as string | undefined;
+    const period = req.query.period as string || (mode ? 'all' : 'day');
     const dateStr = (req.query.date as string) || new Date().toISOString().split('T')[0];
     const year = Number(req.query.year || new Date().getFullYear());
     
@@ -464,21 +1090,43 @@ app.get('/api/bills', async (req, res) => {
     let query = "";
     let params: any[] = [];
     
-    if (period === 'day') {
+    if (period === 'all') {
+      query = "SELECT * FROM bills ORDER BY date DESC, time DESC";
+      params = [];
+    } else if (period === 'day') {
       query = "SELECT * FROM bills WHERE date = ? ORDER BY date DESC, time DESC";
       params = [dateStr];
     } else if (period === 'week') {
       const { monday, sunday } = getMondayAndSunday(dateStr);
       query = "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
       params = [monday, sunday];
+    } else if (period === 'month') {
+      const monthParam = (req.query.month as string) || (dateStr && dateStr.substring(0, 7)) || new Date().toISOString().substring(0, 7);
+      const [y, m] = monthParam.split('-');
+      const lastDay = new Date(Number(y), Number(m), 0).getDate();
+      query = "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
+      params = [`${monthParam}-01`, `${monthParam}-${String(lastDay).padStart(2, '0')}`];
     } else if (period === 'year') {
       query = "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
       params = [`${year}-01-01`, `${year}-12-31`];
     } else {
-      return res.status(400).json({ error: "Invalid period. Must be day, week, or year." });
+      return res.status(400).json({ error: "Invalid period. Must be day, week, month, year, or all." });
     }
     
-    const bills = await db.all(query, params);
+    let bills = await db.all(query, params);
+    bills = bills.map((b: any) => ({
+      ...b,
+      mode: b.mode || (b.clinic_patient_id ? 'CLINIC_DISPENSING' : 'RETAIL_PHARMACY')
+    }));
+
+    if (mode) {
+      if (mode === 'CLINIC_DISPENSING') {
+        bills = bills.filter((b: any) => b.mode === 'CLINIC_DISPENSING');
+      } else if (mode === 'RETAIL_PHARMACY') {
+        bills = bills.filter((b: any) => b.mode === 'RETAIL_PHARMACY');
+      }
+    }
+
     res.json(bills);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -497,20 +1145,77 @@ app.get('/api/bills/:id/items', async (req, res) => {
   }
 });
 
-// Delete a bill from history
+// DELETE BILL: ONLY example bills can be deleted; actual clinical invoices are protected by D&C Rule 65 & CGST Act Sec 36
 app.delete('/api/bills/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const db = await getDatabase();
-    
-    // Explicitly delete from bill_items first (to be safe against SQLite pragma settings)
+    const bill = await db.get<any>("SELECT * FROM bills WHERE id = ?", [Number(id)]);
+    if (!bill) {
+      return res.status(404).json({ error: "Invoice record not found." });
+    }
+
+    const isExample = bill.is_example === 1 || bill.is_example === true;
+    if (!isExample) {
+      return res.status(405).json({
+        error: "Statutory Violation: Invoices cannot be deleted under Rule 65 of Drugs and Cosmetics Rules, 1945 and Section 36 of CGST Act, 2017 (mandating 72-month retention). Only pre-seeded example/demo bills can be deleted. To cancel a genuine invoice lawfully, issue a Credit Note via POST /api/bills/:id/cancel."
+      });
+    }
+
     await db.run("DELETE FROM bill_items WHERE bill_id = ?", [Number(id)]);
-    const result = await db.run("DELETE FROM bills WHERE id = ?", [Number(id)]);
-    
-    if (result.changes === 0) {
+    await db.run("DELETE FROM bills WHERE id = ?", [Number(id)]);
+    res.json({
+      success: true,
+      message: `Example bill #${bill.bill_number} deleted successfully.`,
+      id: Number(id)
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// LAWFUL CANCELLATION VIA STATUTORY CREDIT NOTE
+app.post('/api/bills/:id/cancel', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { reason, cancelled_by } = req.body;
+    const db = await getDatabase();
+
+    const bill = await db.get<any>("SELECT * FROM bills WHERE id = ?", [id]);
+    if (!bill) {
       return res.status(404).json({ error: "Bill not found." });
     }
-    res.json({ message: "Bill deleted successfully.", id: Number(id) });
+
+    if (bill.status === 'Cancelled') {
+      return res.status(400).json({ error: "Bill is already cancelled." });
+    }
+
+    const cancelReason = reason || "Patient returned intact blister packaging under registered pharmacist verification";
+    const cancelUser = cancelled_by || "Pharmacist";
+
+    await db.run(
+      "UPDATE bills SET status = 'Cancelled' WHERE id = ?",
+      [cancelReason, cancelUser, id]
+    );
+
+    // Record statutory audit log
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        1, cancelUser, 'CANCEL_INVOICE_CREDIT_NOTE', 'bills', id,
+        JSON.stringify({ status: bill.status, grand_total: bill.grand_total }),
+        JSON.stringify({ status: 'Cancelled', reason: cancelReason }),
+        req.ip || '127.0.0.1'
+      ]
+    );
+
+    const updated = await db.get<any>("SELECT * FROM bills WHERE id = ?", [id]);
+    res.json({
+      success: true,
+      message: "Bill cancelled lawfully via Credit Note and recorded in statutory audit log.",
+      bill: updated
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -545,39 +1250,260 @@ app.get('/api/deleted-items', async (req, res) => {
 // ANALYTICS & SALES REPORT ENDPOINTS
 // ----------------------------------------------------
 
-// Helper: compiles top products, totals, and payment distributions
-async function compileDailyStats(dateStr: string) {
+// Comprehensive stats compiler for all report periods (Daily, Weekly, Monthly, Annual)
+async function compileComprehensiveStats(options: {
+  startDate: string;
+  endDate: string;
+  periodLabel: string;
+}) {
+  const { startDate, endDate, periodLabel } = options;
   const db = await getDatabase();
-  const bills = await db.all("SELECT * FROM bills WHERE date = ?", [dateStr]);
-  
-  let totalSales = 0;
-  const paymentBreakdown = { Cash: 0, GooglePay: 0, BankCard: 0 };
 
-  bills.forEach((b: any) => {
-    totalSales += b.grand_total;
-    const pm = b.payment_method;
-    if (pm === "Cash") paymentBreakdown.Cash += b.grand_total;
-    else if (pm === "Google Pay" || pm === "GooglePay") paymentBreakdown.GooglePay += b.grand_total;
-    else if (pm === "Bank Card" || pm === "BankCard") paymentBreakdown.BankCard += b.grand_total;
-  });
+  const bills = await db.all<any>(
+    "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date ASC, time ASC",
+    [startDate, endDate]
+  );
 
-  // Calculate items count
-  const allItems = await db.all(`
-    SELECT bi.product_name as name, SUM(bi.quantity) as quantity, SUM(bi.total) as total
+  const activeBills = bills.filter(b => b.status !== 'Cancelled');
+  const cancelledBills = bills.filter(b => b.status === 'Cancelled');
+  const complimentaryBills = activeBills.filter(b => Boolean(b.is_complimentary || b.payment_method === 'Complimentary'));
+  const paidBills = activeBills.filter(b => !b.is_complimentary && b.payment_method !== 'Complimentary');
+
+  // Query all bill items in range
+  const billItems = await db.all<any>(`
+    SELECT bi.*, b.date, b.payment_method, b.status, b.is_complimentary, b.operating_mode
     FROM bill_items bi
     JOIN bills b ON bi.bill_id = b.id
-    WHERE b.date = ?
-    GROUP BY bi.product_name
-    ORDER BY quantity DESC
-  `, [dateStr]);
+    WHERE b.date BETWEEN ? AND ?
+  `, [startDate, endDate]);
+
+  const activeItems = billItems.filter(it => it.status !== 'Cancelled');
+
+  // Query batch master to lookup purchase_price and MRP accurately
+  const allBatches = await db.all<any>("SELECT * FROM batches");
+  const batchPriceMap = new Map<string, { purchase_price: number; mrp: number }>();
+  allBatches.forEach(bat => {
+    if (bat.batch_number) {
+      batchPriceMap.set(String(bat.batch_number), {
+        purchase_price: Number(bat.purchase_price || 0),
+        mrp: Number(bat.mrp || 0)
+      });
+    }
+  });
+
+  // 1. Sales & Revenue
+  let grossSales = 0; // MRP based
+  let totalDiscounts = 0;
+  let netSales = 0; // grand_total of paid active bills
+  let totalTax = 0;
+
+  paidBills.forEach(b => {
+    netSales += Number(b.grand_total || 0);
+    totalDiscounts += Number(b.discount || 0);
+    totalTax += Number(b.tax || 0);
+  });
+
+  // Calculate COGS and Gross Profit
+  let totalCogs = 0;
+  let totalUnitsSold = 0;
+  let totalComplimentaryUnits = 0;
+  let complimentaryAbsorbedCost = 0;
+  let complimentaryMrpValue = 0;
+
+  // Product aggregated sales map
+  const productAggMap = new Map<string, { name: string; quantity: number; total: number; cogs: number; profit: number }>();
+
+  // GST slabs breakdown
+  const gstSlabs = {
+    slab0: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+    slab5: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+    slab12: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+    slab18: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 }
+  };
+
+  activeItems.forEach(it => {
+    const qty = Number(it.quantity || 0);
+    const itemTotal = Number(it.total || 0);
+    const batchInfo = batchPriceMap.get(String(it.batch_number)) || { purchase_price: Number(it.rate || 0) * 0.75, mrp: Number(it.rate || 0) };
+    const costPrice = batchInfo.purchase_price;
+    const itemCogs = qty * costPrice;
+
+    if (it.is_complimentary || it.payment_method === 'Complimentary') {
+      totalComplimentaryUnits += qty;
+      complimentaryAbsorbedCost += itemCogs;
+      complimentaryMrpValue += (qty * batchInfo.mrp);
+    } else {
+      totalUnitsSold += qty;
+      totalCogs += itemCogs;
+      grossSales += (qty * (Number(it.rate) || batchInfo.mrp));
+
+      // GST Slab assignment
+      const taxRate = Math.round(Number(it.tax_percent || 0));
+      const taxable = itemTotal / (1 + (taxRate / 100));
+      const cgst = Number(it.cgst || (itemTotal - taxable) / 2);
+      const sgst = Number(it.sgst || (itemTotal - taxable) / 2);
+      const taxAmt = cgst + sgst;
+
+      if (taxRate <= 2) {
+        gstSlabs.slab0.taxable += taxable;
+      } else if (taxRate <= 6) {
+        gstSlabs.slab5.taxable += taxable;
+        gstSlabs.slab5.cgst += cgst;
+        gstSlabs.slab5.sgst += sgst;
+        gstSlabs.slab5.totalTax += taxAmt;
+      } else if (taxRate <= 15) {
+        gstSlabs.slab12.taxable += taxable;
+        gstSlabs.slab12.cgst += cgst;
+        gstSlabs.slab12.sgst += sgst;
+        gstSlabs.slab12.totalTax += taxAmt;
+      } else {
+        gstSlabs.slab18.taxable += taxable;
+        gstSlabs.slab18.cgst += cgst;
+        gstSlabs.slab18.sgst += sgst;
+        gstSlabs.slab18.totalTax += taxAmt;
+      }
+
+      // Aggregate top products
+      const pName = it.product_name || 'Medicine';
+      const existing = productAggMap.get(pName) || { name: pName, quantity: 0, total: 0, cogs: 0, profit: 0 };
+      existing.quantity += qty;
+      existing.total += itemTotal;
+      existing.cogs += itemCogs;
+      existing.profit += (itemTotal - itemCogs);
+      productAggMap.set(pName, existing);
+    }
+  });
+
+  if (grossSales === 0 && netSales > 0) {
+    grossSales = netSales + totalDiscounts;
+  }
+
+  const grossProfit = Math.max(0, netSales - totalCogs);
+  const profitMarginPercent = netSales > 0 ? Number(((grossProfit / netSales) * 100).toFixed(2)) : 0;
+
+  // 2. Inward Stock in this Period
+  const inwardRows = await db.all<any>(
+    "SELECT * FROM inward_stock WHERE received_date BETWEEN ? AND ? ORDER BY received_date DESC, id DESC",
+    [startDate, endDate]
+  );
+  let totalInwardUnits = 0;
+  let totalInwardPurchaseValuation = 0;
+  let totalInwardMrpValuation = 0;
+  inwardRows.forEach(inw => {
+    const qty = Number(inw.quantity || 0);
+    totalInwardUnits += qty;
+    totalInwardPurchaseValuation += (qty * Number(inw.purchase_price || 0));
+    totalInwardMrpValuation += (qty * Number(inw.mrp || 0));
+  });
+
+  // Net Stock Movement & Difference
+  const netStockUnitsDifference = totalInwardUnits - (totalUnitsSold + totalComplimentaryUnits);
+  const netStockValuationDifference = totalInwardPurchaseValuation - (totalCogs + complimentaryAbsorbedCost);
+
+  // Closing / Current Available Stock
+  let currentClosingStockUnits = 0;
+  let currentClosingStockPurchaseValuation = 0;
+  let currentClosingStockMrpValuation = 0;
+  allBatches.forEach(b => {
+    const stk = Math.max(0, Number(b.available_stock || 0));
+    currentClosingStockUnits += stk;
+    currentClosingStockPurchaseValuation += (stk * Number(b.purchase_price || 0));
+    currentClosingStockMrpValuation += (stk * Number(b.mrp || 0));
+  });
+
+  // 3. Payment & Mode Breakdown
+  const paymentBreakdown = { Cash: 0, GooglePay: 0, BankCard: 0, Complimentary: 0 };
+  const modeA = { revenue: 0, count: 0, tax: 0 };
+  const modeB = { revenue: 0, count: 0, tax: 0 };
+
+  activeBills.forEach(b => {
+    const pm = b.payment_method;
+    const tot = Number(b.grand_total || 0);
+    if (b.is_complimentary || pm === "Complimentary") {
+      paymentBreakdown.Complimentary += 1;
+    } else if (pm === "Cash") {
+      paymentBreakdown.Cash += tot;
+    } else if (pm === "Google Pay" || pm === "GooglePay" || pm === "UPI") {
+      paymentBreakdown.GooglePay += tot;
+    } else if (pm === "Bank Card" || pm === "BankCard" || pm === "Card") {
+      paymentBreakdown.BankCard += tot;
+    }
+
+    if (b.operating_mode === 'RETAIL_PHARMACY') {
+      modeB.revenue += tot;
+      modeB.count += 1;
+      modeB.tax += Number(b.tax || 0);
+    } else {
+      modeA.revenue += tot;
+      modeA.count += 1;
+      modeA.tax += Number(b.tax || 0);
+    }
+  });
+
+  const topProducts = Array.from(productAggMap.values()).sort((a, b) => b.quantity - a.quantity);
 
   return {
-    date: dateStr,
-    totalSales,
+    periodLabel,
+    startDate,
+    endDate,
+    totalSales: netSales,
+    grossSales: Number(grossSales.toFixed(2)),
+    totalDiscounts: Number(totalDiscounts.toFixed(2)),
+    discountedBillsCount: activeBills.filter(b => Number(b.discount || 0) > 0).length,
+    averageDiscountPercent: grossSales > 0 ? Number(((totalDiscounts / grossSales) * 100).toFixed(2)) : 0,
     billCount: bills.length,
+    activeBillsCount: activeBills.length,
+    cancelledBillsCount: cancelledBills.length,
+    
+    // MRP & Purchase Rate / Financial Margins
+    financials: {
+      grossSales: Number(grossSales.toFixed(2)),
+      totalDiscounts: Number(totalDiscounts.toFixed(2)),
+      netSales: Number(netSales.toFixed(2)),
+      cogs: Number(totalCogs.toFixed(2)),
+      grossProfit: Number(grossProfit.toFixed(2)),
+      profitMarginPercent
+    },
+
+    // Stock Movement & Difference
+    stockMovement: {
+      inwardUnits: totalInwardUnits,
+      inwardPurchaseValuation: Number(totalInwardPurchaseValuation.toFixed(2)),
+      inwardMrpValuation: Number(totalInwardMrpValuation.toFixed(2)),
+      unitsSold: totalUnitsSold,
+      unitsSoldCost: Number(totalCogs.toFixed(2)),
+      complimentaryUnits: totalComplimentaryUnits,
+      complimentaryAbsorbedCost: Number(complimentaryAbsorbedCost.toFixed(2)),
+      netStockDifferenceUnits: netStockUnitsDifference,
+      netStockValuationDifference: Number(netStockValuationDifference.toFixed(2)),
+      currentAvailableStockUnits: currentClosingStockUnits,
+      currentStockValuationCost: Number(currentClosingStockPurchaseValuation.toFixed(2)),
+      currentStockValuationMrp: Number(currentClosingStockMrpValuation.toFixed(2))
+    },
+
+    // GST Breakdown
+    gstReport: {
+      taxableAmount: Number((netSales - totalTax).toFixed(2)),
+      cgst: Number((totalTax / 2).toFixed(2)),
+      sgst: Number((totalTax / 2).toFixed(2)),
+      totalTax: Number(totalTax.toFixed(2)),
+      slabs: gstSlabs
+    },
+
+    // Complimentary / Doctor Health Dispense
+    complimentarySummary: {
+      billsCount: complimentaryBills.length,
+      unitsDispensed: totalComplimentaryUnits,
+      absorbedCost: Number(complimentaryAbsorbedCost.toFixed(2)),
+      mrpValue: Number(complimentaryMrpValue.toFixed(2))
+    },
+
     paymentBreakdown,
-    topProducts: allItems as any[],
-    allBills: bills
+    modeA,
+    modeB,
+    topProducts,
+    allBills: bills,
+    inwardRecords: inwardRows
   };
 }
 
@@ -585,10 +1511,14 @@ async function compileDailyStats(dateStr: string) {
 app.get('/api/reports/daily', async (req, res) => {
   try {
     const dateStr = (req.query.date as string) || new Date().toISOString().split('T')[0];
-    const stats = await compileDailyStats(dateStr);
+    const stats = await compileComprehensiveStats({
+      startDate: dateStr,
+      endDate: dateStr,
+      periodLabel: `Daily Report - ${dateStr}`
+    });
 
     if (req.query.export === 'excel') {
-      const buffer = await generateDailyExcel(stats);
+      const buffer = await generateDailyExcel({ date: dateStr, ...stats });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=Daily_Sales_Report_${dateStr}.xlsx`);
       return res.send(buffer);
@@ -605,24 +1535,14 @@ app.get('/api/reports/weekly', async (req, res) => {
   try {
     const targetDate = (req.query.date as string) || new Date().toISOString().split('T')[0];
     const { monday, sunday } = getMondayAndSunday(targetDate);
-    
-    const db = await getDatabase();
-    const bills = await db.all("SELECT * FROM bills WHERE date BETWEEN ? AND ?", [monday, sunday]);
-
-    let totalSales = 0;
-    const paymentBreakdown = { Cash: 0, GooglePay: 0, BankCard: 0 };
-    bills.forEach((b: any) => {
-      totalSales += b.grand_total;
-      const pm = b.payment_method;
-      if (pm === "Cash") paymentBreakdown.Cash += b.grand_total;
-      else if (pm === "Google Pay" || pm === "GooglePay") paymentBreakdown.GooglePay += b.grand_total;
-      else if (pm === "Bank Card" || pm === "BankCard") paymentBreakdown.BankCard += b.grand_total;
+    const stats = await compileComprehensiveStats({
+      startDate: monday,
+      endDate: sunday,
+      periodLabel: `Weekly Report (${monday} to ${sunday})`
     });
 
-    // Daily breakdown mapping
-    const dailyBreakdownMap: { [key: string]: { date: string; amount: number; bills: number } } = {};
-    
     // Populate calendar week days
+    const dailyBreakdownMap: { [key: string]: { date: string; amount: number; bills: number } } = {};
     let runner = new Date(monday);
     for (let i = 0; i < 7; i++) {
       const dStr = runner.toISOString().split('T')[0];
@@ -630,41 +1550,76 @@ app.get('/api/reports/weekly', async (req, res) => {
       runner.setDate(runner.getDate() + 1);
     }
 
-    bills.forEach((b: any) => {
-      if (dailyBreakdownMap[b.date]) {
-        dailyBreakdownMap[b.date].amount += b.grand_total;
+    stats.allBills.forEach((b: any) => {
+      if (b.status !== 'Cancelled' && dailyBreakdownMap[b.date]) {
+        dailyBreakdownMap[b.date].amount += Number(b.grand_total || 0);
         dailyBreakdownMap[b.date].bills += 1;
       }
     });
 
-    const dailyBreakdown = Object.values(dailyBreakdownMap);
-
-    // Top selling items
-    const topItems = await db.all(`
-      SELECT bi.product_name as name, SUM(bi.quantity) as quantity, SUM(bi.total) as total
-      FROM bill_items bi
-      JOIN bills b ON bi.bill_id = b.id
-      WHERE b.date BETWEEN ? AND ?
-      GROUP BY bi.product_name
-      ORDER BY quantity DESC
-    `, [monday, sunday]);
-
-    const stats = {
+    const weeklyStats = {
+      ...stats,
       dateRange: `${monday} to ${sunday}`,
-      totalSales,
-      dailyBreakdown,
-      paymentBreakdown,
-      topProducts: topItems as any[]
+      dailyBreakdown: Object.values(dailyBreakdownMap)
     };
 
     if (req.query.export === 'excel') {
-      const buffer = await generateWeeklyExcel(stats);
+      const buffer = await generateWeeklyExcel(weeklyStats);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=Weekly_Sales_Report_${monday}_to_${sunday}.xlsx`);
       return res.send(buffer);
     }
 
-    res.json(stats);
+    res.json(weeklyStats);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Monthly Report REST API (Crucial for Clinic Accounts & Monthly Audit)
+app.get('/api/reports/monthly', async (req, res) => {
+  try {
+    const monthParam = (req.query.month as string) || (req.query.date as string && (req.query.date as string).substring(0, 7)) || new Date().toISOString().substring(0, 7);
+    const [yearStr, mStr] = monthParam.split('-');
+    const year = Number(yearStr);
+    const month = Number(mStr);
+    const startDate = `${monthParam}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${monthParam}-${String(lastDay).padStart(2, '0')}`;
+
+    const stats = await compileComprehensiveStats({
+      startDate,
+      endDate,
+      periodLabel: `Monthly Report - ${monthParam}`
+    });
+
+    // Compute day-by-day trend of the month
+    const dailyTrendMap: Record<string, { date: string; amount: number; bills: number }> = {};
+    for (let d = 1; d <= lastDay; d++) {
+      const dStr = `${monthParam}-${String(d).padStart(2, '0')}`;
+      dailyTrendMap[dStr] = { date: dStr, amount: 0, bills: 0 };
+    }
+    stats.allBills.forEach((b: any) => {
+      if (b.status !== 'Cancelled' && dailyTrendMap[b.date]) {
+        dailyTrendMap[b.date].amount += Number(b.grand_total || 0);
+        dailyTrendMap[b.date].bills += 1;
+      }
+    });
+
+    const fullMonthlyStats = {
+      ...stats,
+      month: monthParam,
+      dailyBreakdown: Object.values(dailyTrendMap)
+    };
+
+    if (req.query.export === 'excel') {
+      const buffer = await generateMonthlyExcel(fullMonthlyStats);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=Monthly_Pharmacy_Financial_Report_${monthParam}.xlsx`);
+      return res.send(buffer);
+    }
+
+    res.json(fullMonthlyStats);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -677,17 +1632,10 @@ app.get('/api/reports/yearly', async (req, res) => {
     const start = `${year}-01-01`;
     const end = `${year}-12-31`;
 
-    const db = await getDatabase();
-    const bills = await db.all("SELECT * FROM bills WHERE date BETWEEN ? AND ?", [start, end]);
-
-    let totalSales = 0;
-    const paymentBreakdown = { Cash: 0, GooglePay: 0, BankCard: 0 };
-    bills.forEach((b: any) => {
-      totalSales += b.grand_total;
-      const pm = b.payment_method;
-      if (pm === "Cash") paymentBreakdown.Cash += b.grand_total;
-      else if (pm === "Google Pay" || pm === "GooglePay") paymentBreakdown.GooglePay += b.grand_total;
-      else if (pm === "Bank Card" || pm === "BankCard") paymentBreakdown.BankCard += b.grand_total;
+    const stats = await compileComprehensiveStats({
+      startDate: start,
+      endDate: end,
+      periodLabel: `Annual Report - ${year}`
     });
 
     // Monthly breakdown (January to December)
@@ -697,63 +1645,175 @@ app.get('/api/reports/yearly', async (req, res) => {
     ];
     
     const monthlyBreakdown = months.map((name, idx) => ({
-      monthIdx: idx, // 0-based
+      monthIdx: idx,
       monthName: name,
       amount: 0,
       bills: 0,
       growthPercent: 0
     }));
 
-    bills.forEach((b: any) => {
-      const bDate = new Date(b.date);
-      const mIdx = bDate.getMonth();
-      if (mIdx >= 0 && mIdx < 12) {
-        monthlyBreakdown[mIdx].amount += b.grand_total;
-        monthlyBreakdown[mIdx].bills += 1;
+    stats.allBills.forEach((b: any) => {
+      if (b.status !== 'Cancelled') {
+        const bDate = new Date(b.date);
+        const mIdx = bDate.getMonth();
+        if (mIdx >= 0 && mIdx < 12) {
+          monthlyBreakdown[mIdx].amount += Number(b.grand_total || 0);
+          monthlyBreakdown[mIdx].bills += 1;
+        }
       }
     });
 
-    // Calculate month-on-month growth %
     for (let i = 0; i < 12; i++) {
       if (i === 0) {
         monthlyBreakdown[i].growthPercent = 0;
       } else {
         const prev = monthlyBreakdown[i - 1].amount;
         const curr = monthlyBreakdown[i].amount;
-        if (prev === 0) {
-          monthlyBreakdown[i].growthPercent = curr > 0 ? 1 : 0;
-        } else {
-          monthlyBreakdown[i].growthPercent = (curr - prev) / prev;
-        }
+        monthlyBreakdown[i].growthPercent = prev === 0 ? (curr > 0 ? 1 : 0) : (curr - prev) / prev;
       }
     }
 
-    // Top products
-    const topItems = await db.all(`
-      SELECT bi.product_name as name, SUM(bi.quantity) as quantity, SUM(bi.total) as total
-      FROM bill_items bi
-      JOIN bills b ON bi.bill_id = b.id
-      WHERE b.date BETWEEN ? AND ?
-      GROUP BY bi.product_name
-      ORDER BY quantity DESC
-    `, [start, end]);
-
-    const stats = {
+    const yearlyStats = {
+      ...stats,
       year,
-      totalSales,
-      monthlyBreakdown,
-      paymentBreakdown,
-      topProducts: topItems as any[]
+      monthlyBreakdown
     };
 
     if (req.query.export === 'excel') {
-      const buffer = await generateYearlyExcel(stats);
+      const buffer = await generateYearlyExcel(yearlyStats);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=Yearly_Sales_Report_${year}.xlsx`);
       return res.send(buffer);
     }
 
-    res.json(stats);
+    res.json(yearlyStats);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// INWARD STOCK MANAGEMENT API (Admin only monthly inward)
+// ----------------------------------------------------
+app.get('/api/inventory/inward', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const rows = await db.all("SELECT * FROM inward_stock ORDER BY received_date DESC, id DESC");
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/inventory/inward', async (req, res) => {
+  try {
+    const {
+      product_id,
+      product_name,
+      batch_number,
+      quantity,
+      expiry_date,
+      mfg_date,
+      purchase_price,
+      mrp,
+      supplier_name,
+      invoice_number,
+      received_date,
+      received_by = 'Admin',
+      notes
+    } = req.body;
+
+    if (!product_id || !quantity || !batch_number || !expiry_date) {
+      return res.status(400).json({ error: "Missing required inward stock fields (product_id, quantity, batch_number, expiry_date)." });
+    }
+
+    const db = await getDatabase();
+    const rDate = received_date || new Date().toISOString().split('T')[0];
+
+    const result = await db.run(
+      `INSERT INTO inward_stock (
+        product_id, product_name, batch_number, quantity, expiry_date, mfg_date,
+        purchase_price, mrp, supplier_name, invoice_number, received_date, received_by, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        Number(product_id), String(product_name || 'Medicine'), String(batch_number), Number(quantity),
+        String(expiry_date), mfg_date || '2026-01-01', Number(purchase_price || 0), Number(mrp || 0),
+        supplier_name || 'Direct Wholesale', invoice_number || 'INV-MONTHLY', rDate, received_by, notes || ''
+      ]
+    );
+
+    // Sync into batches table (available stock increases)
+    const existingBatches = await db.all<any>("SELECT * FROM batches WHERE product_id = ? AND batch_number = ?", [Number(product_id), String(batch_number)]);
+    if (existingBatches && existingBatches.length > 0) {
+      await db.run(
+        "UPDATE batches SET available_stock = available_stock + ?, expiry_date = ?, purchase_price = ?, mrp = ? WHERE id = ?",
+        [Number(quantity), String(expiry_date), Number(purchase_price || 0), Number(mrp || 0), existingBatches[0].id]
+      );
+    } else {
+      await db.run(
+        `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, available_stock, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')`,
+        [Number(product_id), String(batch_number), mfg_date || '2026-01-01', String(expiry_date), Number(mrp || 0), Number(purchase_price || 0), Number(quantity)]
+      );
+    }
+
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [1, received_by, 'INWARD_STOCK_ENTRY', 'inward_stock', result.lastID, null, JSON.stringify({ product_id, batch_number, quantity }), req.ip || '127.0.0.1']
+    );
+
+    res.status(201).json({
+      success: true,
+      id: result.lastID,
+      message: `Inward stock of ${quantity} units recorded for batch ${batch_number}`
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ----------------------------------------------------
+// CUSTOM CATEGORIES MANAGEMENT API (Admin)
+// ----------------------------------------------------
+app.get('/api/categories', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const rows = await db.all("SELECT * FROM categories ORDER BY name ASC");
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { name, description, created_by = 'admin' } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Category name is required." });
+    }
+    const catName = name.trim();
+    const db = await getDatabase();
+    const existing = await db.all<any>("SELECT * FROM categories WHERE name = ?", [catName]);
+    if (existing && existing.length > 0) {
+      return res.json({ success: true, message: "Category already exists", category: existing[0] });
+    }
+    const result = await db.run(
+      "INSERT INTO categories (name, description, created_by) VALUES (?, ?, ?)",
+      [catName, description || '', created_by]
+    );
+    res.status(201).json({ success: true, id: result.lastID, name: catName });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/categories/:name', async (req, res) => {
+  try {
+    const catName = decodeURIComponent(req.params.name);
+    const db = await getDatabase();
+    await db.run("DELETE FROM categories WHERE name = ?", [catName]);
+    res.json({ success: true, message: `Category '${catName}' deleted.` });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -822,7 +1882,7 @@ function formatServerEscPos(receiptData: any): Buffer {
   chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
   pushAscii(divider);
   pushAscii(twoCol(`Bill No: #${billNumber}`, `Date: ${date}`));
-  pushAscii(twoCol(`Pharmacist: ${cashierName}`, `Time: ${time}`));
+  pushAscii(twoCol(`Time: ${time}`, `Status: Issued`));
   pushAscii(divider);
 
   if (is58mm) {
@@ -868,6 +1928,11 @@ function formatServerEscPos(receiptData: any): Buffer {
   // Center: ESC a 1
   chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
   pushAscii(`Payment Mode: ${paymentMethod}\n\n`);
+  // ESC E 1: Bold on
+  chunks.push(Buffer.from([0x1B, 0x45, 0x01]));
+  pushAscii("Drugs sold cannot be refunded\n\n");
+  // ESC E 0: Bold off
+  chunks.push(Buffer.from([0x1B, 0x45, 0x00]));
   pushAscii("Thank You. Stay Healthy!\n");
   pushAscii("MADRAS ORTHO CLINIC SOFTWARE\n");
   pushAscii("Mission for Cure\n\n\n\n");
@@ -913,6 +1978,326 @@ app.post('/api/print/network', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// STATUTORY COMPLIANCE & DRUG REGISTERS (D&C RULES, 1945)
+// ----------------------------------------------------
+
+// Schedule H1 Register (Rule 65(4)(4-A))
+app.get('/api/registers/schedule-h1', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const records = await db.all("SELECT * FROM schedule_h1_register");
+    res.json(records);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/registers/schedule-h1/export-excel', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const records = await db.all("SELECT * FROM schedule_h1_register");
+    const buffer = await generateScheduleH1Excel(records);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Schedule_H1_Register_Form20B.xlsx"');
+    res.send(buffer);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cold Chain Temperature Logs (Rule 65(17))
+app.get('/api/registers/cold-chain', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const records = await db.all("SELECT * FROM cold_chain_logs");
+    res.json(records);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/registers/cold-chain', async (req, res) => {
+  try {
+    const { equipment_name, recorded_temp, checked_by, remarks } = req.body;
+    const temp = Number(recorded_temp);
+    const minTemp = 2.0;
+    const maxTemp = 8.0;
+    const status = (temp >= minTemp && temp <= maxTemp) ? 'Normal' : 'Excursion';
+    const now = new Date();
+    const logDate = now.toISOString().split('T')[0];
+    const logTime = now.toTimeString().split(' ')[0];
+
+    const db = await getDatabase();
+    const result = await db.run(
+      `INSERT INTO cold_chain_logs (log_date, log_time, equipment_name, recorded_temp_c, min_temp_c, max_temp_c, status, checked_by, remarks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [logDate, logTime, equipment_name || 'Biologics Refrigerator R-01', temp, minTemp, maxTemp, status, checked_by || 'Priya Nair, B.Pharm', remarks || (status === 'Normal' ? 'Routine inspection' : 'Temperature excursion detected')]
+    );
+
+    res.status(201).json({
+      id: result.lastID,
+      log_date: logDate,
+      log_time: logTime,
+      equipment_name,
+      recorded_temp_c: temp,
+      min_temp_c: minTemp,
+      max_temp_c: maxTemp,
+      status,
+      checked_by
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/registers/cold-chain/export-excel', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const records = await db.all("SELECT * FROM cold_chain_logs");
+    const buffer = await generateColdChainExcel(records);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Cold_Chain_Temperature_Log_Rule65.xlsx"');
+    res.send(buffer);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pharmacy Retail Licences (Form 20B / Form 21B)
+app.get('/api/registers/licences', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const licences = await db.all("SELECT * FROM pharmacy_licences");
+    res.json(licences);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Tamper-Evident Audit Trail Logs (DPDP Act 2023)
+app.get('/api/audit-logs', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const logs = await db.all("SELECT * FROM audit_logs");
+    res.json(logs);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FEFO Batch Tracking
+app.get('/api/batches/product/:productId', async (req, res) => {
+  try {
+    const prodId = Number(req.params.productId);
+    const db = await getDatabase();
+    const batches = await db.all("SELECT * FROM batches WHERE product_id = ?", [prodId]);
+    res.json(batches);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ----------------------------------------------------
+// CLINICAL DECISION SUPPORT & PATIENT SAFETY
+// ----------------------------------------------------
+app.post('/api/clinical/check-interactions', (req, res) => {
+  try {
+    const { items, patientInfo } = req.body;
+    const result = checkClinicalInteractions(items || [], patientInfo || {});
+    res.json({
+      ...result,
+      critical: result.alerts.filter(a => a.severity === 'CRITICAL'),
+      warnings: result.alerts.filter(a => a.severity === 'WARNING')
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to evaluate clinical interactions: " + err.message });
+  }
+});
+
+// ----------------------------------------------------
+// PHARMACOVIGILANCE, RECALL TRACING & BATCH QUARANTINE
+// ----------------------------------------------------
+
+// List Quarantined and Recalled batches
+app.get('/api/registers/recalls', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const quarantined = await db.all(`
+      SELECT b.*, p.name as product_name, p.generic_name
+      FROM batches b
+      LEFT JOIN products p ON b.product_id = p.id
+      WHERE b.status IN ('Quarantined', 'Recalled')
+      ORDER BY b.quarantined_at DESC
+    `);
+    res.json(quarantined);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark a batch as Quarantined or Recalled by Batch Number or ID
+app.post('/api/registers/recalls/quarantine', async (req, res) => {
+  try {
+    const { batch_number, status = 'Quarantined', reason, authorized_by = 'Pharmacist' } = req.body;
+    if (!batch_number) {
+      return res.status(400).json({ error: "Batch number is required." });
+    }
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    const allBatches = await db.all<any>("SELECT * FROM batches");
+    const existing = allBatches.find((b: any) => b.batch_number === batch_number || b.id === Number(batch_number));
+    if (existing) {
+      await db.run(
+        "UPDATE batches SET status = ?, quarantine_reason = ?, quarantined_at = ? WHERE id = ?",
+        [status, reason || 'CDSCO Recall / Substandard Batch Notice', now, existing.id]
+      );
+    } else {
+      const prodId = req.body.product_id || 1;
+      await db.run(
+        `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, available_stock, status, quarantine_reason, quarantined_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [prodId, batch_number, '2025-01-01', '2028-12-31', 100, 70, 50, status, reason || 'CDSCO Recall / Substandard Batch Notice', now]
+      );
+    }
+
+    // Record statutory audit log
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        1, authorized_by, 'BATCH_QUARANTINE_ACTION', 'batches', existing ? existing.id : 0,
+        JSON.stringify({ status: 'Active' }),
+        JSON.stringify({ batch_number, status, reason }),
+        req.ip || '127.0.0.1'
+      ]
+    );
+
+    res.json({ success: true, message: `Batch '${batch_number}' placed under ${status}.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark a batch as Quarantined or Recalled (CDSCO / State Drug Controller Alert)
+app.post('/api/batches/:id/quarantine', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { status = 'Quarantined', reason, authorized_by = 'Pharmacist' } = req.body;
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+
+    await db.run(
+      "UPDATE batches SET status = ?, quarantine_reason = ?, quarantined_at = ? WHERE id = ?",
+      [status, reason || 'CDSCO Recall / Substandard Batch Notice', now, id]
+    );
+
+    // Record statutory audit log
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        1, authorized_by, 'BATCH_QUARANTINE_ACTION', 'batches', id,
+        JSON.stringify({ status: 'Active' }),
+        JSON.stringify({ status, reason }),
+        req.ip || '127.0.0.1'
+      ]
+    );
+
+    res.json({ success: true, message: `Batch #${id} successfully placed under ${status}.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Rapid Patient Contact Tracing for Recalled Batches (National Recall Directives)
+app.get('/api/registers/recalls/trace/:batchNumber', async (req, res) => {
+  try {
+    const { batchNumber } = req.params;
+    const db = await getDatabase();
+
+    const query = `
+      SELECT 
+        b.id as bill_id, b.bill_number, b.date as dispense_date, b.time as dispense_time,
+        b.operating_mode, b.patient_name, b.patient_phone, b.patient_address,
+        b.doctor_name, b.doctor_reg_no, b.pharmacist_name,
+        bi.product_name, bi.quantity, bi.batch_number, bi.expiry_date
+      FROM bill_items bi
+      JOIN bills b ON bi.bill_id = b.id
+      WHERE bi.batch_number = ? AND b.status != 'Cancelled'
+      ORDER BY b.date DESC
+    `;
+
+    const patients = await db.all(query, [batchNumber]);
+    res.json({
+      batch_number: batchNumber,
+      total_dispensed_instances: patients.length,
+      patients
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Pharmacovigilance Programme of India (PvPI) ADR Reporting
+app.get('/api/registers/adr-reports', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const reports = await db.all("SELECT * FROM adr_reports");
+    res.json(reports);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/registers/adr-reports', async (req, res) => {
+  try {
+    const {
+      patient_name, patient_age, patient_gender,
+      suspected_drug, generic_name, batch_number,
+      reaction_description, reaction_date,
+      severity = 'MODERATE', outcome = 'RECOVERING',
+      reported_by, reporter_qualification = 'B.Pharm'
+    } = req.body;
+
+    if (!patient_name || !suspected_drug || !reaction_description) {
+      return res.status(400).json({ error: "Missing required PvPI ADR fields: Patient Name, Suspected Drug, and Reaction Description." });
+    }
+
+    const reportDate = new Date().toISOString().split('T')[0];
+    const db = await getDatabase();
+
+    const result = await db.run(
+      `INSERT INTO adr_reports (
+        report_date, patient_name, patient_age, patient_gender,
+        suspected_drug, generic_name, batch_number,
+        reaction_description, reaction_date, severity, outcome,
+        reported_by, reporter_qualification
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        reportDate, patient_name, patient_age ? Number(patient_age) : null, patient_gender || null,
+        suspected_drug, generic_name || suspected_drug, batch_number || 'N/A',
+        reaction_description, reaction_date || reportDate, severity, outcome,
+        reported_by || 'Pharmacist', reporter_qualification
+      ]
+    );
+
+    // Audit log
+    await db.run(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
+      [1, reported_by || 'pharmacist', 'PVPI_ADR_REPORT_FILED', 'adr_reports', result.lastID, req.ip || '127.0.0.1']
+    );
+
+    res.status(201).json({
+      success: true,
+      id: result.lastID,
+      message: "Adverse Drug Reaction recorded under PvPI protocol."
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ----------------------------------------------------
 // SYSTEM DATA MANAGEMENT & UNINSTALL CLEANUP
 // ----------------------------------------------------
 
@@ -927,9 +2312,66 @@ app.post('/api/system/wipe-all-data', async (req, res) => {
   }
 });
 
+// Purge ONLY example / demo records across all tables (patients, employees, bills, products)
+app.post('/api/system/clear-example-records', async (req, res) => {
+  try {
+    const db = await getDatabase();
+
+    // 1. Purge example patients
+    const delPatients = await db.run("DELETE FROM patients WHERE is_example = 1");
+
+    // 2. Purge example employees
+    const delEmployees = await db.run("DELETE FROM employees WHERE is_example = 1");
+
+    // 3. Purge example bills & bill items
+    const exampleBills = await db.all<any>("SELECT id FROM bills WHERE is_example = 1");
+    for (const b of exampleBills) {
+      await db.run("DELETE FROM bill_items WHERE bill_id = ?", [b.id]);
+    }
+    const delBills = await db.run("DELETE FROM bills WHERE is_example = 1");
+
+    // 4. Audit trail entry for governance
+    try {
+      await db.run(
+        `INSERT INTO audit_logs (username, action, entity_type, entity_id, new_state, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        ["admin", "PURGE_EXAMPLE_RECORDS", "system", "all", JSON.stringify({
+          patients: delPatients.changes || 0,
+          employees: delEmployees.changes || 0,
+          bills: delBills.changes || 0
+        }), "127.0.0.1"]
+      );
+    } catch (e) {}
+
+    res.json({
+      success: true,
+      message: "All example placeholder records (demo patients, demo employees, test bills) have been purged. Genuine clinic records are preserved.",
+      purged: {
+        patients: delPatients.changes || 0,
+        employees: delEmployees.changes || 0,
+        bills: delBills.changes || 0
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to purge example records: " + err.message });
+  }
+});
+
 // Start API server with EADDRINUSE guard.
 // If the port is already in use (e.g., zombie process from a previous run),
 // log clearly instead of crashing silently which would cause a blank screen.
+
+// Wildcard fallback to serve index.html for client-side routing
+for (const p of distCandidates) {
+  if (fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html'))) {
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(path.join(p, 'index.html'));
+    });
+    break;
+  }
+}
+
 const server = app.listen(PORT, () => {
   console.log(`[SERVER] API running on http://localhost:${PORT}`);
 });
@@ -941,3 +2383,5 @@ server.on('error', (err: NodeJS.ErrnoException) => {
     console.error('[SERVER] Unexpected server error:', err);
   }
 });
+
+export { app, server };

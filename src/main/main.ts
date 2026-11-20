@@ -140,15 +140,24 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
   return new Promise((resolve, reject) => {
     try {
       const {
-        bakeryName = "MADRAS ORTHO CLINIC SOFTWARE",
-        address = "Chennai, Tamil Nadu",
-        phone = "+91 98765 43210",
-        gstin = "",
-        dlNo = "",
+        bakeryName = "MADRAS ORTHO CLINIC & PHARMACY",
+        address = "42 Anna Salai, Thousand Lights, Chennai - 600002, Tamil Nadu",
+        phone = "+91 44 2855 0123 / +91 98401 22334",
+        gstin = "33AAAAA0000A1Z5",
+        dlNo = "20B/TN/CHE/00482",
+        dlNo21 = "21B/TN/CHE/00482",
         billNumber,
         date,
         time,
         cashierName = "Pharmacist",
+        patientName = "Walk-in Patient",
+        patientAge = null,
+        patientGender = null,
+        patientPhone = null,
+        doctorName = "Dr. Arjun Sharma, MS (Ortho)",
+        doctorRegNo = "TNMC/2012/94821",
+        pharmacistName = "Priya Nair, B.Pharm",
+        pharmacistRegNo = "TNSPC/2018/48912",
         items = [],
         subtotal = 0,
         discount = 0,
@@ -160,8 +169,10 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
 
       const cgst = tax > 0 ? tax / 2 : 0;
       const sgst = tax > 0 ? tax / 2 : 0;
+      const hasScheduleH1 = items.some((it: any) => String(it.schedule || '').toUpperCase().includes('H1'));
+      const hasScheduleH = items.some((it: any) => String(it.schedule || '').toUpperCase().includes('SCHEDULE H'));
 
-      // Compile styled thermal receipt HTML markup
+      // Compile styled statutory pharmacy thermal receipt HTML markup
       const thermalHtml = `
         <!DOCTYPE html>
         <html>
@@ -173,90 +184,83 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
             }
             body {
               font-family: 'Courier New', Courier, monospace;
-              font-size: ${width === '58mm' ? '11px' : '13px'};
-              line-height: 1.4;
+              font-size: ${width === '58mm' ? '11px' : '12px'};
+              line-height: 1.35;
               margin: 0;
-              padding: ${width === '58mm' ? '5px' : '12px'};
+              padding: ${width === '58mm' ? '5px' : '10px'};
               color: #000;
               background: #fff;
               width: ${width};
             }
-            .center {
-              text-align: center;
-            }
-            .bold {
-              font-weight: bold;
-            }
+            .center { text-align: center; }
+            .bold { font-weight: bold; }
             .header-title {
-              font-size: 16px;
+              font-size: 15px;
               font-weight: bold;
               margin-bottom: 2px;
               text-transform: uppercase;
             }
-            .sub-info {
-              font-size: ${width === '58mm' ? '10px' : '11px'};
-            }
-            .separator {
-              border-top: 1px dashed #000;
-              margin: 6px 0;
-            }
-            .info-table, .items-table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            .info-table td {
-              padding: 1px 0;
-            }
+            .sub-info { font-size: ${width === '58mm' ? '9px' : '10px'}; }
+            .separator { border-top: 1px dashed #000; margin: 5px 0; }
+            .double-separator { border-top: 2px solid #000; margin: 6px 0; }
+            .info-table, .items-table { width: 100%; border-collapse: collapse; }
+            .info-table td { padding: 1px 0; font-size: ${width === '58mm' ? '9px' : '10px'}; }
             .items-table th {
               text-align: left;
               border-bottom: 1px dashed #000;
-              padding-bottom: 4px;
+              padding-bottom: 3px;
+              font-size: ${width === '58mm' ? '9px' : '10px'};
               font-weight: bold;
             }
             .items-table td {
-              padding: 3px 0;
-              vertical-align: top;
-            }
-            .right {
-              text-align: right;
-            }
-            .totals-container {
-              width: 100%;
-              margin-top: 6px;
-            }
-            .totals-table {
-              width: 70%;
-              margin-left: 30%;
-            }
-            .totals-table td {
               padding: 2px 0;
+              vertical-align: top;
+              font-size: ${width === '58mm' ? '9px' : '10.5px'};
+            }
+            .right { text-align: right; }
+            .totals-container { width: 100%; margin-top: 5px; }
+            .totals-table { width: 75%; margin-left: 25%; font-size: ${width === '58mm' ? '9.5px' : '11px'}; }
+            .totals-table td { padding: 1.5px 0; }
+            .warning-box {
+              border: 1px solid #000;
+              padding: 4px;
+              margin-top: 6px;
+              font-size: ${width === '58mm' ? '8.5px' : '9.5px'};
+              text-align: center;
+              line-height: 1.25;
             }
             .footer {
-              margin-top: 16px;
-              font-size: ${width === '58mm' ? '10px' : '11px'};
+              margin-top: 10px;
+              font-size: ${width === '58mm' ? '9px' : '10px'};
             }
           </style>
         </head>
         <body>
           <div class="center">
             <div class="header-title">${bakeryName}</div>
-            <div class="sub-info bold">Mission for Cure</div>
+            <div class="sub-info bold">Center for Orthopaedic Surgery & Pharmacy</div>
             <div class="sub-info">${address}</div>
             <div class="sub-info">Ph: ${phone}</div>
             ${gstin ? `<div class="sub-info bold">GSTIN: ${gstin}</div>` : ''}
-            ${dlNo ? `<div class="sub-info">Drug Lic No: ${dlNo}</div>` : ''}
+            <div class="sub-info">Drug Lic (Form 20B): ${dlNo} | (Form 21B): ${dlNo21}</div>
           </div>
 
           <div class="separator"></div>
 
           <table class="info-table">
             <tr>
-              <td><span class="bold">Bill No:</span> #${billNumber}</td>
+              <td><span class="bold">Tax Invoice #:</span> ${billNumber}</td>
               <td class="right"><span class="bold">Date:</span> ${date}</td>
             </tr>
             <tr>
-              <td><span class="bold">Cashier:</span> ${cashierName}</td>
-              <td class="right"><span class="bold">Time:</span> ${time}</td>
+              <td><span class="bold">Time:</span> ${time}</td>
+              <td class="right"><span class="bold">Payment:</span> ${paymentMethod}</td>
+            </tr>
+            <tr>
+              <td colspan="2"><span class="bold">Patient:</span> ${patientName} ${patientAge ? `(${patientAge}y/${patientGender || ''})` : ''} ${patientPhone ? `| Ph: ${patientPhone}` : ''}</td>
+            </tr>
+            <tr>
+              <td colspan="2"><span class="bold">Prescriber:</span> ${doctorName} [Reg: ${doctorRegNo}]</td>
             </tr>
           </table>
 
@@ -265,16 +269,20 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
           <table class="items-table">
             <thead>
               <tr>
-                <th style="width: 45%;">Item</th>
-                <th class="right" style="width: 15%;">Qty</th>
+                <th style="width: 48%;">Item / Generic / Batch</th>
+                <th class="right" style="width: 14%;">Qty</th>
                 <th class="right" style="width: 18%;">Rate</th>
-                <th class="right" style="width: 22%;">Total</th>
+                <th class="right" style="width: 20%;">Total</th>
               </tr>
             </thead>
             <tbody>
               ${items.map((item: any) => `
                 <tr>
-                  <td>${item.product_name} ${item.hsn_code ? `<br/><small>HSN: ${item.hsn_code}</small>` : ''}</td>
+                  <td>
+                    <span class="bold">${item.product_name}</span>
+                    ${item.generic_name ? `<br/><span style="font-size:8.5px;color:#333;">${item.generic_name}</span>` : ''}
+                    <br/><span style="font-size:8px;">B:${item.batch_number || 'B-STD'} | Exp:${item.expiry_date || 'N/A'} | HSN:${item.hsn_code || '3004'}</span>
+                  </td>
                   <td class="right">${item.quantity}</td>
                   <td class="right">₹${Number(item.rate).toFixed(2)}</td>
                   <td class="right">₹${Number(item.total).toFixed(2)}</td>
@@ -288,7 +296,7 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
           <div class="totals-container">
             <table class="totals-table">
               <tr>
-                <td>Subtotal (excl. GST):</td>
+                <td>Taxable Subtotal:</td>
                 <td class="right">₹${Number(subtotal).toFixed(2)}</td>
               </tr>
               ${discount > 0 ? `
@@ -307,30 +315,40 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
                   <td class="right">+₹${sgst.toFixed(2)}</td>
                 </tr>
                 <tr class="bold">
-                  <td>Total GST Added:</td>
+                  <td>Total GST:</td>
                   <td class="right">+₹${Number(tax).toFixed(2)}</td>
                 </tr>
               ` : ''}
               <tr class="bold">
-                <td>Grand Total (incl. GST):</td>
-                <td class="right" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0;">
+                <td>Invoice Total:</td>
+                <td class="right" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 3px 0;">
                   ₹${Number(grandTotal).toFixed(2)}
                 </td>
               </tr>
             </table>
           </div>
 
-          <div class="separator"></div>
-
-          <div class="center">
-            <span class="bold">Payment Mode: ${paymentMethod}</span>
-          </div>
+          ${hasScheduleH1 ? `
+            <div class="warning-box bold">
+              SCHEDULE H1 PRESCRIPTION DRUG - CAUTION:<br/>
+              It is dangerous to take this preparation except in accordance with the medical advice.<br/>
+              Not to be sold by retail without the prescription of a Registered Medical Practitioner.
+            </div>
+          ` : (hasScheduleH ? `
+            <div class="warning-box">
+              <span class="bold">SCHEDULE H PRESCRIPTION DRUG - CAUTION:</span><br/>
+              To be sold by retail on the prescription of a Registered Medical Practitioner only.
+            </div>
+          ` : '')}
 
           <div class="separator"></div>
 
           <div class="center footer">
-            <div class="bold">Thank You. Stay Healthy!</div>
-            <div style="font-size: 9px; color: #666; margin-top: 4px;">GST Invoice | MADRAS ORTHO CLINIC SOFTWARE | Mission for Cure</div>
+            <div class="bold" style="font-size: 11px; margin-top: 4px; letter-spacing: 0.5px;">Drugs sold cannot be refunded</div>
+            <div style="font-size: 8.5px; color: #444; margin-top: 3px;">
+              Statutory Tax Invoice under Rule 65(5) D&C Rules, 1945 & CGST Act 2017
+            </div>
+            <div class="bold" style="margin-top: 4px;">Wish you a speedy recovery!</div>
           </div>
         </body>
         </html>
@@ -445,7 +463,7 @@ function formatMainEscPos(receiptData: any): Buffer {
   chunks.push(Buffer.from([0x1B, 0x61, 0x00]));
   pushAscii(divider);
   pushAscii(twoCol(`Bill No: #${billNumber}`, `Date: ${date}`));
-  pushAscii(twoCol(`Pharmacist: ${cashierName}`, `Time: ${time}`));
+  pushAscii(twoCol(`Time: ${time}`, `Status: Issued`));
   pushAscii(divider);
 
   if (is58mm) {
@@ -491,6 +509,9 @@ function formatMainEscPos(receiptData: any): Buffer {
   // Center: ESC a 1
   chunks.push(Buffer.from([0x1B, 0x61, 0x01]));
   pushAscii(`Payment Mode: ${paymentMethod}\n\n`);
+  chunks.push(Buffer.from([0x1B, 0x45, 0x01])); // Bold on
+  pushAscii("Drugs sold cannot be refunded\n\n");
+  chunks.push(Buffer.from([0x1B, 0x45, 0x00])); // Bold off
   pushAscii("Thank You. Stay Healthy!\n");
   pushAscii("MADRAS ORTHO CLINIC SOFTWARE\n");
   pushAscii("Mission for Cure\n\n\n\n");

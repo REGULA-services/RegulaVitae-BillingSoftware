@@ -15,6 +15,7 @@ import {
   generateScheduleH1Excel,
   generateColdChainExcel
 } from './excel';
+import { startMdnsResponder } from './mdnsResponder';
 
 const app = express();
 const PORT = process.env.PORT || 4848;
@@ -2769,6 +2770,12 @@ const HOST = '0.0.0.0';
 const server = app.listen(Number(PORT), HOST, () => {
   console.log(`[SERVER] API running on http://madrasorthoclinic.local:${PORT} (and http://localhost:${PORT})`);
   console.log(`[SERVER] Accepting LAN/Wi-Fi connections on http://${HOST}:${PORT}`);
+  // Start Zero-Config mDNS responder for madrasorthoclinic.local
+  try {
+    startMdnsResponder();
+  } catch (e) {
+    console.warn('[SERVER] mDNS startup warning:', e);
+  }
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

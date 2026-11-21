@@ -77,9 +77,6 @@ const electronAPI = isElectron ? (window as any).electron : {
       const cgst = tax > 0 ? tax / 2 : 0;
       const sgst = tax > 0 ? tax / 2 : 0;
 
-      const totalMrp = items.reduce((sum: number, it: any) => sum + (Number(it.mrp || it.rate || 0) * Number(it.quantity || 1)), 0);
-      const patientSavings = Math.max(0, totalMrp - Number(grandTotal));
-
       const thermalHtml = `
         <!DOCTYPE html>
         <html>
@@ -157,7 +154,7 @@ const electronAPI = isElectron ? (window as any).electron : {
                 <tr>
                   <td>
                     ${item.product_name}
-                    ${Number(item.mrp || 0) > Number(item.rate || 0) ? `<br/><span style="font-size:8px;color:#059669;font-weight:bold;">MRP: ₹${Number(item.mrp).toFixed(2)} (Save ₹${(Number(item.mrp) - Number(item.rate)).toFixed(2)})</span>` : (item.mrp ? `<br/><span style="font-size:8px;color:#555;">MRP: ₹${Number(item.mrp).toFixed(2)}</span>` : '')}
+                    ${item.mrp ? `<br/><span style="font-size:8px;color:#555;">MRP: ₹${Number(item.mrp).toFixed(2)}</span>` : ''}
                   </td>
                   <td class="right">${item.quantity}</td>
                   <td class="right">₹${Number(item.rate).toFixed(2)}</td>
@@ -173,16 +170,6 @@ const electronAPI = isElectron ? (window as any).electron : {
                 <td>Subtotal (excl. GST):</td>
                 <td class="right">₹${Number(subtotal).toFixed(2)}</td>
               </tr>
-              ${totalMrp > Number(subtotal) && patientSavings > 0 ? `
-                <tr>
-                  <td>Total MRP Value:</td>
-                  <td class="right">₹${totalMrp.toFixed(2)}</td>
-                </tr>
-                <tr style="color: #059669; font-weight: bold;">
-                  <td>Clinic Concession (Saved):</td>
-                  <td class="right">-₹${patientSavings.toFixed(2)}</td>
-                </tr>
-              ` : ''}
               ${discount > 0 ? `
                 <tr>
                   <td>Discount:</td>
@@ -419,21 +406,38 @@ export default function App() {
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [isBatchImporting, setIsBatchImporting] = useState(false);
 
-  // Inward Stock Management (Admin only)
+  // Persistent Discount (remains active for every single bill until user changes it)
+  const [persistentDiscount, setPersistentDiscount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('moc_persistent_discount');
+      return saved !== null ? Number(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  // Multi-Medicine Inward Stock Consignment state (Admin only)
   const [inwardRecords, setInwardRecords] = useState<any[]>([]);
   const [savingInward, setSavingInward] = useState(false);
-  const [inwardForm, setInwardForm] = useState({
-    product_id: 0,
-    batch_number: '',
-    quantity_received: 0,
-    expiry_date: '',
-    purchase_price: 0,
-    mrp: 0,
-    selling_price: 0,
+  const [inwardSearchQuery, setInwardSearchQuery] = useState('');
+  const [inwardConsignment, setInwardConsignment] = useState({
     supplier_name: '',
-    invoice_no: '',
+    invoice_number: '',
     received_date: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
+    items: [
+      {
+        id: 'inw-item-1',
+        product_id: 0,
+        product_name: '',
+        batch_number: '',
+        quantity: 0,
+        expiry_date: '',
+        purchase_price: 0,
+        mrp: 0,
+        selling_price: 0
+      }
+    ]
   });
 
   // Complimentary / Doctor Health Dispense state (Admin only)
@@ -944,55 +948,148 @@ export default function App() {
     }
   };
 
+  const handleSetDiscount = (percent: number) => {
+    try {
+      localStorage.setItem('moc_persistent_discount', String(percent));
+    } catch {}
+    setPersistentDiscount(percent);
+    setSessions(prev => prev.map(s => {
+      if (s.id !== activeSessionId) return s;
+      return { ...s, discountPercent: percent, discountAmount: 0 };
+    }));
+  };
+
+  const handleAddInwardRow = () => {
+    setInwardConsignment(prev => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: 'inw-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+          product_id: 0,
+          product_name: '',
+          batch_number: '',
+          quantity: 0,
+          expiry_date: '',
+          purchase_price: 0,
+          mrp: 0,
+          selling_price: 0
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveInwardRow = (id: string) => {
+    setInwardConsignment(prev => {
+      if (prev.items.length <= 1) return prev;
+      return {
+        ...prev,
+        items: prev.items.filter(it => it.id !== id)
+      };
+    });
+  };
+
+  const handleUpdateInwardRow = (id: string, field: string, val: any) => {
+    setInwardConsignment(prev => ({
+      ...prev,
+      items: prev.items.map(it => {
+        if (it.id !== id) return it;
+        const updated = { ...it, [field]: val };
+        if (field === 'product_name') {
+          const match = products.find(p => p.name.toLowerCase() === String(val).toLowerCase());
+          if (match) {
+            updated.product_id = match.id;
+            if (!updated.mrp || updated.mrp === 0) updated.mrp = match.mrp || match.price || 0;
+            if (!updated.selling_price || updated.selling_price === 0) updated.selling_price = match.price || 0;
+            if (!updated.purchase_price || updated.purchase_price === 0) updated.purchase_price = match.purchase_price || +(match.price * 0.7).toFixed(2);
+          }
+        }
+        return updated;
+      })
+    }));
+  };
+
   const handleRecordInwardStock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inwardForm.product_id) {
-      showToast("Please select a medicine for inward stock entry.", "error");
+    if (!inwardConsignment.items || inwardConsignment.items.length === 0) {
+      showToast("Please add at least one medicine to this inward stock consignment.", "error");
       return;
     }
-    if (!inwardForm.batch_number.trim()) {
-      showToast("Batch number is required.", "error");
-      return;
-    }
-    if (!inwardForm.quantity_received || inwardForm.quantity_received <= 0) {
-      showToast("Quantity received must be greater than zero.", "error");
-      return;
-    }
-    if (!inwardForm.expiry_date) {
-      showToast("Expiry date is required for every stock medicine.", "error");
-      return;
+
+    for (let i = 0; i < inwardConsignment.items.length; i++) {
+      const it = inwardConsignment.items[i];
+      if (!it.product_name.trim() && it.product_id <= 0) {
+        showToast(`Item #${i + 1}: Medicine name is required.`, "error");
+        return;
+      }
+      if (!it.batch_number.trim()) {
+        showToast(`Item #${i + 1} (${it.product_name || 'Medicine'}): Batch number is required.`, "error");
+        return;
+      }
+      if (!it.quantity || it.quantity <= 0) {
+        showToast(`Item #${i + 1} (${it.product_name || 'Medicine'}): Quantity must be greater than zero.`, "error");
+        return;
+      }
+      if (!it.expiry_date) {
+        showToast(`Item #${i + 1} (${it.product_name || 'Medicine'}): Expiry date is required under Rule 65.`, "error");
+        return;
+      }
     }
 
     setSavingInward(true);
     try {
+      const payload = {
+        supplier_name: inwardConsignment.supplier_name.trim() || 'Direct Wholesale',
+        invoice_number: inwardConsignment.invoice_number.trim() || `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`,
+        received_date: inwardConsignment.received_date,
+        received_by: currentUser?.name || 'Admin',
+        notes: inwardConsignment.notes.trim(),
+        items: inwardConsignment.items.map(it => ({
+          product_id: it.product_id,
+          product_name: it.product_name.trim(),
+          batch_number: it.batch_number.trim(),
+          quantity: Number(it.quantity),
+          expiry_date: it.expiry_date,
+          purchase_price: Number(it.purchase_price || 0),
+          mrp: Number(it.mrp || 0),
+          selling_price: Number(it.selling_price || it.mrp || 0)
+        }))
+      };
+
       const res = await fetch(apiUrl("/api/inventory/inward"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...inwardForm,
-          received_by: currentUser?.name || 'Admin'
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Failed to record inward stock.");
+        throw new Error(err.error || "Failed to record inward stock consignment.");
       }
 
-      showToast(`Inward stock of ${inwardForm.quantity_received} units logged! Batch inventory increased.`, "success");
-      setInwardForm({
-        product_id: 0,
-        batch_number: '',
-        quantity_received: 0,
-        expiry_date: '',
-        purchase_price: 0,
-        mrp: 0,
-        selling_price: 0,
+      const result = await res.json();
+      showToast(result.message || `Inward consignment saved: ${payload.items.length} medicines logged!`, "success");
+
+      setInwardConsignment({
         supplier_name: '',
-        invoice_no: '',
+        invoice_number: '',
         received_date: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        items: [
+          {
+            id: 'inw-' + Date.now(),
+            product_id: 0,
+            product_name: '',
+            batch_number: '',
+            quantity: 0,
+            expiry_date: '',
+            purchase_price: 0,
+            mrp: 0,
+            selling_price: 0
+          }
+        ]
       });
+
       fetchInwardRecords();
       loadProducts();
     } catch (err: any) {
@@ -1366,7 +1463,7 @@ export default function App() {
           id: newId,
           billNumber: billNum,
           items: [],
-          discountPercent: 0,
+          discountPercent: persistentDiscount,
           discountAmount: 0,
           paymentMethod: null,
           holdStatus: false,
@@ -1389,7 +1486,7 @@ export default function App() {
           id: newId,
           billNumber: billNum,
           items: [],
-          discountPercent: 0,
+          discountPercent: persistentDiscount,
           discountAmount: 0,
           paymentMethod: null,
           holdStatus: false,
@@ -2658,12 +2755,6 @@ export default function App() {
   };
 
   const handleExcelExport = () => {
-    if (!isElectron) {
-      downloadClientSideCsvReport(reportType, reportDate, reportYear);
-      showToast("CSV Sales Report downloaded successfully.", "success");
-      return;
-    }
-
     let url = apiUrl(`/api/reports/${reportType}?export=excel`);
     if (reportType === 'yearly') {
       url += `&year=${reportYear}`;
@@ -2673,9 +2764,12 @@ export default function App() {
       url += `&date=${reportDate}`;
     }
 
-    // Trigger standard browser download pipeline
-    window.open(url, "_blank");
-    showToast("Excel spreadsheet downloaded successfully.", "success");
+    try {
+      window.open(url, "_blank");
+      showToast("Excel spreadsheet (.xlsx) downloaded successfully.", "success");
+    } catch {
+      downloadClientSideCsvReport(reportType, reportDate, reportYear);
+    }
   };
 
   // ----------------------------------------------------
@@ -3421,18 +3515,45 @@ export default function App() {
 
               {/* Discount inputs */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Discount Percent (%)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Discount (%)</label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSetDiscount(5)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${activeSession?.discountPercent === 5 ? 'bg-amber-500 text-slate-950 shadow-md ring-1 ring-amber-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                      title="Set 5% persistent discount on all bills"
+                    >
+                      5%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetDiscount(10)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${activeSession?.discountPercent === 10 ? 'bg-amber-500 text-slate-950 shadow-md ring-1 ring-amber-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                      title="Set 10% persistent discount on all bills"
+                    >
+                      10%
+                    </button>
+                    {(activeSession?.discountPercent || 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDiscount(0)}
+                        className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800/80 text-slate-400 hover:text-rose-400"
+                        title="Clear discount (0%)"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <input
                   id="discount-input"
                   type="number"
                   placeholder="0"
-                  value={activeSession?.discountPercent || ''}
+                  value={activeSession?.discountPercent ? activeSession.discountPercent : ''}
                   onChange={(e) => {
                     const percent = Math.min(100, Math.max(0, Number(e.target.value)));
-                    setSessions(prev => prev.map(s => {
-                      if (s.id !== activeSessionId) return s;
-                      return { ...s, discountPercent: percent, discountAmount: 0 };
-                    }));
+                    handleSetDiscount(percent);
                   }}
                   className="px-2 py-1 bg-slate-950 border border-slate-800 text-xs rounded text-slate-200"
                 />
@@ -5551,13 +5672,25 @@ export default function App() {
                                   {currentUser?.role === 'admin' && (
                                     <button
                                       onClick={() => {
-                                        setInwardForm(prev => ({
-                                          ...prev,
-                                          product_id: p.id,
-                                          mrp: p.mrp || p.price || 0,
-                                          selling_price: p.price || 0,
-                                          purchase_price: p.purchase_price || (p.price ? +(p.price * 0.7).toFixed(2) : 0)
-                                        }));
+                                        setInwardConsignment({
+                                          supplier_name: '',
+                                          invoice_number: '',
+                                          received_date: new Date().toISOString().split('T')[0],
+                                          notes: '',
+                                          items: [
+                                            {
+                                              id: 'inw-' + Date.now(),
+                                              product_id: p.id,
+                                              product_name: p.name,
+                                              batch_number: '',
+                                              quantity: 0,
+                                              expiry_date: '',
+                                              purchase_price: p.purchase_price || (p.price ? +(p.price * 0.7).toFixed(2) : 0),
+                                              mrp: p.mrp || p.price || 0,
+                                              selling_price: p.price || 0
+                                            }
+                                          ]
+                                        });
                                         setProductModalTab('inward');
                                       }}
                                       className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition-colors"
@@ -5632,171 +5765,269 @@ export default function App() {
                       Admin privileges required to record monthly inward stock medicines.
                     </div>
                   ) : (
-                    <form onSubmit={handleRecordInwardStock} className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
-                        <div className="sm:col-span-6 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Select Medicine *</label>
-                          <select
+                    <form onSubmit={handleRecordInwardStock} className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 space-y-5">
+                      {/* Consignment Header: Supplier & Invoice Information */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs bg-slate-900/60 p-4 rounded-xl border border-slate-800/70">
+                        <div className="sm:col-span-4 flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-amber-300 uppercase">Supplier / Wholesaler *</label>
+                          <input
+                            type="text"
                             required
-                            value={inwardForm.product_id}
-                            onChange={(e) => {
-                              const pid = Number(e.target.value);
-                              const prod = products.find(p => p.id === pid);
-                              setInwardForm(prev => ({
-                                ...prev,
-                                product_id: pid,
-                                mrp: prod?.mrp || prod?.price || prev.mrp,
-                                selling_price: prod?.price || prev.selling_price,
-                                purchase_price: prod?.purchase_price || (prod?.price ? +(prod.price * 0.7).toFixed(2) : prev.purchase_price)
-                              }));
-                            }}
+                            placeholder="e.g. Apex Pharma Wholesale, MedPlus Depot"
+                            value={inwardConsignment.supplier_name}
+                            onChange={(e) => setInwardConsignment(prev => ({ ...prev, supplier_name: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 font-semibold"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-3 flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-amber-300 uppercase">Invoice / DC Number *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. INV-2026-8491"
+                            value={inwardConsignment.invoice_number}
+                            onChange={(e) => setInwardConsignment(prev => ({ ...prev, invoice_number: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400 font-semibold"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2 flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-amber-300 uppercase">Date Received *</label>
+                          <input
+                            type="date"
+                            required
+                            value={inwardConsignment.received_date}
+                            onChange={(e) => setInwardConsignment(prev => ({ ...prev, received_date: e.target.value }))}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-3 flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-amber-300 uppercase">Consignment Notes / Rack</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Monthly refill, Shelf A-1"
+                            value={inwardConsignment.notes}
+                            onChange={(e) => setInwardConsignment(prev => ({ ...prev, notes: e.target.value }))}
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Datalist for Medicine Autocomplete */}
+                      <datalist id="inward-med-suggestions">
+                        {products.map(p => (
+                          <option key={p.id} value={p.name}>
+                            {p.name} · MRP: ₹{(p.mrp || p.price).toFixed(2)} · Cost: ₹{(p.purchase_price || 0).toFixed(2)}
+                          </option>
+                        ))}
+                      </datalist>
+
+                      {/* Multi-Medicine Inward Stock Items Table */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                            Medicines In This Inward Stock Consignment ({inwardConsignment.items.length})
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            Type medicine name to select or auto-register new medicines.
+                          </span>
+                        </div>
+
+                        <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead className="bg-slate-900 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800">
+                                <tr>
+                                  <th className="p-2 w-8 text-center">#</th>
+                                  <th className="p-2 min-w-[200px]">Medicine Name (Type or Select) *</th>
+                                  <th className="p-2 min-w-[120px]">Batch # *</th>
+                                  <th className="p-2 min-w-[120px]">Expiry *</th>
+                                  <th className="p-2 w-20 text-right">Qty *</th>
+                                  <th className="p-2 w-24 text-right">Cost (₹) *</th>
+                                  <th className="p-2 w-24 text-right">Total Cost (₹)</th>
+                                  <th className="p-2 w-24 text-right">MRP (₹) *</th>
+                                  <th className="p-2 w-24 text-right">Selling Rate (₹) *</th>
+                                  <th className="p-2 w-10 text-center"></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-800/40">
+                                {inwardConsignment.items.map((it, idx) => {
+                                  const lineTotal = Number(it.quantity || 0) * Number(it.purchase_price || 0);
+                                  return (
+                                    <tr key={it.id} className="hover:bg-slate-800/30 transition-colors">
+                                      <td className="p-2 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
+                                      <td className="p-2">
+                                        <input
+                                          type="text"
+                                          required
+                                          list="inward-med-suggestions"
+                                          placeholder="Type medicine name..."
+                                          value={it.product_name}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'product_name', e.target.value)}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          type="text"
+                                          required
+                                          placeholder="e.g. B-2026-01"
+                                          value={it.batch_number}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'batch_number', e.target.value)}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-sky-400 font-mono focus:outline-none focus:border-amber-400"
+                                        />
+                                      </td>
+                                      <td className="p-2">
+                                        <input
+                                          type="date"
+                                          required
+                                          value={it.expiry_date}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'expiry_date', e.target.value)}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
+                                        />
+                                      </td>
+                                      <td className="p-2 text-right">
+                                        <input
+                                          type="number"
+                                          required
+                                          min="1"
+                                          placeholder="0"
+                                          value={it.quantity || ''}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'quantity', Number(e.target.value))}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white text-right font-mono focus:outline-none focus:border-amber-400 font-bold"
+                                        />
+                                      </td>
+                                      <td className="p-2 text-right">
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          required
+                                          placeholder="0.00"
+                                          value={it.purchase_price || ''}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'purchase_price', Number(e.target.value))}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 text-right font-mono focus:outline-none focus:border-amber-400"
+                                        />
+                                      </td>
+                                      <td className="p-2 text-right font-mono font-bold text-amber-300">
+                                        ₹{lineTotal.toFixed(2)}
+                                      </td>
+                                      <td className="p-2 text-right">
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          required
+                                          placeholder="0.00"
+                                          value={it.mrp || ''}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'mrp', Number(e.target.value))}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 text-right font-mono focus:outline-none focus:border-amber-400"
+                                        />
+                                      </td>
+                                      <td className="p-2 text-right">
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          required
+                                          placeholder="0.00"
+                                          value={it.selling_price || ''}
+                                          onChange={(e) => handleUpdateInwardRow(it.id, 'selling_price', Number(e.target.value))}
+                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-emerald-400 text-right font-mono font-bold focus:outline-none focus:border-amber-400"
+                                        />
+                                      </td>
+                                      <td className="p-2 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveInwardRow(it.id)}
+                                          disabled={inwardConsignment.items.length <= 1}
+                                          className="p-1 hover:bg-slate-800 text-slate-500 hover:text-rose-400 disabled:opacity-20 rounded transition-colors"
+                                          title="Remove medicine row"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
+                        {/* Add Another Medicine Row Button */}
+                        <div className="flex justify-start">
+                          <button
+                            type="button"
+                            onClick={handleAddInwardRow}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
                           >
-                            <option value={0}>-- Choose Medicine ({products.length} available) --</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} ({p.category}) · MRP ₹{(p.mrp || p.price).toFixed(2)} · Rate ₹{p.price.toFixed(2)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Batch Number *</label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="e.g. BTH-2026-091"
-                            value={inwardForm.batch_number}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, batch_number: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Quantity Received *</label>
-                          <input
-                            type="number"
-                            required
-                            min="1"
-                            placeholder="e.g. 50"
-                            value={inwardForm.quantity_received || ''}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, quantity_received: Number(e.target.value) }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Expiry Date *</label>
-                          <input
-                            type="date"
-                            required
-                            value={inwardForm.expiry_date}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, expiry_date: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Purchase Rate (₹ Cost) *</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={inwardForm.purchase_price || ''}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, purchase_price: Number(e.target.value) }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">MRP (₹ Printed) *</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={inwardForm.mrp || ''}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, mrp: Number(e.target.value) }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Price Sold At (₹ Clinic Rate) *</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={inwardForm.selling_price || ''}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, selling_price: Number(e.target.value) }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400 font-bold text-emerald-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Date Received *</label>
-                          <input
-                            type="date"
-                            required
-                            value={inwardForm.received_date}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, received_date: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-4 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Supplier / Distributor</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Apex Pharma Distributors"
-                            value={inwardForm.supplier_name}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, supplier_name: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-4 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Inward Invoice / DC No.</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. DC-9941"
-                            value={inwardForm.invoice_no}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, invoice_no: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                          />
-                        </div>
-
-                        <div className="sm:col-span-4 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Storage Notes / Rack</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Shelf A-3, Room Temp"
-                            value={inwardForm.notes}
-                            onChange={(e) => setInwardForm(prev => ({ ...prev, notes: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
-                          />
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Another Medicine to this Inward Stock</span>
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex justify-end pt-2">
-                        <button
-                          type="submit"
-                          disabled={savingInward}
-                          className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 flex items-center gap-2"
-                        >
-                          <Package className="w-4 h-4" />
-                          <span>{savingInward ? 'Saving...' : 'Record Inward Stock & Increase Inventory'}</span>
-                        </button>
-                      </div>
+                      {/* Consignment Financial Summary & Submit */}
+                      {(() => {
+                        const totalUnits = inwardConsignment.items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+                        const totalCost = inwardConsignment.items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.purchase_price || 0)), 0);
+                        const totalMrpVal = inwardConsignment.items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.mrp || 0)), 0);
+
+                        return (
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl">
+                            <div className="flex flex-wrap items-center gap-6 text-xs">
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Medicines in Consignment</span>
+                                <span className="text-base font-black text-white">{inwardConsignment.items.length} Medicines</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Units Received</span>
+                                <span className="text-base font-black text-sky-400">{totalUnits} Units</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Stock Purchase Cost</span>
+                                <span className="text-lg font-black text-amber-400">₹{totalCost.toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Total MRP Valuation</span>
+                                <span className="text-base font-bold text-slate-300">₹{totalMrpVal.toFixed(2)}</span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={savingInward}
+                              className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              <Package className="w-4 h-4" />
+                              <span>{savingInward ? 'Saving Consignment...' : `Record Inward Stock Consignment (₹${totalCost.toFixed(2)})`}</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </form>
                   )}
 
-                  {/* Recent Inward Stock Entries */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                        Recent Monthly Inward Stock Entries ({inwardRecords.length})
+                  {/* Recent Inward Stock Entries Ledger */}
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <span>Recent Inward Stock Receipts & Refills</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300">
+                          {inwardRecords.length} records
+                        </span>
                       </span>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={inwardSearchQuery}
+                          onChange={(e) => setInwardSearchQuery(e.target.value)}
+                          placeholder="Search Invoice #, Medicine, or Supplier..."
+                          className="w-64 pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
                     </div>
 
                     <div className="border border-slate-800 rounded-2xl bg-slate-950/40 overflow-hidden">
@@ -5805,33 +6036,54 @@ export default function App() {
                           No inward stock records yet. Use the form above to log monthly incoming stock.
                         </div>
                       ) : (
-                        <div className="max-h-60 overflow-y-auto">
+                        <div className="max-h-72 overflow-y-auto">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead className="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400">
                               <tr>
                                 <th className="p-2.5">Date</th>
+                                <th className="p-2.5">Invoice #</th>
+                                <th className="p-2.5">Supplier</th>
                                 <th className="p-2.5">Medicine</th>
                                 <th className="p-2.5">Batch</th>
                                 <th className="p-2.5 text-right">Qty</th>
                                 <th className="p-2.5">Expiry</th>
                                 <th className="p-2.5 text-right">Cost (₹)</th>
+                                <th className="p-2.5 text-right">Total Purchase (₹)</th>
                                 <th className="p-2.5 text-right">MRP (₹)</th>
-                                <th className="p-2.5">Supplier</th>
+                                <th className="p-2.5 text-right">Rate (₹)</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40">
-                              {inwardRecords.slice(0, 50).map((r: any) => (
-                                <tr key={r.id} className="hover:bg-slate-900/60 transition-colors">
-                                  <td className="p-2.5 text-slate-400 font-mono text-[11px]">{r.received_date}</td>
-                                  <td className="p-2.5 font-bold text-white">{r.product_name || `Medicine #${r.product_id}`}</td>
-                                  <td className="p-2.5 font-mono text-sky-400">{r.batch_number}</td>
-                                  <td className="p-2.5 text-right font-mono font-bold text-emerald-400">+{r.quantity_received}</td>
-                                  <td className="p-2.5 font-mono text-amber-300 text-[11px]">{r.expiry_date}</td>
-                                  <td className="p-2.5 text-right font-mono text-slate-300">₹{Number(r.purchase_price || 0).toFixed(2)}</td>
-                                  <td className="p-2.5 text-right font-mono text-slate-300">₹{Number(r.mrp || 0).toFixed(2)}</td>
-                                  <td className="p-2.5 text-slate-400 truncate max-w-xs">{r.supplier_name || 'Clinic Stock'}</td>
-                                </tr>
-                              ))}
+                              {inwardRecords
+                                .filter((r: any) => {
+                                  if (!inwardSearchQuery.trim()) return true;
+                                  const q = inwardSearchQuery.toLowerCase();
+                                  return (
+                                    (r.invoice_number && r.invoice_number.toLowerCase().includes(q)) ||
+                                    (r.product_name && r.product_name.toLowerCase().includes(q)) ||
+                                    (r.supplier_name && r.supplier_name.toLowerCase().includes(q)) ||
+                                    (r.batch_number && r.batch_number.toLowerCase().includes(q))
+                                  );
+                                })
+                                .slice(0, 100)
+                                .map((r: any) => {
+                                  const totalPurchase = Number(r.quantity || r.quantity_received || 0) * Number(r.purchase_price || 0);
+                                  return (
+                                    <tr key={r.id} className="hover:bg-slate-900/60 transition-colors">
+                                      <td className="p-2.5 text-slate-400 font-mono text-[11px]">{r.received_date}</td>
+                                      <td className="p-2.5 font-mono text-sky-400 font-semibold">{r.invoice_number || 'INV-MONTHLY'}</td>
+                                      <td className="p-2.5 text-slate-300 font-medium truncate max-w-[140px]">{r.supplier_name || 'Direct Wholesale'}</td>
+                                      <td className="p-2.5 font-bold text-white">{r.product_name || `Medicine #${r.product_id}`}</td>
+                                      <td className="p-2.5 font-mono text-amber-300">{r.batch_number}</td>
+                                      <td className="p-2.5 text-right font-mono font-bold text-emerald-400">+{r.quantity || r.quantity_received}</td>
+                                      <td className="p-2.5 font-mono text-slate-400 text-[11px]">{r.expiry_date}</td>
+                                      <td className="p-2.5 text-right font-mono text-slate-300">₹{Number(r.purchase_price || 0).toFixed(2)}</td>
+                                      <td className="p-2.5 text-right font-mono font-bold text-amber-400">₹{totalPurchase.toFixed(2)}</td>
+                                      <td className="p-2.5 text-right font-mono text-slate-400">₹{Number(r.mrp || 0).toFixed(2)}</td>
+                                      <td className="p-2.5 text-right font-mono text-emerald-400">₹{Number(r.selling_price || r.mrp || 0).toFixed(2)}</td>
+                                    </tr>
+                                  );
+                                })}
                             </tbody>
                           </table>
                         </div>

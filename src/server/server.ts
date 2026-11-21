@@ -763,7 +763,8 @@ app.post('/api/bills', async (req, res) => {
       items
     } = req.body;
 
-    if (grand_total === undefined || !payment_method || !items || !Array.isArray(items)) {
+    const rawGrandTotal = grand_total !== undefined ? grand_total : (req.body.total_amount !== undefined ? req.body.total_amount : req.body.total);
+    if (rawGrandTotal === undefined || !payment_method || !items || !Array.isArray(items)) {
       return res.status(400).json({ error: "Invalid bill payload. Missing required properties: grand_total, payment_method, items." });
     }
 
@@ -879,10 +880,10 @@ app.post('/api/bills', async (req, res) => {
     // Patient name and details are completely optional for patient checkout / bill printing.
     const isComplimentary = Boolean(req.body.is_complimentary || payment_method === 'Complimentary');
     const finalPaymentMethod = isComplimentary ? 'Complimentary' : payment_method;
-    const finalGrandTotal = isComplimentary ? 0 : Number(grand_total);
-    const finalSubtotal = isComplimentary ? 0 : Number(subtotal);
-    const finalTax = isComplimentary ? 0 : Number(tax);
-    const finalDiscount = isComplimentary ? 0 : Number(discount);
+    const finalGrandTotal = isComplimentary ? 0 : Number(rawGrandTotal);
+    const finalSubtotal = isComplimentary ? 0 : Number(subtotal !== undefined ? subtotal : (req.body.total_amount !== undefined ? req.body.total_amount : rawGrandTotal));
+    const finalTax = isComplimentary ? 0 : Number(tax !== undefined ? tax : 0);
+    const finalDiscount = isComplimentary ? 0 : Number(discount !== undefined ? discount : 0);
     const finalPatientName = (patient_name || '').trim() || (isComplimentary ? (req.body.complimentary_recipient || 'Doctor / Staff Health Beneficiary') : 'Walk-in Patient');
     const finalDoctorName = (doctor_name || '').trim() || 'Dr. Arjun Sharma, MS (Ortho)';
     const finalDoctorReg = (doctor_reg_no || '').trim() || 'TNMC/2012/94821';
@@ -2037,6 +2038,115 @@ app.get('/api/inventory/inward', async (req, res) => {
 
 app.post('/api/inventory/inward', async (req, res) => {
   try {
+    const db = await getDatabase();
+    const {
+      supplier_name = 'Direct Wholesale',
+      invoice_number = 'INV-MONTHLY',
+      received_date,
+      received_by = 'Admin',
+      notes = '',
+      items
+    } = req.body;
+
+    const rDate = received_date || new Date().toISOString().split('T')[0];
+
+    // If submitted as multi-item inward stock consignment
+    if (Array.isArray(items) && items.length > 0) {
+      const insertedRecords: any[] = [];
+      let totalConsignmentCost = 0;
+      let totalConsignmentUnits = 0;
+
+      for (const it of items) {
+        let pid = Number(it.product_id || 0);
+        let pName = String(it.product_name || it.name || '').trim();
+        const batchNum = String(it.batch_number || '').trim();
+        const qty = Number(it.quantity || it.quantity_received || 0);
+        const expDate = String(it.expiry_date || '').trim();
+        const mfgDate = it.mfg_date || '2026-01-01';
+        const pPrice = Number(it.purchase_price || 0);
+        const mrpVal = Number(it.mrp || 0);
+        const sPrice = Number(it.selling_price !== undefined ? it.selling_price : (mrpVal || 0));
+
+        if (!pName && pid <= 0) continue;
+        if (!batchNum || qty <= 0 || !expDate) {
+          continue; // Skip invalid entries
+        }
+
+        // If product_id is not set, find or auto-create in products catalog
+        if (pid <= 0 && pName) {
+          const matched = await db.all<any>("SELECT id, name, price, mrp, purchase_price FROM products WHERE LOWER(name) = LOWER(?)", [pName]);
+          if (matched && matched.length > 0) {
+            pid = matched[0].id;
+          } else {
+            const newProd = await db.run(
+              `INSERT INTO products (name, category, price, mrp, purchase_price, status, tax_percent)
+               VALUES (?, 'General Medicine', ?, ?, ?, 'Available', 12)`,
+              [pName, sPrice, mrpVal, pPrice]
+            );
+            pid = Number(newProd.lastID || 0);
+          }
+        } else if (pid > 0 && !pName) {
+          const existingP = await db.get<any>("SELECT name FROM products WHERE id = ?", [pid]);
+          if (existingP) pName = existingP.name;
+        }
+
+        // Insert into inward_stock
+        const result = await db.run(
+          `INSERT INTO inward_stock (
+            product_id, product_name, batch_number, quantity, expiry_date, mfg_date,
+            purchase_price, mrp, selling_price, supplier_name, invoice_number, received_date, received_by, notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            pid, pName || 'Medicine', batchNum, qty,
+            expDate, mfgDate, pPrice, mrpVal,
+            sPrice, supplier_name, invoice_number, rDate, received_by, notes
+          ]
+        );
+
+        // Sync into batches
+        const existingBatches = await db.all<any>("SELECT * FROM batches WHERE product_id = ? AND batch_number = ?", [pid, batchNum]);
+        if (existingBatches && existingBatches.length > 0) {
+          await db.run(
+            "UPDATE batches SET available_stock = available_stock + ?, expiry_date = ?, purchase_price = ?, mrp = ?, selling_price = ?, status = 'Active' WHERE id = ?",
+            [qty, expDate, pPrice, mrpVal, sPrice, existingBatches[0].id]
+          );
+        } else {
+          await db.run(
+            `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, selling_price, purchase_price, available_stock, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
+            [pid, batchNum, mfgDate, expDate, mrpVal, sPrice, pPrice, qty]
+          );
+        }
+
+        // Update product master catalog
+        await db.run(
+          "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, status = 'Available' WHERE id = ?",
+          [sPrice, mrpVal, pPrice, pid]
+        );
+
+        totalConsignmentCost += (qty * pPrice);
+        totalConsignmentUnits += qty;
+        insertedRecords.push({ id: result.lastID, product_id: pid, product_name: pName, batch_number: batchNum, quantity: qty, purchase_price: pPrice });
+      }
+
+      await db.run(
+        `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [1, received_by, 'INWARD_STOCK_CONSIGNMENT', 'inward_stock', null, null, JSON.stringify({ invoice_number, supplier_name, total_items: insertedRecords.length, totalConsignmentUnits, totalConsignmentCost }), req.ip || '127.0.0.1']
+      );
+
+      return res.status(201).json({
+        success: true,
+        count: insertedRecords.length,
+        total_units: totalConsignmentUnits,
+        total_purchase_cost: totalConsignmentCost,
+        invoice_number,
+        supplier_name,
+        message: `Successfully recorded inward consignment of ${insertedRecords.length} medicines (${totalConsignmentUnits} units) totaling ₹${totalConsignmentCost.toFixed(2)}`
+      });
+    }
+
+    // Single item inward entry (backward compatible)
     const {
       product_id,
       product_name,
@@ -2046,20 +2156,30 @@ app.post('/api/inventory/inward', async (req, res) => {
       mfg_date,
       purchase_price,
       mrp,
-      selling_price,
-      supplier_name,
-      invoice_number,
-      received_date,
-      received_by = 'Admin',
-      notes
+      selling_price
     } = req.body;
 
-    if (!product_id || !quantity || !batch_number || !expiry_date) {
-      return res.status(400).json({ error: "Missing required inward stock fields (product_id, quantity, batch_number, expiry_date)." });
+    let pid = Number(product_id || 0);
+    let pName = String(product_name || '').trim();
+
+    if (pid <= 0 && pName) {
+      const matched = await db.all<any>("SELECT id, name FROM products WHERE LOWER(name) = LOWER(?)", [pName]);
+      if (matched && matched.length > 0) {
+        pid = matched[0].id;
+      } else {
+        const newProd = await db.run(
+          `INSERT INTO products (name, category, price, mrp, purchase_price, status, tax_percent)
+           VALUES (?, 'General Medicine', ?, ?, ?, 'Available', 12)`,
+          [pName, Number(selling_price || mrp || 0), Number(mrp || 0), Number(purchase_price || 0)]
+        );
+        pid = Number(newProd.lastID || 0);
+      }
     }
 
-    const db = await getDatabase();
-    const rDate = received_date || new Date().toISOString().split('T')[0];
+    if (!pid || !quantity || !batch_number || !expiry_date) {
+      return res.status(400).json({ error: "Missing required inward stock fields (product, quantity, batch_number, expiry_date)." });
+    }
+
     const finalSellingPrice = Number(selling_price !== undefined ? selling_price : (mrp || 0));
 
     const result = await db.run(
@@ -2068,37 +2188,37 @@ app.post('/api/inventory/inward', async (req, res) => {
         purchase_price, mrp, selling_price, supplier_name, invoice_number, received_date, received_by, notes
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        Number(product_id), String(product_name || 'Medicine'), String(batch_number), Number(quantity),
+        pid, String(pName || 'Medicine'), String(batch_number), Number(quantity),
         String(expiry_date), mfg_date || '2026-01-01', Number(purchase_price || 0), Number(mrp || 0),
         finalSellingPrice, supplier_name || 'Direct Wholesale', invoice_number || 'INV-MONTHLY', rDate, received_by, notes || ''
       ]
     );
 
     // Sync into batches table (available stock increases)
-    const existingBatches = await db.all<any>("SELECT * FROM batches WHERE product_id = ? AND batch_number = ?", [Number(product_id), String(batch_number)]);
+    const existingBatches = await db.all<any>("SELECT * FROM batches WHERE product_id = ? AND batch_number = ?", [pid, String(batch_number)]);
     if (existingBatches && existingBatches.length > 0) {
       await db.run(
-        "UPDATE batches SET available_stock = available_stock + ?, expiry_date = ?, purchase_price = ?, mrp = ?, selling_price = ? WHERE id = ?",
+        "UPDATE batches SET available_stock = available_stock + ?, expiry_date = ?, purchase_price = ?, mrp = ?, selling_price = ?, status = 'Active' WHERE id = ?",
         [Number(quantity), String(expiry_date), Number(purchase_price || 0), Number(mrp || 0), finalSellingPrice, existingBatches[0].id]
       );
     } else {
       await db.run(
         `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, selling_price, purchase_price, available_stock, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
-        [Number(product_id), String(batch_number), mfg_date || '2026-01-01', String(expiry_date), Number(mrp || 0), finalSellingPrice, Number(purchase_price || 0), Number(quantity)]
+        [pid, String(batch_number), mfg_date || '2026-01-01', String(expiry_date), Number(mrp || 0), finalSellingPrice, Number(purchase_price || 0), Number(quantity)]
       );
     }
 
     // Synchronize product active catalogue selling rate, MRP, and purchase cost
     await db.run(
       "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, status = 'Available' WHERE id = ?",
-      [finalSellingPrice, Number(mrp || 0), Number(purchase_price || 0), Number(product_id)]
+      [finalSellingPrice, Number(mrp || 0), Number(purchase_price || 0), pid]
     );
 
     await db.run(
       `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [1, received_by, 'INWARD_STOCK_ENTRY', 'inward_stock', result.lastID, null, JSON.stringify({ product_id, batch_number, quantity }), req.ip || '127.0.0.1']
+      [1, received_by, 'INWARD_STOCK_ENTRY', 'inward_stock', result.lastID, null, JSON.stringify({ product_id: pid, batch_number, quantity }), req.ip || '127.0.0.1']
     );
 
     res.status(201).json({

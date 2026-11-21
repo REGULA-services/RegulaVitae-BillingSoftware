@@ -133,19 +133,37 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   const [isSubmittingBill, setIsSubmittingBill] = useState<boolean>(false);
   const [billSuccessModal, setBillSuccessModal] = useState<any | null>(null);
 
-  // Inward Stock Modal (Admin)
+  // Persistent Discount (active across all bills until changed)
+  const [persistentDiscount, setPersistentDiscount] = useState<number>(() => {
+    try {
+      const val = localStorage.getItem('moc_persistent_discount');
+      return val !== null ? Number(val) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [discountPercent, setDiscountPercent] = useState<number>(persistentDiscount);
+
+  // Inward Stock Consignment Modal (Admin Multi-Medicine Intake)
   const [isInwardModalOpen, setIsInwardModalOpen] = useState<boolean>(false);
-  const [inwardForm, setInwardForm] = useState({
-    productId: '',
-    batchNumber: '',
-    expiryDate: '',
-    quantity: '',
-    purchasePrice: '',
-    mrp: '',
-    sellingPrice: '',
-    supplier: 'Direct Clinic Supply',
+  const [inwardConsignment, setInwardConsignment] = useState({
+    supplier: 'Direct Clinic Wholesale',
     invoiceNumber: '',
-    notes: ''
+    receivedDate: new Date().toISOString().split('T')[0],
+    notes: '',
+    items: [
+      {
+        id: 'mob-inw-1',
+        productId: '',
+        productName: '',
+        batchNumber: '',
+        expiryDate: '',
+        quantity: '',
+        purchasePrice: '',
+        mrp: '',
+        sellingPrice: ''
+      }
+    ]
   });
 
   // Add / Edit Medicine Modal
@@ -392,11 +410,71 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     });
   }, [products, selectedCategory, searchQuery]);
 
-  // Cart calculations
+  // Cart calculations with persistent discount
   const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const totalMrp = useMemo(() => cart.reduce((sum, item) => sum + (item.mrp * item.quantity), 0), [cart]);
-  const totalAmount = useMemo(() => cart.reduce((sum, item) => sum + (item.rate * item.quantity), 0), [cart]);
+  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.rate * item.quantity), 0), [cart]);
+  const discountAmount = useMemo(() => Number(((cartSubtotal * discountPercent) / 100).toFixed(2)), [cartSubtotal, discountPercent]);
+  const totalAmount = useMemo(() => Math.max(0, cartSubtotal - discountAmount), [cartSubtotal, discountAmount]);
   const totalSavings = useMemo(() => Math.max(0, totalMrp - totalAmount), [totalMrp, totalAmount]);
+
+  const handleSetDiscount = (percent: number) => {
+    try {
+      localStorage.setItem('moc_persistent_discount', String(percent));
+    } catch {}
+    setPersistentDiscount(percent);
+    setDiscountPercent(percent);
+  };
+
+  const handleAddInwardRow = () => {
+    setInwardConsignment((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: 'mob-inw-' + Date.now(),
+          productId: '',
+          productName: '',
+          batchNumber: '',
+          expiryDate: '',
+          quantity: '',
+          purchasePrice: '',
+          mrp: '',
+          sellingPrice: ''
+        }
+      ]
+    }));
+  };
+
+  const handleRemoveInwardRow = (id: string) => {
+    setInwardConsignment((prev) => {
+      if (prev.items.length <= 1) return prev;
+      return {
+        ...prev,
+        items: prev.items.filter((it) => it.id !== id)
+      };
+    });
+  };
+
+  const handleUpdateInwardRow = (id: string, field: string, val: any) => {
+    setInwardConsignment((prev) => ({
+      ...prev,
+      items: prev.items.map((it) => {
+        if (it.id !== id) return it;
+        const updated = { ...it, [field]: val };
+        if (field === 'productName') {
+          const match = products.find((p) => p.name.toLowerCase() === String(val).toLowerCase());
+          if (match) {
+            updated.productId = String(match.id);
+            if (!updated.mrp) updated.mrp = String(match.mrp || match.price || '');
+            if (!updated.sellingPrice) updated.sellingPrice = String(match.price || '');
+            if (!updated.purchasePrice) updated.purchasePrice = String(match.purchase_price || +(match.price * 0.7).toFixed(2));
+          }
+        }
+        return updated;
+      })
+    }));
+  };
 
   // Add product to cart with strict guardrails
   const addToCart = (product: Product) => {
@@ -520,12 +598,12 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           tax_percent: i.tax_percent,
           total: Number((i.rate * i.quantity).toFixed(2))
         })),
-        total_mrp: totalMrp,
-        concession: totalSavings,
+        grand_total: totalAmount,
         total_amount: totalAmount,
         total: totalAmount,
-        subtotal: totalAmount / 1.12,
-        tax: totalAmount - (totalAmount / 1.12),
+        subtotal: cartSubtotal,
+        discount: discountAmount,
+        tax: 0,
         cash_tendered: paymentMethod === 'Cash' ? cashNum : totalAmount,
         change_returned: paymentMethod === 'Cash' ? changeToReturn : 0
       };
@@ -660,27 +738,51 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     }
   };
 
-  // Save Inward Stock Entry
+  // Save Inward Stock Consignment (Multi-Medicine)
   const handleInwardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inwardForm.productId || !inwardForm.batchNumber || !inwardForm.quantity || !inwardForm.expiryDate) {
-      alert('Please fill in all mandatory stock intake fields.');
+    if (!inwardConsignment.items || inwardConsignment.items.length === 0) {
+      alert('Please add at least one medicine to this inward stock consignment.');
       return;
+    }
+
+    for (let i = 0; i < inwardConsignment.items.length; i++) {
+      const it = inwardConsignment.items[i];
+      if (!it.productName.trim() && !it.productId) {
+        alert(`Item #${i + 1}: Medicine name is required.`);
+        return;
+      }
+      if (!it.batchNumber.trim()) {
+        alert(`Item #${i + 1} (${it.productName || 'Medicine'}): Batch number is required.`);
+        return;
+      }
+      if (!it.quantity || Number(it.quantity) <= 0) {
+        alert(`Item #${i + 1} (${it.productName || 'Medicine'}): Quantity must be greater than zero.`);
+        return;
+      }
+      if (!it.expiryDate) {
+        alert(`Item #${i + 1} (${it.productName || 'Medicine'}): Expiry date is required under Rule 65.`);
+        return;
+      }
     }
 
     try {
       const payload = {
-        product_id: Number(inwardForm.productId),
-        batch_number: inwardForm.batchNumber.trim(),
-        expiry_date: inwardForm.expiryDate,
-        quantity: Number(inwardForm.quantity),
-        purchase_price: Number(inwardForm.purchasePrice || 0),
-        mrp: Number(inwardForm.mrp || inwardForm.sellingPrice || 0),
-        selling_price: Number(inwardForm.sellingPrice || 0),
-        supplier_name: inwardForm.supplier,
-        invoice_number: inwardForm.invoiceNumber,
-        notes: inwardForm.notes,
-        received_by: currentUser?.name || 'admin'
+        supplier_name: inwardConsignment.supplier.trim() || 'Direct Clinic Supply',
+        invoice_number: inwardConsignment.invoiceNumber.trim() || `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`,
+        received_date: inwardConsignment.receivedDate,
+        notes: inwardConsignment.notes,
+        received_by: currentUser?.name || 'admin',
+        items: inwardConsignment.items.map((it) => ({
+          product_id: it.productId ? Number(it.productId) : 0,
+          product_name: it.productName.trim(),
+          batch_number: it.batchNumber.trim(),
+          expiry_date: it.expiryDate,
+          quantity: Number(it.quantity),
+          purchase_price: Number(it.purchasePrice || 0),
+          mrp: Number(it.mrp || it.sellingPrice || 0),
+          selling_price: Number(it.sellingPrice || it.mrp || 0)
+        }))
       };
 
       const res = await fetch(apiUrl('/api/inventory/inward'), {
@@ -690,19 +792,27 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       });
 
       if (res.ok) {
-        alert('Stock received and inventory updated successfully!');
+        const result = await res.json();
+        alert(result.message || 'Stock consignment received and inventory updated successfully!');
         setIsInwardModalOpen(false);
-        setInwardForm({
-          productId: '',
-          batchNumber: '',
-          expiryDate: '',
-          quantity: '',
-          purchasePrice: '',
-          mrp: '',
-          sellingPrice: '',
-          supplier: 'Direct Clinic Supply',
+        setInwardConsignment({
+          supplier: 'Direct Clinic Wholesale',
           invoiceNumber: '',
-          notes: ''
+          receivedDate: new Date().toISOString().split('T')[0],
+          notes: '',
+          items: [
+            {
+              id: 'mob-inw-' + Date.now(),
+              productId: '',
+              productName: '',
+              batchNumber: '',
+              expiryDate: '',
+              quantity: '',
+              purchasePrice: '',
+              mrp: '',
+              sellingPrice: ''
+            }
+          ]
         });
         loadData();
         loadInwardLogs();
@@ -1495,21 +1605,32 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     No inward stock entries recorded yet.
                   </div>
                 ) : (
-                  inwardLogs.map((log: any) => (
-                    <div key={log.id} className="bg-white p-3 rounded-xl border border-slate-200 text-xs space-y-1">
-                      <div className="flex justify-between font-bold">
-                        <span className="text-slate-900">{log.product_name}</span>
-                        <span className="text-emerald-700 font-black">+{log.quantity} units</span>
+                  inwardLogs.map((log: any) => {
+                    const totalCost = Number(log.quantity || 0) * Number(log.purchase_price || 0);
+                    return (
+                      <div key={log.id} className="bg-white p-3 rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-2xs">
+                        <div className="flex justify-between items-start font-bold">
+                          <div>
+                            <span className="text-slate-900 block">{log.product_name}</span>
+                            <span className="text-[10px] text-sky-700 font-mono font-semibold">Inv #{log.invoice_number || 'INV-MONTHLY'}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-emerald-700 font-black block">+{log.quantity} units</span>
+                            <span className="text-[11px] text-amber-700 font-bold font-mono">Total: ₹{totalCost.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-500 bg-slate-50 p-1.5 rounded">
+                          <span>Batch: <span className="font-mono font-semibold">{log.batch_number}</span></span>
+                          <span>Unit Cost: <span className="font-mono font-bold text-slate-700">₹{Number(log.purchase_price || 0).toFixed(2)}</span></span>
+                          <span>Exp: <span className="font-mono">{log.expiry_date}</span></span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-slate-400 pt-1 border-t">
+                          <span>Supplier: <strong className="text-slate-600">{log.supplier_name || 'Direct Wholesale'}</strong></span>
+                          <span>{log.received_date || log.created_at}</span>
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500">
-                        Batch: <span className="font-mono">{log.batch_number}</span> • Exp: {log.expiry_date}
-                      </div>
-                      <div className="flex justify-between text-[10px] text-slate-400 pt-1 border-t">
-                        <span>Supplier: {log.supplier_name || 'Direct'}</span>
-                        <span>{log.received_date || log.created_at}</span>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             )}
@@ -2014,21 +2135,77 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 ))}
               </div>
 
-              {/* Price Calculation Card */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 text-xs">
-                <div className="flex justify-between text-slate-500">
-                  <span>Gross Total (MRP)</span>
-                  <span className="font-medium">₹{totalMrp.toFixed(2)}</span>
-                </div>
-                {totalSavings > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-bold">
-                    <span>Clinic Concession (Saved)</span>
-                    <span>-₹{totalSavings.toFixed(2)}</span>
+              {/* Discount Section (5%, 10%, Custom - Persists across all bills) */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-700 uppercase tracking-wide text-[11px]">Bill Discount (%)</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSetDiscount(5)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${discountPercent === 5 ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-400 font-black' : 'bg-white text-slate-700 border border-slate-200'}`}
+                      title="Apply 5% persistent discount"
+                    >
+                      5%
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetDiscount(10)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${discountPercent === 10 ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-400 font-black' : 'bg-white text-slate-700 border border-slate-200'}`}
+                      title="Apply 10% persistent discount"
+                    >
+                      10%
+                    </button>
+                    {discountPercent > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDiscount(0)}
+                        className="px-2 py-1 rounded-lg text-xs bg-slate-200 text-slate-600 hover:text-rose-600 font-bold"
+                        title="Clear discount (0%)"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
-                )}
-                <div className="flex justify-between text-base font-black text-slate-900 pt-1.5 border-t border-slate-200">
-                  <span>Net Payable Amount</span>
-                  <span className="text-blue-700">₹{totalAmount.toFixed(2)}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 text-[11px]">Custom %:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="0"
+                    value={discountPercent > 0 ? discountPercent : ''}
+                    onChange={(e) => {
+                      const p = Math.min(100, Math.max(0, Number(e.target.value)));
+                      handleSetDiscount(p);
+                    }}
+                    className="w-20 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 text-center"
+                  />
+                  {discountAmount > 0 && (
+                    <span className="text-rose-600 font-bold text-xs ml-auto">
+                      -₹{discountAmount.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Subtotal & Net Payable */}
+                <div className="pt-2 border-t border-slate-200 space-y-1">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Subtotal:</span>
+                    <span className="font-medium font-mono">₹{cartSubtotal.toFixed(2)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-rose-600 font-medium">
+                      <span>Discount ({discountPercent}%):</span>
+                      <span className="font-mono">-₹{discountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-black text-slate-900 pt-1 border-t border-slate-200">
+                    <span>Net Payable:</span>
+                    <span className="text-blue-700 font-mono">₹{totalAmount.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -2375,123 +2552,243 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         </div>
       )}
 
-      {/* ─── INWARD STOCK MODAL ──────────────────────────────────────── */}
+      {/* ─── INWARD STOCK MULTI-MEDICINE CONSIGNMENT MODAL ───────────────────────── */}
       {isInwardModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="w-full max-w-sm bg-white rounded-3xl p-4 shadow-2xl max-h-[90vh] overflow-y-auto space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-sm font-bold text-slate-900">Manual Inward Stock Entry</h3>
-              <button onClick={() => setIsInwardModalOpen(false)} className="text-slate-400">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-4 shadow-2xl max-h-[92vh] overflow-y-auto space-y-3.5">
+            <div className="flex items-center justify-between border-b pb-2.5">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Inward Stock Refill Consignment</h3>
+                <p className="text-[11px] text-slate-500">Log multiple medicines received in a single delivery receipt</p>
+              </div>
+              <button onClick={() => setIsInwardModalOpen(false)} className="text-slate-400 p-1 hover:bg-slate-100 rounded-full">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleInwardSubmit} className="space-y-2.5 text-xs">
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Select Medicine *</label>
-                <select
-                  value={inwardForm.productId}
-                  onChange={(e) => {
-                    const pid = e.target.value;
-                    const prod = products.find((p) => p.id === Number(pid));
-                    setInwardForm({
-                      ...inwardForm,
-                      productId: pid,
-                      mrp: prod?.mrp ? prod.mrp.toString() : prod?.price ? prod.price.toString() : '',
-                      sellingPrice: prod?.price ? prod.price.toString() : '',
-                      purchasePrice: prod?.purchase_price ? prod.purchase_price.toString() : ''
-                    });
-                  }}
-                  className="w-full p-2 bg-slate-50 border rounded-lg"
-                  required
+            <datalist id="mob-inward-med-list">
+              {products.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name} · MRP ₹{(p.mrp || p.price).toFixed(2)} · Cost ₹{(p.purchase_price || 0).toFixed(2)}
+                </option>
+              ))}
+            </datalist>
+
+            <form onSubmit={handleInwardSubmit} className="space-y-3.5 text-xs">
+              {/* Consignment Header: Supplier & Invoice */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Supplier / Wholesaler *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Apex Pharma, MedPlus"
+                      value={inwardConsignment.supplier}
+                      onChange={(e) => setInwardConsignment({ ...inwardConsignment, supplier: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Invoice / DC No. *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. INV-9041"
+                      value={inwardConsignment.invoiceNumber}
+                      onChange={(e) => setInwardConsignment({ ...inwardConsignment, invoiceNumber: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono uppercase"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Date Received *</label>
+                    <input
+                      type="date"
+                      required
+                      value={inwardConsignment.receivedDate}
+                      onChange={(e) => setInwardConsignment({ ...inwardConsignment, receivedDate: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Notes / Storage Rack</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Shelf A-2"
+                      value={inwardConsignment.notes}
+                      onChange={(e) => setInwardConsignment({ ...inwardConsignment, notes: e.target.value })}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Medicines In This Consignment */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                    Medicines In This Delivery ({inwardConsignment.items.length})
+                  </span>
+                  <span className="text-[10px] text-slate-400">Type or select from dropdown</span>
+                </div>
+
+                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-0.5">
+                  {inwardConsignment.items.map((it, idx) => {
+                    const lineCost = Number(it.quantity || 0) * Number(it.purchasePrice || 0);
+                    return (
+                      <div key={it.id} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-700 text-xs">#{idx + 1} Medicine</span>
+                          {inwardConsignment.items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveInwardRow(it.id)}
+                              className="text-slate-400 hover:text-rose-600 p-1"
+                              title="Remove item"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Medicine name with autocomplete & typing option */}
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Medicine Name *</label>
+                          <input
+                            type="text"
+                            required
+                            list="mob-inward-med-list"
+                            placeholder="Type or select medicine name..."
+                            value={it.productName}
+                            onChange={(e) => handleUpdateInwardRow(it.id, 'productName', e.target.value)}
+                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Batch Number *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. B-2026-01"
+                              value={it.batchNumber}
+                              onChange={(e) => handleUpdateInwardRow(it.id, 'batchNumber', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono uppercase text-sky-700 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Expiry Date *</label>
+                            <input
+                              type="date"
+                              required
+                              value={it.expiryDate}
+                              onChange={(e) => handleUpdateInwardRow(it.id, 'expiryDate', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Qty Received *</label>
+                            <input
+                              type="number"
+                              required
+                              min="1"
+                              placeholder="Qty"
+                              value={it.quantity}
+                              onChange={(e) => handleUpdateInwardRow(it.id, 'quantity', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Cost (₹) *</label>
+                            <input
+                              type="number"
+                              step="any"
+                              required
+                              placeholder="Cost"
+                              value={it.purchasePrice}
+                              onChange={(e) => handleUpdateInwardRow(it.id, 'purchasePrice', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Line Cost</label>
+                            <div className="p-1.5 bg-amber-50 border border-amber-200 rounded-lg text-xs font-mono font-bold text-amber-800 text-center">
+                              ₹{lineCost.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">MRP (₹) *</label>
+                            <input
+                              type="number"
+                              step="any"
+                              required
+                              placeholder="MRP"
+                              value={it.mrp}
+                              onChange={(e) => handleUpdateInwardRow(it.id, 'mrp', e.target.value)}
+                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-blue-700 mb-1">Selling Rate (₹) *</label>
+                            <input
+                              type="number"
+                              step="any"
+                              required
+                              placeholder="Rate"
+                              value={it.sellingPrice}
+                              onChange={(e) => handleUpdateInwardRow(it.id, 'sellingPrice', e.target.value)}
+                              className="w-full p-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-mono font-bold text-blue-800 text-center"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddInwardRow}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-amber-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-slate-200"
                 >
-                  <option value="">-- Choose Medicine --</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                  <Plus className="h-4 w-4" />
+                  <span>+ Add Another Medicine</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Batch Number *</label>
-                  <input
-                    type="text"
-                    value={inwardForm.batchNumber}
-                    onChange={(e) => setInwardForm({ ...inwardForm, batchNumber: e.target.value })}
-                    placeholder="e.g. MOC-9921"
-                    className="w-full p-2 bg-slate-50 border rounded-lg font-mono uppercase"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Expiry Date *</label>
-                  <input
-                    type="date"
-                    value={inwardForm.expiryDate}
-                    onChange={(e) => setInwardForm({ ...inwardForm, expiryDate: e.target.value })}
-                    className="w-full p-2 bg-slate-50 border rounded-lg"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Total Consignment Purchase Cost */}
+              {(() => {
+                const totalCost = inwardConsignment.items.reduce(
+                  (sum, it) => sum + (Number(it.quantity || 0) * Number(it.purchasePrice || 0)),
+                  0
+                );
+                return (
+                  <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 flex justify-between items-center text-xs">
+                    <div>
+                      <span className="font-bold text-amber-900 block">Total Consignment Cost:</span>
+                      <span className="text-[10px] text-amber-700">{inwardConsignment.items.length} medicines in receipt</span>
+                    </div>
+                    <span className="text-base font-black text-amber-800 font-mono">₹{totalCost.toFixed(2)}</span>
+                  </div>
+                );
+              })()}
 
-              <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Quantity Received *</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={inwardForm.quantity}
-                  onChange={(e) => setInwardForm({ ...inwardForm, quantity: e.target.value })}
-                  placeholder="Units"
-                  className="w-full p-2 bg-slate-50 border rounded-lg"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-1.5">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Purchase Rate</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={inwardForm.purchasePrice}
-                    onChange={(e) => setInwardForm({ ...inwardForm, purchasePrice: e.target.value })}
-                    placeholder="Cost"
-                    className="w-full p-1.5 bg-slate-50 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">MRP (₹)</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={inwardForm.mrp}
-                    onChange={(e) => setInwardForm({ ...inwardForm, mrp: e.target.value })}
-                    placeholder="MRP"
-                    className="w-full p-1.5 bg-slate-50 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-blue-700 mb-1">Price Sold At</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={inwardForm.sellingPrice}
-                    onChange={(e) => setInwardForm({ ...inwardForm, sellingPrice: e.target.value })}
-                    placeholder="Rate"
-                    className="w-full p-1.5 bg-blue-50 border border-blue-200 rounded-lg font-bold"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs"
                 >
-                  Save Inward Stock
+                  Record Inward Stock Consignment
                 </button>
               </div>
             </form>

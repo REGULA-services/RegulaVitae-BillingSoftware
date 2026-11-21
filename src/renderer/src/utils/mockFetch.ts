@@ -16014,69 +16014,131 @@ export function initMockFetch() {
         const inwardList = getDbData('inward_stock', []);
         if (method === 'POST') {
           const body = JSON.parse(init?.body as string || '{}');
-          const newId = inwardList.length > 0 ? Math.max(...inwardList.map((r: any) => Number(r.id) || 0)) + 1 : 1;
-          const sellingPrice = Number(body.selling_price !== undefined ? body.selling_price : (body.mrp || 0));
-          const newEntry = {
-            id: newId,
-            product_id: Number(body.product_id),
-            product_name: String(body.product_name || 'Medicine'),
-            batch_number: String(body.batch_number),
-            quantity: Number(body.quantity || 0),
-            expiry_date: String(body.expiry_date),
-            mfg_date: body.mfg_date || '2026-01-01',
-            purchase_price: Number(body.purchase_price || 0),
-            mrp: Number(body.mrp || 0),
-            selling_price: sellingPrice,
-            supplier_name: body.supplier_name || 'Direct Wholesale',
-            invoice_number: body.invoice_number || 'INV-MONTHLY',
-            received_date: body.received_date || new Date().toISOString().split('T')[0],
-            received_by: body.received_by || 'Admin',
-            notes: body.notes || '',
-            created_at: new Date().toISOString()
-          };
-          inwardList.unshift(newEntry);
-          saveDbData('inward_stock', inwardList);
-
-          // Sync into batches
           let batches = getDbData('batches', []);
-          const existing = batches.find((b: any) => b.product_id === newEntry.product_id && b.batch_number === newEntry.batch_number);
-          if (existing) {
-            existing.available_stock = Number(existing.available_stock || 0) + newEntry.quantity;
-            existing.expiry_date = newEntry.expiry_date;
-            existing.purchase_price = newEntry.purchase_price;
-            existing.mrp = newEntry.mrp;
-            existing.selling_price = sellingPrice;
-          } else {
-            const nextBId = batches.length > 0 ? Math.max(...batches.map((b: any) => Number(b.id) || 0)) + 1 : 1;
-            batches.push({
-              id: nextBId,
-              product_id: newEntry.product_id,
-              batch_number: newEntry.batch_number,
-              mfg_date: newEntry.mfg_date,
-              expiry_date: newEntry.expiry_date,
-              mrp: newEntry.mrp,
-              selling_price: sellingPrice,
-              purchase_price: newEntry.purchase_price,
-              available_stock: newEntry.quantity,
-              rack_location: 'MAIN-DISPENSARY',
-              status: 'Active',
-              created_at: new Date().toISOString()
-            });
-          }
-          saveDbData('batches', batches);
-
-          // Sync product active catalogue selling rate, MRP, and purchase cost
           let products = getDbData('products', ORTHO_PHARMACY_PRODUCTS);
-          const pIdx = products.findIndex((p: any) => p.id === newEntry.product_id);
-          if (pIdx !== -1) {
-            products[pIdx].price = sellingPrice;
-            products[pIdx].mrp = newEntry.mrp;
-            products[pIdx].purchase_price = newEntry.purchase_price;
-            products[pIdx].status = 'Available';
-            saveDbData('products', products);
+
+          const itemsToProcess = Array.isArray(body.items) && body.items.length > 0
+            ? body.items.map((it: any) => ({
+                product_id: Number(it.product_id || 0),
+                product_name: String(it.product_name || it.name || 'Medicine'),
+                batch_number: String(it.batch_number || 'BTH-' + Date.now()),
+                quantity: Number(it.quantity || it.quantity_received || 0),
+                expiry_date: String(it.expiry_date || '2028-12-31'),
+                mfg_date: it.mfg_date || '2026-01-01',
+                purchase_price: Number(it.purchase_price || 0),
+                mrp: Number(it.mrp || 0),
+                selling_price: Number(it.selling_price !== undefined ? it.selling_price : (it.mrp || 0)),
+                supplier_name: body.supplier_name || 'Direct Wholesale',
+                invoice_number: body.invoice_number || 'INV-MONTHLY',
+                received_date: body.received_date || new Date().toISOString().split('T')[0],
+                received_by: body.received_by || 'Admin',
+                notes: body.notes || ''
+              }))
+            : [{
+                product_id: Number(body.product_id || 0),
+                product_name: String(body.product_name || 'Medicine'),
+                batch_number: String(body.batch_number),
+                quantity: Number(body.quantity || body.quantity_received || 0),
+                expiry_date: String(body.expiry_date),
+                mfg_date: body.mfg_date || '2026-01-01',
+                purchase_price: Number(body.purchase_price || 0),
+                mrp: Number(body.mrp || 0),
+                selling_price: Number(body.selling_price !== undefined ? body.selling_price : (body.mrp || 0)),
+                supplier_name: body.supplier_name || 'Direct Wholesale',
+                invoice_number: body.invoice_number || 'INV-MONTHLY',
+                received_date: body.received_date || new Date().toISOString().split('T')[0],
+                received_by: body.received_by || 'Admin',
+                notes: body.notes || ''
+              }];
+
+          let totalCost = 0;
+          let totalUnits = 0;
+
+          for (const item of itemsToProcess) {
+            let pid = item.product_id;
+            if (pid <= 0 && item.product_name) {
+              const found = products.find((p: any) => p.name.toLowerCase() === item.product_name.toLowerCase());
+              if (found) {
+                pid = found.id;
+              } else {
+                pid = products.length > 0 ? Math.max(...products.map((p: any) => Number(p.id) || 0)) + 1 : 1;
+                products.push({
+                  id: pid,
+                  name: item.product_name,
+                  category: 'General Medicine',
+                  price: item.selling_price,
+                  mrp: item.mrp,
+                  purchase_price: item.purchase_price,
+                  status: 'Available',
+                  tax_percent: 12
+                });
+              }
+              item.product_id = pid;
+            }
+
+            const newId = inwardList.length > 0 ? Math.max(...inwardList.map((r: any) => Number(r.id) || 0)) + 1 : 1;
+            const newEntry = {
+              id: newId,
+              ...item,
+              created_at: new Date().toISOString()
+            };
+            inwardList.unshift(newEntry);
+
+            // Sync into batches
+            const existing = batches.find((b: any) => b.product_id === pid && b.batch_number === item.batch_number);
+            if (existing) {
+              existing.available_stock = Number(existing.available_stock || 0) + item.quantity;
+              existing.expiry_date = item.expiry_date;
+              existing.purchase_price = item.purchase_price;
+              existing.mrp = item.mrp;
+              existing.selling_price = item.selling_price;
+              existing.status = 'Active';
+            } else {
+              const nextBId = batches.length > 0 ? Math.max(...batches.map((b: any) => Number(b.id) || 0)) + 1 : 1;
+              batches.push({
+                id: nextBId,
+                product_id: pid,
+                batch_number: item.batch_number,
+                mfg_date: item.mfg_date,
+                expiry_date: item.expiry_date,
+                mrp: item.mrp,
+                selling_price: item.selling_price,
+                purchase_price: item.purchase_price,
+                available_stock: item.quantity,
+                rack_location: 'MAIN-DISPENSARY',
+                status: 'Active',
+                created_at: new Date().toISOString()
+              });
+            }
+
+            // Sync product active catalogue selling rate, MRP, and purchase cost
+            const pIdx = products.findIndex((p: any) => p.id === pid);
+            if (pIdx !== -1) {
+              products[pIdx].price = item.selling_price;
+              products[pIdx].mrp = item.mrp;
+              products[pIdx].purchase_price = item.purchase_price;
+              products[pIdx].status = 'Available';
+            }
+
+            totalCost += (item.quantity * item.purchase_price);
+            totalUnits += item.quantity;
           }
 
-          return makeResponse({ success: true, id: newId, message: `Inward stock recorded for batch ${newEntry.batch_number}` }, 201);
+          saveDbData('inward_stock', inwardList);
+          saveDbData('batches', batches);
+          saveDbData('products', products);
+
+          return Promise.resolve({
+            ok: true,
+            status: 201,
+            json: async () => ({
+              success: true,
+              count: itemsToProcess.length,
+              total_units: totalUnits,
+              total_purchase_cost: totalCost,
+              message: `Recorded inward stock of ${itemsToProcess.length} medicines totaling ₹${totalCost.toFixed(2)}`
+            })
+          } as Response);
         }
         return makeResponse(inwardList);
       }

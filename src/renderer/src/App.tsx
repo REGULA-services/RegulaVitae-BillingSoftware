@@ -2118,11 +2118,28 @@ export default function App() {
     const url = isNew ? apiUrl("/api/products") : apiUrl(`/api/products/${editingProduct.id}`);
     const method = isNew ? "POST" : "PUT";
 
+    const finalTaxPercent = editingProduct.tax_percent !== undefined && editingProduct.tax_percent !== null && !isNaN(Number(editingProduct.tax_percent))
+      ? Number(editingProduct.tax_percent)
+      : 5;
+    const finalPrice = Number(editingProduct.price || 0);
+    const finalMrp = Number(editingProduct.mrp !== undefined && editingProduct.mrp !== null && !isNaN(Number(editingProduct.mrp)) ? editingProduct.mrp : finalPrice);
+    const finalPurchasePrice = Number(editingProduct.purchase_price !== undefined && editingProduct.purchase_price !== null && !isNaN(Number(editingProduct.purchase_price)) ? editingProduct.purchase_price : +(finalPrice * 0.72).toFixed(2));
+
+    const payload = {
+      ...editingProduct,
+      price: finalPrice,
+      mrp: finalMrp,
+      purchase_price: finalPurchasePrice,
+      tax_percent: finalTaxPercent,
+      quantity_type: editingProduct.quantity_type || 'strip',
+      status: editingProduct.status || 'Available'
+    };
+
     try {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingProduct)
+        body: JSON.stringify(payload)
       });
 
       if (!res.ok) {
@@ -5636,8 +5653,8 @@ export default function App() {
                               </td>
                               <td className="py-2 px-3 text-slate-400">{p.category}</td>
                               <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
-                              <td className="py-2 px-3 text-right font-mono text-slate-400">₹{(p.mrp || p.price).toFixed(2)}</td>
-                              <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{p.price.toFixed(2)}</td>
+                              <td className="py-2 px-3 text-right font-mono text-slate-400">₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)}</td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{Number(p.price || 0).toFixed(2)}</td>
                               <td className="py-2 px-3 text-center font-mono">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                   isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (availStk <= 15 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
@@ -5821,7 +5838,7 @@ export default function App() {
                       <datalist id="inward-med-suggestions">
                         {products.map(p => (
                           <option key={p.id} value={p.name}>
-                            {p.name} · MRP: ₹{(p.mrp || p.price).toFixed(2)} · Cost: ₹{(p.purchase_price || 0).toFixed(2)}
+                            {p.name} · MRP: ₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)} · Cost: ₹{Number(p.purchase_price || 0).toFixed(2)}
                           </option>
                         ))}
                       </datalist>

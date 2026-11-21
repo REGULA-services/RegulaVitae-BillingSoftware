@@ -257,6 +257,45 @@ export class JSONDatabaseEngine implements DatabaseEngine {
           inward_stock: parsed.inward_stock || [],
           categories: parsed.categories || []
         };
+
+        // Self-healing: Repair any corrupted records with null/NaN price, mrp, or tax_percent
+        let needsSave = false;
+        for (const p of this.data.products) {
+          if (p.price === null || p.price === undefined || isNaN(Number(p.price))) {
+            p.price = Number(p.mrp || p.purchase_price || 95);
+            needsSave = true;
+          } else {
+            p.price = Number(p.price);
+          }
+          if (p.mrp === null || p.mrp === undefined || isNaN(Number(p.mrp))) {
+            p.mrp = Number(p.price || 95);
+            needsSave = true;
+          } else {
+            p.mrp = Number(p.mrp);
+          }
+          if (p.purchase_price === null || p.purchase_price === undefined || isNaN(Number(p.purchase_price))) {
+            p.purchase_price = +(p.price * 0.72).toFixed(2);
+            needsSave = true;
+          } else {
+            p.purchase_price = Number(p.purchase_price);
+          }
+          if (p.tax_percent === null || p.tax_percent === undefined || isNaN(Number(p.tax_percent))) {
+            p.tax_percent = 5;
+            needsSave = true;
+          } else {
+            p.tax_percent = Number(p.tax_percent);
+          }
+          // Repair Crocin specifically if previously zeroed
+          if (p.name && String(p.name).toLowerCase().includes('crocin') && p.tax_percent === 0) {
+            p.tax_percent = 5;
+            if (!p.price || p.price === 0) p.price = 95;
+            if (!p.mrp || p.mrp === 0) p.mrp = 115;
+            needsSave = true;
+          }
+        }
+        if (needsSave) {
+          this.save();
+        }
       } catch (err) {
         console.error("Failed to parse JSON DB, starting fresh", err);
       }
@@ -1001,7 +1040,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         id,
         status: 'Available',
         quantity_type: 'strip',
-        tax_percent: 0,
+        tax_percent: 5,
         is_prescription_required: 1,
         is_cold_chain: 0,
         is_example: 0
@@ -1032,7 +1071,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       product.price = Number(product.price || 0);
       product.mrp = Number(product.mrp !== undefined && product.mrp !== null && !isNaN(Number(product.mrp)) ? product.mrp : product.price);
       product.purchase_price = Number(product.purchase_price !== undefined && product.purchase_price !== null && !isNaN(Number(product.purchase_price)) ? product.purchase_price : product.price * 0.72);
-      product.tax_percent = Number(product.tax_percent || 0);
+      product.tax_percent = Number(product.tax_percent !== undefined && product.tax_percent !== null && !isNaN(Number(product.tax_percent)) ? product.tax_percent : 5);
       product.generic_name = product.generic_name || product.name;
       product.hsn_code = product.hsn_code || "30049099";
       product.schedule = product.schedule || "Schedule H";
@@ -1046,13 +1085,13 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     }
 
     // Update Product: specific price/mrp sync from inward stock
-    if (q.includes("PRICE = ?") && q.includes("MRP = ?") && q.includes("PURCHASE_PRICE = ?")) {
+    if (q.startsWith("UPDATE PRODUCTS SET PRICE = ?, MRP = ?, PURCHASE_PRICE = ?")) {
       const idParam = params[params.length - 1];
       const idx = this.data.products.findIndex(p => p.id === Number(idParam));
       if (idx !== -1) {
-        this.data.products[idx].price = Number(params[0]);
-        this.data.products[idx].mrp = Number(params[1]);
-        this.data.products[idx].purchase_price = Number(params[2]);
+        this.data.products[idx].price = Number(params[0] || 0);
+        this.data.products[idx].mrp = Number(params[1] || params[0] || 0);
+        this.data.products[idx].purchase_price = Number(params[2] || 0);
         this.data.products[idx].status = 'Available';
         this.save();
         return { changes: 1 };
@@ -1072,17 +1111,24 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         if (setIdx !== -1 && whereIdx !== -1) {
           const setPart = query.substring(setIdx + 3, whereIdx);
           const setPairs = setPart.split(',').map(s => s.trim());
-          setPairs.forEach((pair, pIdx) => {
-            const col = pair.split('=')[0].trim().toLowerCase();
-            if (pIdx < params.length - 1) {
-              target[col] = params[pIdx];
+          let pIdx = 0;
+          setPairs.forEach((pair) => {
+            const parts = pair.split('=');
+            const col = parts[0].trim().toLowerCase();
+            const valExpr = parts[1] ? parts[1].trim() : '';
+            if (valExpr.includes('?')) {
+              if (pIdx < params.length - 1) {
+                target[col] = params[pIdx++];
+              }
+            } else if (valExpr) {
+              target[col] = valExpr.replace(/^['"]|['"]$/g, '');
             }
           });
         }
-        target.price = Number(target.price !== undefined ? target.price : 0);
-        if (target.mrp !== undefined) target.mrp = Number(target.mrp);
-        if (target.purchase_price !== undefined) target.purchase_price = Number(target.purchase_price);
-        target.tax_percent = Number(target.tax_percent || 0);
+        target.price = Number(target.price !== undefined && target.price !== null && !isNaN(Number(target.price)) ? target.price : 0);
+        target.mrp = Number(target.mrp !== undefined && target.mrp !== null && !isNaN(Number(target.mrp)) ? target.mrp : target.price);
+        target.purchase_price = Number(target.purchase_price !== undefined && target.purchase_price !== null && !isNaN(Number(target.purchase_price)) ? target.purchase_price : +(target.price * 0.72).toFixed(2));
+        target.tax_percent = Number(target.tax_percent !== undefined && target.tax_percent !== null && !isNaN(Number(target.tax_percent)) ? target.tax_percent : 5);
         this.save();
         return { changes: 1 };
       }

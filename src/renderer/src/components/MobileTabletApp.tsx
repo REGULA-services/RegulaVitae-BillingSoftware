@@ -361,7 +361,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     quantity_type: 'strip',
     barcode: '',
     hsn_code: '3004',
-    rack_location: ''
+    rack_location: '',
+    tax_percent: 5
   });
 
   // Category Modal
@@ -931,7 +932,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       barcode: productForm.barcode.trim(),
       hsn_code: productForm.hsn_code.trim(),
       rack_location: productForm.rack_location.trim(),
-      tax_percent: 12,
+      tax_percent: Number(productForm.tax_percent ?? 5),
       status: Number(productForm.available_stock) > 0 ? 'Available' : 'Out of Stock'
     };
 
@@ -1473,7 +1474,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                           quantity_type: 'strip',
                           barcode: '',
                           hsn_code: '3004',
-                          rack_location: ''
+                          rack_location: '',
+                          tax_percent: 5
                         });
                         setIsProductModalOpen(true);
                       }}
@@ -1576,7 +1578,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                                 quantity_type: p.quantity_type || 'strip',
                                 barcode: p.barcode || '',
                                 hsn_code: p.hsn_code || '3004',
-                                rack_location: p.rack_location || ''
+                                rack_location: p.rack_location || '',
+                                tax_percent: p.tax_percent ?? 5
                               });
                               setIsProductModalOpen(true);
                             }}
@@ -2810,6 +2813,21 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     className="w-full p-1.5 bg-slate-50 border rounded-lg"
                   />
                 </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">GST Tax Rate *</label>
+                <select
+                  value={productForm.tax_percent}
+                  onChange={(e) => setProductForm({ ...productForm, tax_percent: Number(e.target.value) })}
+                  className="w-full p-2 bg-slate-50 border rounded-lg text-xs font-semibold"
+                >
+                  <option value={0}>0% — Exempt Medicines</option>
+                  <option value={5}>5% — Essential Pharma / Life-saving</option>
+                  <option value={12}>12% — Medical Devices &amp; Braces</option>
+                  <option value={18}>18% — Supplements &amp; OTC Topicals</option>
+                  <option value={28}>28% — Specialized Goods</option>
+                </select>
               </div>
 
               <div className="pt-2">

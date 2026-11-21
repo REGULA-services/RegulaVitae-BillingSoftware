@@ -339,15 +339,17 @@ app.get('/api/products', async (req, res) => {
       const isExpired = totalAvailableStock === 0 && totalRawStock > 0 && prodBatches.every(b => (b.expiry_date || '') < today);
       const isOutOfStock = totalAvailableStock === 0 && !isExpired;
 
-      const mrp = Number(p.mrp || (activeBatch ? activeBatch.mrp : p.price));
-      const priceSoldAt = Number(p.price || (activeBatch ? (activeBatch.selling_price || activeBatch.price) : p.price));
-      const purchasePrice = Number(p.purchase_price || (activeBatch ? activeBatch.purchase_price : (priceSoldAt * 0.72)));
+      const mrp = Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (activeBatch ? activeBatch.mrp : (p.price || 0)));
+      const priceSoldAt = Number(p.price !== undefined && p.price !== null && !isNaN(Number(p.price)) ? p.price : (activeBatch ? (activeBatch.selling_price || activeBatch.price) : 0));
+      const purchasePrice = Number(p.purchase_price !== undefined && p.purchase_price !== null && !isNaN(Number(p.purchase_price)) ? p.purchase_price : (activeBatch ? activeBatch.purchase_price : (priceSoldAt * 0.72)));
+      const taxPercent = Number(p.tax_percent !== undefined && p.tax_percent !== null && !isNaN(Number(p.tax_percent)) ? p.tax_percent : 5);
 
       return {
         ...p,
         mrp,
         price: priceSoldAt,
         purchase_price: purchasePrice,
+        tax_percent: taxPercent,
         available_stock: totalAvailableStock,
         total_raw_stock: totalRawStock,
         expiry_date: activeBatch?.expiry_date || '2028-12-31',
@@ -377,9 +379,10 @@ app.post('/api/products', async (req, res) => {
     }
     const db = await getDatabase();
     const priceSoldAt = Number(price);
-    const retailMrp = Number(mrp || priceSoldAt);
-    const costPrice = Number(purchase_price || (priceSoldAt * 0.72));
+    const retailMrp = Number(mrp !== undefined && mrp !== null && !isNaN(Number(mrp)) ? mrp : priceSoldAt);
+    const costPrice = Number(purchase_price !== undefined && purchase_price !== null && !isNaN(Number(purchase_price)) ? purchase_price : (priceSoldAt * 0.72));
     const stockQty = Number(initial_stock || 0);
+    const finalTaxPercent = tax_percent !== undefined && tax_percent !== null && !isNaN(Number(tax_percent)) ? Number(tax_percent) : 5;
 
     const result = await db.run(
       `INSERT INTO products (
@@ -388,7 +391,7 @@ app.post('/api/products', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name, category, priceSoldAt, retailMrp, costPrice, barcode || null, sku || null,
-        Number(tax_percent || 0), stockQty > 0 ? 'Available' : (status || 'Available'),
+        finalTaxPercent, stockQty > 0 ? 'Available' : (status || 'Available'),
         quantity_type || 'strip', generic_name || name, dosage_form || 'Tablet', strength || null
       ]
     );
@@ -429,7 +432,7 @@ app.post('/api/products', async (req, res) => {
       available_stock: stockQty,
       barcode,
       sku,
-      tax_percent,
+      tax_percent: finalTaxPercent,
       status: stockQty > 0 ? 'Available' : 'Out of Stock',
       quantity_type
     });
@@ -451,19 +454,20 @@ app.put('/api/products/:id', async (req, res) => {
     } = req.body;
     const db = await getDatabase();
     const priceSoldAt = Number(price);
-    const retailMrp = Number(mrp || priceSoldAt);
-    const costPrice = Number(purchase_price || (priceSoldAt * 0.72));
+    const retailMrp = Number(mrp !== undefined && mrp !== null && !isNaN(Number(mrp)) ? mrp : priceSoldAt);
+    const costPrice = Number(purchase_price !== undefined && purchase_price !== null && !isNaN(Number(purchase_price)) ? purchase_price : (priceSoldAt * 0.72));
+    const finalTaxPercent = tax_percent !== undefined && tax_percent !== null && !isNaN(Number(tax_percent)) ? Number(tax_percent) : 5;
 
     const result = await db.run(
       `UPDATE products 
        SET name = ?, category = ?, price = ?, mrp = ?, purchase_price = ?, barcode = ?, sku = ?, tax_percent = ?, status = ?, quantity_type = ? 
        WHERE id = ?`,
-      [name, category, priceSoldAt, retailMrp, costPrice, barcode || null, sku || null, Number(tax_percent || 0), status || 'Available', quantity_type || 'strip', Number(id)]
+      [name, category, priceSoldAt, retailMrp, costPrice, barcode || null, sku || null, finalTaxPercent, status || 'Available', quantity_type || 'strip', Number(id)]
     );
     if (result.changes === 0) {
       return res.status(404).json({ error: "Product not found." });
     }
-    res.json({ id: Number(id), name, category, price: priceSoldAt, mrp: retailMrp, purchase_price: costPrice, barcode, sku, tax_percent, status, quantity_type });
+    res.json({ id: Number(id), name, category, price: priceSoldAt, mrp: retailMrp, purchase_price: costPrice, barcode, sku, tax_percent: finalTaxPercent, status, quantity_type });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

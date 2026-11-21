@@ -6,7 +6,7 @@ import {
   Package, Monitor, Edit2, ShieldAlert, Printer, Eye,
   Settings, UserCheck, Tag
 } from 'lucide-react';
-import { apiUrl } from '../utils/apiConfig';
+import { apiUrl, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
 
 interface Product {
   id: number;
@@ -234,6 +234,65 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
   // Network Info
   const [networkInfo, setNetworkInfo] = useState<{ localhostUrl: string; primaryLanUrl: string; interfaces: any[] } | null>(null);
+
+  // Dynamic Clinic Server Connection State
+  const [serverUrlInput, setServerUrlInput] = useState<string>(() => getSavedClinicServerUrl() || getApiBaseUrl());
+  const [isTestingServer, setIsTestingServer] = useState<boolean>(false);
+  const [serverTestResult, setServerTestResult] = useState<{ status: 'idle' | 'success' | 'error'; message: string; latency?: number } | null>(null);
+
+  const handleTestServerConnection = async () => {
+    const targetUrl = (serverUrlInput || '').trim().replace(/\/+$/, '');
+    if (!targetUrl) {
+      setServerTestResult({ status: 'error', message: 'Please enter a server URL (e.g. http://192.168.x.x:4848)' });
+      return;
+    }
+    setIsTestingServer(true);
+    setServerTestResult(null);
+    const start = performance.now();
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${targetUrl}/api/clinic/details`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const elapsed = Math.round(performance.now() - start);
+      if (res.ok) {
+        const details = await res.json().catch(() => ({}));
+        setServerTestResult({
+          status: 'success',
+          message: `Connected to ${details.clinic_name || 'Madras Ortho Clinic Server'}`,
+          latency: elapsed
+        });
+      } else {
+        setServerTestResult({
+          status: 'error',
+          message: `Server returned HTTP ${res.status}. Verify server is running on port 4848.`
+        });
+      }
+    } catch (e: any) {
+      setServerTestResult({
+        status: 'error',
+        message: 'Could not connect. Ensure laptop host is running and both devices share Wi-Fi.'
+      });
+    } finally {
+      setIsTestingServer(false);
+    }
+  };
+
+  const handleSaveServerConnection = () => {
+    const targetUrl = (serverUrlInput || '').trim().replace(/\/+$/, '');
+    if (!targetUrl) return;
+    setSavedClinicServerUrl(targetUrl);
+    alert(`Clinic server URL saved to ${targetUrl}. Reconnecting...`);
+    loadData();
+  };
+
+  const handleResetServerConnection = () => {
+    setSavedClinicServerUrl('');
+    setServerUrlInput(getApiBaseUrl());
+    setServerTestResult(null);
+    alert('Reset to zero-config auto-detection (http://madrasorthoclinic.local:4848).');
+    loadData();
+  };
 
   // Financial Stats Snapshot
   const [todayStats, setTodayStats] = useState({
@@ -1748,22 +1807,90 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         {/* ── TAB 5: MORE / CLINIC TOOLS & SETTINGS ──────────────────── */}
         {activeTab === 'more' && (
           <div className="space-y-3 max-w-lg mx-auto">
-            {/* Wi-Fi & Local Network Card */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-              <div className="flex items-center gap-2 text-blue-600">
-                <Wifi className="h-5 w-5" />
-                <h2 className="text-sm font-bold text-slate-900">Clinic Local Network Host</h2>
+            {/* Wi-Fi & Local Network Card with Interactive Server Connection Manager */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Wifi className="h-5 w-5" />
+                  <h2 className="text-sm font-bold text-slate-900">Clinic Server & Wi-Fi Connection</h2>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                  Port 4848
+                </span>
               </div>
-              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <div><strong>Custom Clinic URL:</strong> <code className="text-blue-700 font-bold font-mono">http://madrasorthoclinic.local:4848</code></div>
-                <div><strong>Localhost Fallback:</strong> <code className="text-slate-700 font-mono">http://localhost:4848</code></div>
+
+              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-mono text-[11px]">
+                <div><strong>Domain:</strong> <code className="text-blue-700 font-bold">http://madrasorthoclinic.local:4848</code></div>
                 {networkInfo?.primaryLanUrl && (
-                  <div><strong>Wi-Fi Direct IP:</strong> <code className="text-emerald-700 font-bold font-mono">{networkInfo.primaryLanUrl}</code></div>
+                  <div><strong>Wi-Fi Direct:</strong> <code className="text-emerald-700 font-bold">{networkInfo.primaryLanUrl}</code></div>
                 )}
+                <div><strong>Active Base:</strong> <code className="text-slate-800">{getApiBaseUrl()}</code></div>
               </div>
-              <p className="text-[11px] text-slate-500">
-                Connected via embedded mDNS responder. Any phone or tab on the same Wi-Fi can open <strong>http://madrasorthoclinic.local:4848</strong>.
-              </p>
+
+              {/* Configure Server URL */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Server Address / IP (Mobile & Tab Connection)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={serverUrlInput}
+                    onChange={(e) => setServerUrlInput(e.target.value)}
+                    placeholder="http://192.168.x.x:4848 or http://madrasorthoclinic.local:4848"
+                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-slate-200 rounded-xl"
+                  />
+                  <button
+                    type="button"
+                    disabled={isTestingServer}
+                    onClick={handleTestServerConnection}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-xs"
+                  >
+                    {isTestingServer ? 'Pinging...' : 'Test Ping'}
+                  </button>
+                </div>
+
+                {serverTestResult && (
+                  <div className={`p-2 rounded-xl text-xs flex items-center justify-between ${
+                    serverTestResult.status === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border border-rose-200'
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      {serverTestResult.status === 'success' ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                      )}
+                      <span>{serverTestResult.message}</span>
+                    </div>
+                    {serverTestResult.latency !== undefined && (
+                      <span className="font-mono font-bold text-[10px] ml-2">
+                        {serverTestResult.latency}ms
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveServerConnection}
+                    className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl"
+                  >
+                    Save & Reconnect
+                  </button>
+                  {getSavedClinicServerUrl() && (
+                    <button
+                      type="button"
+                      onClick={handleResetServerConnection}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                    >
+                      Reset Auto
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Drug-Drug Clinical Interaction Checker */}

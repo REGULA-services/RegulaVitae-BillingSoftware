@@ -1215,7 +1215,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         bill.status = 'Cancelled';
         bill.cancellation_reason = params[0] || 'Cancelled by Pharmacist';
         bill.cancelled_by = params[1] || 'Pharmacist';
-        bill.cancelled_at = new Date().toISOString();
+        bill.cancelled_at = params[2] || new Date().toISOString();
         this.save();
         return { changes: 1 };
       }
@@ -1565,6 +1565,24 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       this.data.categories = this.data.categories.filter(c => c.id !== Number(target) && c.name.toLowerCase() !== String(target).toLowerCase());
       this.save();
       return { changes: before - this.data.categories.length };
+    }
+
+    // Increment Batch Stock (Returns / Credit Note / Cancellation)
+    if (q.includes("UPDATE BATCHES SET AVAILABLE_STOCK = AVAILABLE_STOCK + ?") || q.includes("AVAILABLE_STOCK = AVAILABLE_STOCK +")) {
+      if (!this.data.batches) this.data.batches = [];
+      const qty = Number(params[0]);
+      const prodId = Number(params[1]);
+      const batchNo = params[2] ? String(params[2]) : null;
+      let b = batchNo ? this.data.batches.find(bat => bat.product_id === prodId && bat.batch_number === batchNo) : null;
+      if (!b) {
+        b = this.data.batches.find(bat => bat.product_id === prodId);
+      }
+      if (b) {
+        b.available_stock += qty;
+        this.save();
+        return { changes: 1 };
+      }
+      return { changes: 0 };
     }
 
     // Decrement Batch Stock (Sales / Complimentary Dispense)

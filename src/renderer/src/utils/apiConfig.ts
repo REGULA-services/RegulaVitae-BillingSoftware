@@ -6,15 +6,53 @@
  * 1. Desktop Electron window (file:// protocol -> http://localhost:4848)
  * 2. Localhost Web Browser (http://localhost:4848 -> http://localhost:4848)
  * 3. Mobile / Tablet / Laptop on same Wi-Fi (http://192.168.x.x:4848 -> http://192.168.x.x:4848)
- * 4. Android Capacitor APK (offline fallback or local mock)
+ * 4. Android Capacitor APK (reads localStorage 'moc_clinic_server_url' or falls back to 'http://madrasorthoclinic.local:4848')
  */
 
+export const getSavedClinicServerUrl = (): string => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const saved = window.localStorage.getItem('moc_clinic_server_url');
+    if (saved && saved.trim().length > 0) {
+      return saved.trim().replace(/\/+$/, '');
+    }
+  }
+  return '';
+};
+
+export const setSavedClinicServerUrl = (url: string): void => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const clean = (url || '').trim().replace(/\/+$/, '');
+    if (clean) {
+      window.localStorage.setItem('moc_clinic_server_url', clean);
+    } else {
+      window.localStorage.removeItem('moc_clinic_server_url');
+    }
+  }
+};
+
 export const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location) {
-    // When loaded in a browser over HTTP/HTTPS (localhost or LAN IP like 192.168.x.x)
-    if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-      if (window.location.host) {
-        return `${window.location.protocol}//${window.location.host}`;
+  if (typeof window !== 'undefined') {
+    // 1. Explicit user-configured Clinic Server URL (takes highest precedence on mobile/tablet)
+    const saved = getSavedClinicServerUrl();
+    if (saved) {
+      return saved;
+    }
+
+    if (window.location) {
+      const isCapacitor = !!(window as any).Capacitor || 
+        window.location.protocol === 'capacitor:' || 
+        (window.location.hostname === 'localhost' && (!window.location.port || window.location.port === '80' || window.location.port === '443'));
+
+      // 2. If running inside native Android Capacitor APK, connect to zero-config clinic domain
+      if (isCapacitor) {
+        return 'http://madrasorthoclinic.local:4848';
+      }
+
+      // 3. When loaded in a browser over HTTP/HTTPS (LAN IP or domain or localhost:4848)
+      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+        if (window.location.host) {
+          return `${window.location.protocol}//${window.location.host}`;
+        }
       }
     }
   }
@@ -29,3 +67,4 @@ export const apiUrl = (endpoint: string): string => {
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   return `${base}${cleanEndpoint}`;
 };
+

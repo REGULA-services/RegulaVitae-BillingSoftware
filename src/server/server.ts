@@ -37,12 +37,18 @@ function getDistPath(): string | null {
   } catch (e) {}
 
   // 2. Comprehensive filesystem search
+  const rPath = (process as any).resourcesPath;
   const candidates = [
     path.join(__dirname, '..', '..', '..', 'dist'), // from dist-electron/src/server/ -> root/dist
     path.join(__dirname, '..', '..', 'dist'),       // from src/server/ -> root/dist
     path.join(process.cwd(), 'dist'),
     path.join(process.cwd(), 'resources', 'app.asar', 'dist'),
     path.join(process.cwd(), 'resources', 'app', 'dist'),
+    ...(rPath ? [
+      path.join(rPath, 'app.asar', 'dist'),
+      path.join(rPath, 'app', 'dist'),
+      path.join(rPath, 'dist')
+    ] : []),
     path.join(__dirname, '..', 'dist'),
     path.join(__dirname, 'dist')
   ];
@@ -62,6 +68,15 @@ if (resolvedDistPath) {
 } else {
   console.warn(`[SERVER] WARNING: dist/ directory containing index.html was not found!`);
 }
+
+// Guarantee root GET / always serves index.html if available
+app.get('/', (req, res, next) => {
+  const dist = getDistPath();
+  if (dist && fs.existsSync(path.join(dist, 'index.html'))) {
+    return res.sendFile(path.join(dist, 'index.html'));
+  }
+  next();
+});
 
 
 // Logger middleware
@@ -1439,10 +1454,38 @@ app.post('/api/bills/:id/cancel', async (req, res) => {
 
     const cancelReason = reason || "Patient returned intact blister packaging under registered pharmacist verification";
     const cancelUser = cancelled_by || "Pharmacist";
+    const nowIso = new Date().toISOString();
 
+    // 1. Restore dispensed inventory back to batches (FEFO stock restoration)
+    try {
+      const billItems = await db.all<any>("SELECT product_id, batch_number, quantity FROM bill_items WHERE bill_id = ?", [id]);
+      if (Array.isArray(billItems)) {
+        for (const item of billItems) {
+          const qty = Number(item.quantity || 0);
+          const pid = Number(item.product_id || 0);
+          if (pid > 0 && qty > 0) {
+            if (item.batch_number) {
+              await db.run(
+                "UPDATE batches SET available_stock = available_stock + ? WHERE product_id = ? AND batch_number = ?",
+                [qty, pid, item.batch_number]
+              );
+            } else {
+              await db.run(
+                "UPDATE batches SET available_stock = available_stock + ? WHERE product_id = ?",
+                [qty, pid]
+              );
+            }
+          }
+        }
+      }
+    } catch (restockErr) {
+      console.warn("[CANCEL-BILL] Warning restoring batch stocks:", restockErr);
+    }
+
+    // 2. Mark bill as Cancelled with audit trail
     await db.run(
-      "UPDATE bills SET status = 'Cancelled' WHERE id = ?",
-      [cancelReason, cancelUser, id]
+      "UPDATE bills SET status = 'Cancelled', cancellation_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE id = ?",
+      [cancelReason, cancelUser, nowIso, id]
     );
 
     // Record statutory audit log

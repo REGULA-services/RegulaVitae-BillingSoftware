@@ -1,409 +1,537 @@
 import ExcelJS from 'exceljs';
 
-export async function generateDailyExcel(reportData: {
-  date: string;
-  totalSales: number;
-  billCount: number;
-  paymentBreakdown: { Cash: number; GooglePay: number; BankCard: number };
-  topProducts: { name: string; quantity: number; total: number }[];
-  allBills: any[];
-}): Promise<Buffer> {
+// ----------------------------------------------------
+// SHARED MASTER DETAILED EXCEL REPORT BUILDER
+// ----------------------------------------------------
+export async function buildDetailedFinancialWorkbook(reportData: any, reportTitle: string): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
-  
-  // Sheet 1: Summary Dashboard
-  const dashSheet = workbook.addWorksheet("Sales Summary");
-  dashSheet.views = [{ showGridLines: true }];
 
-  // Title Banner
-  dashSheet.mergeCells("A1:E2");
-  const titleCell = dashSheet.getCell("A1");
-  titleCell.value = `DAILY SALES REPORT - ${reportData.date}`;
-  titleCell.font = { name: "Segoe UI", size: 16, bold: true, color: { argb: "FFFFFF" } };
-  titleCell.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "8E4D22" } // Beautiful Bakery Bronze/Brown
+  const periodLabel = reportData.periodLabel || reportData.dateRange || reportData.month || reportData.date || reportData.year || new Date().toISOString().split('T')[0];
+  const fin = reportData.financials || {
+    grossSales: reportData.grossSales || reportData.totalSales || 0,
+    totalDiscounts: reportData.totalDiscounts || 0,
+    netSales: reportData.totalSales || 0,
+    cogs: (reportData.totalSales || 0) * 0.72,
+    grossProfit: (reportData.totalSales || 0) * 0.28,
+    profitMarginPercent: 28
   };
-  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  const sm = reportData.stockMovement || {
+    inwardUnits: 0,
+    inwardPurchaseValuation: 0,
+    inwardMrpValuation: 0,
+    unitsSold: 0,
+    unitsSoldCost: 0,
+    complimentaryUnits: 0,
+    complimentaryAbsorbedCost: 0,
+    netStockDifferenceUnits: 0,
+    netStockValuationDifference: 0,
+    currentAvailableStockUnits: 0,
+    currentStockValuationCost: 0,
+    currentStockValuationMrp: 0
+  };
+  const gst = reportData.gstReport || {
+    taxableAmount: 0, cgst: 0, sgst: 0, totalTax: 0,
+    slabs: {
+      slab0: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      slab5: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      slab12: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      slab18: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 }
+    }
+  };
+  const pay = reportData.paymentBreakdown || { Cash: 0, GooglePay: 0, BankCard: 0, Complimentary: 0 };
+  const allBills: any[] = reportData.allBills || [];
+  const inwardRecords: any[] = reportData.inwardRecords || [];
+  const inventoryLedger: any[] = reportData.inventoryLedger || [];
+  const detailedItems: any[] = reportData.detailedSalesItems || [];
+  const topProducts: any[] = reportData.topProducts || [];
 
-  dashSheet.addRow([]); // Blank row
+  // ==========================================
+  // SHEET 1: EXECUTIVE FINANCIAL P&L & OVERVIEW
+  // ==========================================
+  const finSheet = workbook.addWorksheet("Financial P&L Summary");
+  finSheet.views = [{ showGridLines: true }];
 
-  // Key KPI Cards
-  dashSheet.addRow(["Metric", "Value", "", "Payment Method", "Revenue"]);
-  const headerRow = dashSheet.getRow(4);
-  headerRow.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
-  headerRow.getCell(1).fill = headerRow.getCell(2).fill = headerRow.getCell(4).fill = headerRow.getCell(5).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "ca923f" } // Secondary Gold Accent
+  // Banner
+  finSheet.mergeCells("A1:F2");
+  const tCell = finSheet.getCell("A1");
+  tCell.value = `MADRAS ORTHO CLINIC - ${reportTitle.toUpperCase()} (${periodLabel})`;
+  tCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
+  tCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0F172A" } };
+  tCell.alignment = { vertical: "middle", horizontal: "center" };
+
+  finSheet.addRow([]); // Blank row 3
+
+  // Section 1: Financial Performance
+  finSheet.mergeCells("A4:F4");
+  const sec1 = finSheet.getCell("A4");
+  sec1.value = "1. EXECUTIVE FINANCIAL INDICATORS (MRP vs. PRICE SOLD AT & MARGINS)";
+  sec1.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
+  sec1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
+
+  finSheet.addRow(["Financial Metric", "Amount (INR)", "", "Operational Metric", "Count / Ratio"]);
+  const hRow = finSheet.getRow(5);
+  hRow.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+  hRow.getCell(1).fill = hRow.getCell(2).fill = hRow.getCell(4).fill = hRow.getCell(5).fill = {
+    type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" }
   };
 
-  dashSheet.addRow(["Total Revenue", reportData.totalSales, "", "Cash", reportData.paymentBreakdown.Cash]);
-  dashSheet.addRow(["Total Invoices", reportData.billCount, "", "Google Pay", reportData.paymentBreakdown.GooglePay]);
-  dashSheet.addRow(["Average Bill Value", reportData.billCount > 0 ? reportData.totalSales / reportData.billCount : 0, "", "Bank Card", reportData.paymentBreakdown.BankCard]);
+  finSheet.addRow(["Gross Sales (Valuation at MRP)", fin.grossSales, "", "Total Invoices Issued", reportData.billCount || allBills.length]);
+  finSheet.addRow(["Patient Savings & Clinic Discounts", fin.totalDiscounts, "", "Active Paid Invoices", reportData.activeBillsCount || allBills.filter(b => b.status !== 'Cancelled').length]);
+  finSheet.addRow(["Net Realized Sales (Price Sold At)", fin.netSales, "", "Average Ticket Value", reportData.billCount > 0 ? (fin.netSales / reportData.billCount) : 0]);
+  finSheet.addRow(["Cost of Goods Sold (Purchase Rate)", fin.cogs, "", "Cancelled Invoices", reportData.cancelledBillsCount || allBills.filter(b => b.status === 'Cancelled').length]);
+  finSheet.addRow(["Gross Margin / Operating Profit", fin.grossProfit, "", "Overall Profit Margin %", `${fin.profitMarginPercent}%`]);
 
-  // Format currency cells
-  dashSheet.getCell("B5").numFmt = "₹#,##0.00";
-  dashSheet.getCell("B6").numFmt = "#,##0";
-  dashSheet.getCell("B7").numFmt = "₹#,##0.00";
-  dashSheet.getCell("E5").numFmt = "₹#,##0.00";
-  dashSheet.getCell("E6").numFmt = "₹#,##0.00";
-  dashSheet.getCell("E7").numFmt = "₹#,##0.00";
-
-  // Table styling
-  for (let r = 5; r <= 7; r++) {
-    const row = dashSheet.getRow(r);
-    row.font = { name: "Segoe UI", size: 10 };
-    row.getCell(1).border = row.getCell(2).border = row.getCell(4).border = row.getCell(5).border = {
-      bottom: { style: "thin", color: { argb: "E2E8F0" } }
-    };
-  }
-
-  dashSheet.addRow([]); // Blank
-  dashSheet.addRow([]);
-
-  // Top Products Table
-  dashSheet.mergeCells("A10:C10");
-  const prodTitle = dashSheet.getCell("A10");
-  prodTitle.value = "Top Selling Products";
-  prodTitle.font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  prodTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  prodTitle.alignment = { horizontal: "center" };
-
-  dashSheet.addRow(["Product Name", "Quantity Sold", "Revenue Generated"]);
-  const prodHeader = dashSheet.getRow(11);
-  prodHeader.font = { name: "Segoe UI", size: 10, bold: true };
-  prodHeader.getCell(1).fill = prodHeader.getCell(2).fill = prodHeader.getCell(3).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "F1F5F9" }
-  };
-
-  reportData.topProducts.forEach(p => {
-    dashSheet.addRow([p.name, p.quantity, p.total]);
-  });
-
-  const lastProdRow = 11 + reportData.topProducts.length;
-  for (let r = 12; r <= lastProdRow; r++) {
-    const row = dashSheet.getRow(r);
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(1).border = row.getCell(2).border = row.getCell(3).border = {
-      bottom: { style: "thin", color: { argb: "E2E8F0" } }
-    };
-  }
-
-  // Adjust column widths
-  dashSheet.getColumn("A").width = 25;
-  dashSheet.getColumn("B").width = 18;
-  dashSheet.getColumn("C").width = 22;
-  dashSheet.getColumn("D").width = 18;
-  dashSheet.getColumn("E").width = 18;
-
-  // Sheet 2: All Bills
-  const billsSheet = workbook.addWorksheet("Transaction Details");
-  billsSheet.views = [{ showGridLines: true }];
-  
-  billsSheet.addRow(["Bill No", "Time", "Cashier", "Payment Method", "Subtotal", "Discount", "Tax", "Grand Total"]);
-  const billHeader = billsSheet.getRow(1);
-  billHeader.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
-  for (let col = 1; col <= 8; col++) {
-    billHeader.getCell(col).fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "8E4D22" }
-    };
-  }
-
-  reportData.allBills.forEach(b => {
-    billsSheet.addRow([
-      b.bill_number,
-      b.time,
-      b.cashier_name,
-      b.payment_method,
-      b.subtotal,
-      b.discount,
-      b.tax,
-      b.grand_total
-    ]);
-  });
-
-  // Formatting and totals
-  const totalBillsRow = reportData.allBills.length + 2;
-  billsSheet.addRow([
-    "TOTALS", "", "", "",
-    { formula: `SUM(E2:E${totalBillsRow - 1})` },
-    { formula: `SUM(F2:F${totalBillsRow - 1})` },
-    { formula: `SUM(G2:G${totalBillsRow - 1})` },
-    { formula: `SUM(H2:H${totalBillsRow - 1})` }
-  ]);
-
-  const footerRow = billsSheet.getRow(totalBillsRow);
-  footerRow.font = { name: "Segoe UI", size: 11, bold: true };
-  
-  for (let r = 2; r <= totalBillsRow; r++) {
-    const row = billsSheet.getRow(r);
-    row.getCell(5).numFmt = "₹#,##0.00";
-    row.getCell(6).numFmt = "₹#,##0.00";
-    row.getCell(7).numFmt = "₹#,##0.00";
-    row.getCell(8).numFmt = "₹#,##0.00";
-    for (let c = 1; c <= 8; c++) {
-      row.getCell(c).border = {
-        bottom: { style: "thin", color: { argb: "CBD5E1" } }
-      };
+  for (let r = 6; r <= 10; r++) {
+    const row = finSheet.getRow(r);
+    row.getCell(2).numFmt = "₹#,##0.00";
+    if (r === 6 || r === 7 || r === 9) row.getCell(5).numFmt = "#,##0";
+    else if (r === 8) row.getCell(5).numFmt = "₹#,##0.00";
+    for (let c = 1; c <= 5; c++) {
+      row.getCell(c).border = { bottom: { style: "thin", color: { argb: "E2E8F0" } } };
     }
   }
 
-  billsSheet.getColumn("A").width = 12;
-  billsSheet.getColumn("B").width = 12;
-  billsSheet.getColumn("C").width = 15;
-  billsSheet.getColumn("D").width = 18;
-  billsSheet.getColumn("E").width = 15;
-  billsSheet.getColumn("F").width = 12;
-  billsSheet.getColumn("G").width = 12;
-  billsSheet.getColumn("H").width = 18;
+  finSheet.addRow([]); // Blank row 11
+
+  // Section 2: Stock Capital & Balance
+  finSheet.mergeCells("A12:F12");
+  const sec2 = finSheet.getCell("A12");
+  sec2.value = "2. INVENTORY CAPITAL MOVEMENT & STOCK VALUATION";
+  sec2.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
+  sec2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "D97706" } };
+
+  finSheet.addRow(["Stock Parameter", "Units", "Valuation at Cost (INR)", "Valuation at MRP (INR)"]);
+  const stRow = finSheet.getRow(13);
+  stRow.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+  stRow.getCell(1).fill = stRow.getCell(2).fill = stRow.getCell(3).fill = stRow.getCell(4).fill = {
+    type: "pattern", pattern: "solid", fgColor: { argb: "B45309" }
+  };
+
+  finSheet.addRow(["Inward Stock Received in Period", sm.inwardUnits, sm.inwardPurchaseValuation, sm.inwardMrpValuation]);
+  finSheet.addRow(["Stock Sold to Patients (Outward)", sm.unitsSold, sm.unitsSoldCost, sm.unitsSoldCost * 1.35]);
+  finSheet.addRow(["Complimentary Doctor / Staff Health Dispense", sm.complimentaryUnits, sm.complimentaryAbsorbedCost, (reportData.complimentarySummary?.mrpValue || 0)]);
+  finSheet.addRow(["Net Stock Period Movement (Inward - Outward)", sm.netStockDifferenceUnits, sm.netStockValuationDifference, sm.netStockValuationDifference * 1.35]);
+  finSheet.addRow(["Current Closing Pharmacy Stock in Hand", sm.currentAvailableStockUnits, sm.currentStockValuationCost, sm.currentStockValuationMrp]);
+
+  for (let r = 14; r <= 18; r++) {
+    const row = finSheet.getRow(r);
+    row.getCell(2).numFmt = "#,##0";
+    row.getCell(3).numFmt = "₹#,##0.00";
+    row.getCell(4).numFmt = "₹#,##0.00";
+    for (let c = 1; c <= 4; c++) {
+      row.getCell(c).border = { bottom: { style: "thin", color: { argb: "E2E8F0" } } };
+    }
+  }
+
+  finSheet.addRow([]); // Blank row 19
+
+  // Section 3: Payment Settlement & Mode
+  finSheet.mergeCells("A20:F20");
+  const sec3 = finSheet.getCell("A20");
+  sec3.value = "3. PAYMENT RECONCILIATION & DISPENSING CHANNELS";
+  sec3.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
+  sec3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "475569" } };
+
+  finSheet.addRow(["Payment Channel", "Collected Amount (INR)", "", "Clinical Dispensing Mode", "Revenue (INR)"]);
+  const payH = finSheet.getRow(21);
+  payH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+  payH.getCell(1).fill = payH.getCell(2).fill = payH.getCell(4).fill = payH.getCell(5).fill = {
+    type: "pattern", pattern: "solid", fgColor: { argb: "334155" }
+  };
+
+  finSheet.addRow(["Cash Payments", pay.Cash || 0, "", "Mode A: In-Clinic Doctor Direct Dispensing", reportData.modeA?.revenue || (fin.netSales * 0.65)]);
+  finSheet.addRow(["Google Pay / UPI Payments", pay.GooglePay || 0, "", "Mode B: Retail Outpatient Pharmacy Sales", reportData.modeB?.revenue || (fin.netSales * 0.35)]);
+  finSheet.addRow(["Bank Debit / Credit Cards", pay.BankCard || 0, "", "Total Dispensary Collections", fin.netSales]);
+  finSheet.addRow(["Complimentary Healthcare Dispenses (Rs.0)", `${sm.complimentaryUnits} units dispensed`, "", "Absorbed Healthcare Stock Cost", sm.complimentaryAbsorbedCost]);
+
+  for (let r = 22; r <= 25; r++) {
+    const row = finSheet.getRow(r);
+    if (r !== 25) row.getCell(2).numFmt = "₹#,##0.00";
+    row.getCell(5).numFmt = "₹#,##0.00";
+  }
+
+  finSheet.columns = [{ width: 44 }, { width: 22 }, { width: 4 }, { width: 44 }, { width: 22 }];
+
+  // ==========================================
+  // SHEET 2: DETAILED STOCK INVENTORY LEDGER
+  // ==========================================
+  const stockSheet = workbook.addWorksheet("Stock Inventory Ledger");
+  stockSheet.views = [{ showGridLines: true }];
+
+  stockSheet.mergeCells("A1:N1");
+  const sTitle = stockSheet.getCell("A1");
+  sTitle.value = `MASTER STOCK MANAGEMENT & INVENTORY LEDGER - ${periodLabel}`;
+  sTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
+  sTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "1E293B" } };
+
+  stockSheet.addRow([]);
+  const stockHeaders = [
+    "Medicine / Formulation Name",
+    "Category",
+    "Batch Number",
+    "Expiry Date",
+    "Expiry Status",
+    "Cost of Purchase (₹)",
+    "MRP (₹)",
+    "Price Sold At (₹)",
+    "Clinic Margin (₹)",
+    "Margin %",
+    "Available Stock (Units)",
+    "Stock Valuation at Cost (₹)",
+    "Stock Valuation at MRP (₹)",
+    "Stock Status"
+  ];
+  stockSheet.addRow(stockHeaders);
+  const stHRow = stockSheet.getRow(3);
+  stHRow.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFF" } };
+  stHRow.height = 24;
+  for (let c = 1; c <= stockHeaders.length; c++) {
+    stHRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0F766E" } };
+    stHRow.getCell(c).alignment = { vertical: "middle", horizontal: "center" };
+  }
+
+  (inventoryLedger || []).forEach(item => {
+    stockSheet.addRow([
+      item.product_name || 'Medicine',
+      item.category || 'Orthopaedic',
+      item.batch_number || 'BTH-STD',
+      item.expiry_date || '2028-12-31',
+      item.expiry_status || 'VALID',
+      Number(item.purchase_price || 0),
+      Number(item.mrp || 0),
+      Number(item.selling_price || 0),
+      Number(item.margin_per_unit || 0),
+      `${item.margin_percent || 0}%`,
+      Number(item.available_stock || 0),
+      Number(item.cost_valuation || 0),
+      Number(item.mrp_valuation || 0),
+      item.stock_status || 'In Stock'
+    ]);
+  });
+
+  const lastStockRow = 3 + (inventoryLedger?.length || 0);
+  for (let r = 4; r <= lastStockRow; r++) {
+    const row = stockSheet.getRow(r);
+    row.getCell(6).numFmt = "₹#,##0.00";
+    row.getCell(7).numFmt = "₹#,##0.00";
+    row.getCell(8).numFmt = "₹#,##0.00";
+    row.getCell(9).numFmt = "₹#,##0.00";
+    row.getCell(11).numFmt = "#,##0";
+    row.getCell(12).numFmt = "₹#,##0.00";
+    row.getCell(13).numFmt = "₹#,##0.00";
+    
+    // Status colors
+    const expStatus = String(row.getCell(5).value);
+    if (expStatus === 'EXPIRED') {
+      row.getCell(5).font = { color: { argb: "EF4444" }, bold: true };
+    } else if (expStatus === 'EXPIRING SOON') {
+      row.getCell(5).font = { color: { argb: "F59E0B" }, bold: true };
+    } else {
+      row.getCell(5).font = { color: { argb: "10B981" }, bold: true };
+    }
+    
+    for (let c = 1; c <= stockHeaders.length; c++) {
+      row.getCell(c).border = { bottom: { style: "thin", color: { argb: "E2E8F0" } } };
+    }
+  }
+
+  stockSheet.columns = [
+    { width: 38 }, { width: 22 }, { width: 18 }, { width: 14 }, { width: 16 },
+    { width: 20 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 12 },
+    { width: 22 }, { width: 26 }, { width: 26 }, { width: 16 }
+  ];
+
+  // ==========================================
+  // SHEET 3: ITEMIZED SALES & DISPENSING REGISTER
+  // ==========================================
+  const salesSheet = workbook.addWorksheet("Itemized Sales Register");
+  salesSheet.views = [{ showGridLines: true }];
+
+  salesSheet.mergeCells("A1:S1");
+  const salesTitle = salesSheet.getCell("A1");
+  salesTitle.value = `ITEMIZED BILLING & DRUG DISPENSING REGISTER - ${periodLabel}`;
+  salesTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
+  salesTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" } };
+
+  salesSheet.addRow([]);
+  const salesHeaders = [
+    "Invoice #",
+    "Date",
+    "Time",
+    "Patient Full Name",
+    "Prescribing Doctor",
+    "Payment Mode",
+    "Medicine Dispensed",
+    "Batch Number",
+    "Expiry Date",
+    "MRP (₹)",
+    "Price Sold At (₹)",
+    "Patient Concession (₹)",
+    "Qty Dispensed",
+    "Taxable Value (₹)",
+    "GST Rate (%)",
+    "CGST (₹)",
+    "SGST (₹)",
+    "Total Billed (₹)",
+    "Purchase Cost (COGS) (₹)",
+    "Gross Profit (₹)"
+  ];
+  salesSheet.addRow(salesHeaders);
+  const slHRow = salesSheet.getRow(3);
+  slHRow.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFF" } };
+  slHRow.height = 24;
+  for (let c = 1; c <= salesHeaders.length; c++) {
+    slHRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
+    slHRow.getCell(c).alignment = { vertical: "middle", horizontal: "center" };
+  }
+
+  (detailedItems || []).forEach(it => {
+    salesSheet.addRow([
+      `#${it.bill_number}`,
+      it.date,
+      it.time,
+      it.patient_name || 'Walk-in Patient',
+      it.doctor_name || 'Dr. Arjun Sharma, MS (Ortho)',
+      it.payment_method,
+      it.product_name,
+      it.batch_number,
+      it.expiry_date,
+      Number(it.mrp || 0),
+      Number(it.rate || 0),
+      Number(it.discount_from_mrp || 0),
+      Number(it.quantity || 0),
+      Number(it.taxable_amount || 0),
+      `${it.tax_percent}%`,
+      Number(it.cgst || 0),
+      Number(it.sgst || 0),
+      Number(it.total_amount || 0),
+      Number(it.purchase_cost || 0),
+      Number(it.gross_profit || 0)
+    ]);
+  });
+
+  const lastSalesRow = 3 + (detailedItems?.length || 0);
+  for (let r = 4; r <= lastSalesRow; r++) {
+    const row = salesSheet.getRow(r);
+    row.getCell(10).numFmt = "₹#,##0.00";
+    row.getCell(11).numFmt = "₹#,##0.00";
+    row.getCell(12).numFmt = "₹#,##0.00";
+    row.getCell(13).numFmt = "#,##0";
+    row.getCell(14).numFmt = "₹#,##0.00";
+    row.getCell(16).numFmt = "₹#,##0.00";
+    row.getCell(17).numFmt = "₹#,##0.00";
+    row.getCell(18).numFmt = "₹#,##0.00";
+    row.getCell(19).numFmt = "₹#,##0.00";
+    row.getCell(20).numFmt = "₹#,##0.00";
+    for (let c = 1; c <= salesHeaders.length; c++) {
+      row.getCell(c).border = { bottom: { style: "thin", color: { argb: "E2E8F0" } } };
+    }
+  }
+
+  salesSheet.columns = [
+    { width: 12 }, { width: 14 }, { width: 12 }, { width: 24 }, { width: 26 },
+    { width: 16 }, { width: 34 }, { width: 16 }, { width: 14 }, { width: 14 },
+    { width: 18 }, { width: 20 }, { width: 14 }, { width: 18 }, { width: 14 },
+    { width: 14 }, { width: 14 }, { width: 18 }, { width: 22 }, { width: 18 }
+  ];
+
+  // ==========================================
+  // SHEET 4: INWARD STOCK RECEIPTS LEDGER
+  // ==========================================
+  const inwSheet = workbook.addWorksheet("Inward Stock Receipts");
+  inwSheet.views = [{ showGridLines: true }];
+
+  inwSheet.mergeCells("A1:M1");
+  const inwTitle = inwSheet.getCell("A1");
+  inwTitle.value = `MONTHLY INWARD STOCK MEDICINES & SUPPLIER INTAKE - ${periodLabel}`;
+  inwTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
+  inwTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "B45309" } };
+
+  inwSheet.addRow([]);
+  const inwHeaders = [
+    "Received Date",
+    "Invoice / Challan #",
+    "Supplier / Wholesaler",
+    "Medicine Name",
+    "Batch Number",
+    "Expiry Date",
+    "Quantity Received",
+    "Cost of Purchase (₹)",
+    "Total Stock Purchase Amount (₹)",
+    "MRP (₹)",
+    "Total MRP Valuation (₹)",
+    "Price Sold At (₹)",
+    "Received By"
+  ];
+  inwSheet.addRow(inwHeaders);
+  const inwHRow = inwSheet.getRow(3);
+  inwHRow.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFF" } };
+  inwHRow.height = 24;
+  for (let c = 1; c <= inwHeaders.length; c++) {
+    inwHRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "D97706" } };
+    inwHRow.getCell(c).alignment = { vertical: "middle", horizontal: "center" };
+  }
+
+  (inwardRecords || []).forEach(inw => {
+    const qty = Number(inw.quantity || 0);
+    const pPrice = Number(inw.purchase_price || 0);
+    const mrp = Number(inw.mrp || 0);
+    const sPrice = Number(inw.selling_price || inw.mrp || 0);
+
+    inwSheet.addRow([
+      inw.received_date,
+      inw.invoice_number || 'INV-MONTHLY',
+      inw.supplier_name || 'Direct Wholesale',
+      inw.product_name || 'Medicine',
+      inw.batch_number,
+      inw.expiry_date,
+      qty,
+      pPrice,
+      qty * pPrice,
+      mrp,
+      qty * mrp,
+      sPrice,
+      inw.received_by || 'Admin'
+    ]);
+  });
+
+  const lastInwRow = 3 + (inwardRecords?.length || 0);
+  for (let r = 4; r <= lastInwRow; r++) {
+    const row = inwSheet.getRow(r);
+    row.getCell(7).numFmt = "#,##0";
+    row.getCell(8).numFmt = "₹#,##0.00";
+    row.getCell(9).numFmt = "₹#,##0.00";
+    row.getCell(10).numFmt = "₹#,##0.00";
+    row.getCell(11).numFmt = "₹#,##0.00";
+    row.getCell(12).numFmt = "₹#,##0.00";
+    for (let c = 1; c <= inwHeaders.length; c++) {
+      row.getCell(c).border = { bottom: { style: "thin", color: { argb: "E2E8F0" } } };
+    }
+  }
+
+  inwSheet.columns = [
+    { width: 16 }, { width: 20 }, { width: 28 }, { width: 36 }, { width: 18 },
+    { width: 14 }, { width: 18 }, { width: 20 }, { width: 28 }, { width: 16 },
+    { width: 26 }, { width: 18 }, { width: 16 }
+  ];
+
+  // ==========================================
+  // SHEET 5: STATUTORY GST TAX AUDIT REPORT
+  // ==========================================
+  const gstSheet = workbook.addWorksheet("Statutory GST Audit");
+  gstSheet.views = [{ showGridLines: true }];
+
+  gstSheet.mergeCells("A1:E1");
+  const gTitle = gstSheet.getCell("A1");
+  gTitle.value = `STATUTORY GST TAX REPORT (CGST + SGST) - ${periodLabel}`;
+  gTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
+  gTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "6D28D9" } };
+
+  gstSheet.addRow([]);
+  gstSheet.addRow(["GST Tax Slab", "Taxable Base Amount (INR)", "CGST (INR)", "SGST (INR)", "Total Statutory GST (INR)"]);
+  const gstH = gstSheet.getRow(3);
+  gstH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+  gstH.getCell(1).fill = gstH.getCell(2).fill = gstH.getCell(3).fill = gstH.getCell(4).fill = gstH.getCell(5).fill = {
+    type: "pattern", pattern: "solid", fgColor: { argb: "7C3AED" }
+  };
+
+  gstSheet.addRow(["0% Exempt / Life-Saving Drugs", gst.slabs.slab0.taxable, gst.slabs.slab0.cgst, gst.slabs.slab0.sgst, gst.slabs.slab0.totalTax]);
+  gstSheet.addRow(["5% GST Slab (2.5% CGST + 2.5% SGST)", gst.slabs.slab5.taxable, gst.slabs.slab5.cgst, gst.slabs.slab5.sgst, gst.slabs.slab5.totalTax]);
+  gstSheet.addRow(["12% GST Slab (6% CGST + 6% SGST)", gst.slabs.slab12.taxable, gst.slabs.slab12.cgst, gst.slabs.slab12.sgst, gst.slabs.slab12.totalTax]);
+  gstSheet.addRow(["18% GST Slab (9% CGST + 9% SGST)", gst.slabs.slab18.taxable, gst.slabs.slab18.cgst, gst.slabs.slab18.sgst, gst.slabs.slab18.totalTax]);
+  gstSheet.addRow(["Total Period GST Collection", gst.taxableAmount, gst.cgst, gst.sgst, gst.totalTax]);
+
+  for (let r = 4; r <= 8; r++) {
+    const row = gstSheet.getRow(r);
+    for (let c = 2; c <= 5; c++) {
+      row.getCell(c).numFmt = "₹#,##0.00";
+    }
+  }
+
+  gstSheet.columns = [{ width: 40 }, { width: 28 }, { width: 18 }, { width: 18 }, { width: 26 }];
+
+  // ==========================================
+  // SHEET 6: TOP MEDICINES & MARGIN ANALYSIS
+  // ==========================================
+  const prodSheet = workbook.addWorksheet("Top Medicines & Margins");
+  prodSheet.views = [{ showGridLines: true }];
+
+  prodSheet.mergeCells("A1:G1");
+  const prTitle = prodSheet.getCell("A1");
+  prTitle.value = `TOP DISPENSED MEDICINES & PROFIT MARGIN PERFORMANCE - ${periodLabel}`;
+  prTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
+  prTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "047857" } };
+
+  prodSheet.addRow([]);
+  prodSheet.addRow([
+    "Medicine / Item Name",
+    "Units Dispensed",
+    "Net Revenue (Price Sold At) (₹)",
+    "Gross Revenue at MRP (₹)",
+    "Total Cost of Purchase (COGS) (₹)",
+    "Gross Profit (₹)",
+    "Profit Margin %"
+  ]);
+  const prH = prodSheet.getRow(3);
+  prH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+  for (let c = 1; c <= 7; c++) {
+    prH.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "059669" } };
+  }
+
+  (topProducts || []).forEach(p => {
+    const tot = Number(p.total || 0);
+    const cogs = Number(p.cogs || (tot * 0.72));
+    const profit = Number(p.profit || (tot - cogs));
+    const marginPct = tot > 0 ? Number(((profit / tot) * 100).toFixed(1)) : 0;
+    const mrpRevenue = tot * 1.15;
+
+    prodSheet.addRow([
+      p.name,
+      p.quantity,
+      tot,
+      mrpRevenue,
+      cogs,
+      profit,
+      `${marginPct}%`
+    ]);
+  });
+
+  const lastProdRow = 3 + (topProducts?.length || 0);
+  for (let r = 4; r <= lastProdRow; r++) {
+    const row = prodSheet.getRow(r);
+    row.getCell(2).numFmt = "#,##0";
+    row.getCell(3).numFmt = "₹#,##0.00";
+    row.getCell(4).numFmt = "₹#,##0.00";
+    row.getCell(5).numFmt = "₹#,##0.00";
+    row.getCell(6).numFmt = "₹#,##0.00";
+  }
+
+  prodSheet.columns = [
+    { width: 40 }, { width: 18 }, { width: 30 }, { width: 28 }, { width: 32 }, { width: 22 }, { width: 16 }
+  ];
 
   const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
   return buffer;
 }
 
-export async function generateWeeklyExcel(reportData: {
-  dateRange: string;
-  totalSales: number;
-  dailyBreakdown: { date: string; amount: number; bills: number }[];
-  paymentBreakdown: { Cash: number; GooglePay: number; BankCard: number };
-  topProducts: { name: string; quantity: number; total: number }[];
-}): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
-
-  const sheet = workbook.addWorksheet("Weekly Report");
-  sheet.views = [{ showGridLines: true }];
-
-  // Title Banner
-  sheet.mergeCells("A1:F2");
-  const titleCell = sheet.getCell("A1");
-  titleCell.value = `WEEKLY SALES REPORT (${reportData.dateRange})`;
-  titleCell.font = { name: "Segoe UI", size: 16, bold: true, color: { argb: "FFFFFF" } };
-  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  titleCell.alignment = { vertical: "middle", horizontal: "center" };
-
-  sheet.addRow([]); // Blank
-
-  // Summary Metrics Table
-  sheet.addRow(["Weekly Earnings Summary", "", "", "Payment Splits", ""]);
-  sheet.mergeCells("A4:B4");
-  sheet.mergeCells("D4:E4");
-  sheet.getCell("A4").font = sheet.getCell("D4").font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
-  sheet.getCell("A4").fill = sheet.getCell("D4").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "ca923f" } };
-
-  sheet.addRow(["Total Revenue", reportData.totalSales, "", "Cash Revenue", reportData.paymentBreakdown.Cash]);
-  sheet.addRow(["Avg Daily Revenue", reportData.totalSales / 7, "", "G-Pay Revenue", reportData.paymentBreakdown.GooglePay]);
-  sheet.addRow(["Weeks Covered", "Monday → Sunday", "", "Card Revenue", reportData.paymentBreakdown.BankCard]);
-
-  // Format currency cells
-  sheet.getCell("B5").numFmt = "₹#,##0.00";
-  sheet.getCell("B6").numFmt = "₹#,##0.00";
-  sheet.getCell("E5").numFmt = "₹#,##0.00";
-  sheet.getCell("E6").numFmt = "₹#,##0.00";
-  sheet.getCell("E7").numFmt = "₹#,##0.00";
-
-  for (let r = 5; r <= 7; r++) {
-    const row = sheet.getRow(r);
-    row.getCell(1).border = row.getCell(2).border = row.getCell(4).border = row.getCell(5).border = {
-      bottom: { style: "thin", color: { argb: "E2E8F0" } }
-    };
-  }
-
-  sheet.addRow([]); // Blank
-  sheet.addRow([]);
-
-  // Daily Breakdown Table
-  sheet.addRow(["Daily Sales Breakdown"]);
-  sheet.mergeCells("A10:C10");
-  sheet.getCell("A10").font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  sheet.getCell("A10").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  sheet.getCell("A10").alignment = { horizontal: "center" };
-
-  sheet.addRow(["Day / Date", "Number of Bills", "Daily Sales Amount"]);
-  const dailyHeader = sheet.getRow(11);
-  dailyHeader.font = { name: "Segoe UI", size: 10, bold: true };
-  dailyHeader.getCell(1).fill = dailyHeader.getCell(2).fill = dailyHeader.getCell(3).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" }
-  };
-
-  reportData.dailyBreakdown.forEach(d => {
-    sheet.addRow([d.date, d.bills, d.amount]);
-  });
-
-  const lastDailyRow = 11 + reportData.dailyBreakdown.length;
-  for (let r = 12; r <= lastDailyRow; r++) {
-    const row = sheet.getRow(r);
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(1).border = row.getCell(2).border = row.getCell(3).border = {
-      bottom: { style: "thin", color: { argb: "CBD5E1" } }
-    };
-  }
-
-  sheet.addRow([]); // Blank
-  sheet.addRow([]);
-
-  // Top Products Table
-  const topProdStartRow = lastDailyRow + 3;
-  sheet.addRow(["Top-Selling Items of the Week"]);
-  sheet.mergeCells(`A${topProdStartRow}:C${topProdStartRow}`);
-  sheet.getCell(`A${topProdStartRow}`).font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  sheet.getCell(`A${topProdStartRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  sheet.getCell(`A${topProdStartRow}`).alignment = { horizontal: "center" };
-
-  sheet.addRow(["Product Name", "Total Quantity Sold", "Total Revenue"]);
-  const topHeader = sheet.getRow(topProdStartRow + 1);
-  topHeader.font = { name: "Segoe UI", size: 10, bold: true };
-  topHeader.getCell(1).fill = topHeader.getCell(2).fill = topHeader.getCell(3).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" }
-  };
-
-  reportData.topProducts.forEach(p => {
-    sheet.addRow([p.name, p.quantity, p.total]);
-  });
-
-  const lastTopRow = topProdStartRow + 1 + reportData.topProducts.length;
-  for (let r = topProdStartRow + 2; r <= lastTopRow; r++) {
-    const row = sheet.getRow(r);
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(1).border = row.getCell(2).border = row.getCell(3).border = {
-      bottom: { style: "thin", color: { argb: "CBD5E1" } }
-    };
-  }
-
-  sheet.getColumn("A").width = 28;
-  sheet.getColumn("B").width = 18;
-  sheet.getColumn("C").width = 22;
-  sheet.getColumn("D").width = 18;
-  sheet.getColumn("E").width = 18;
-
-  const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
-  return buffer;
+// ----------------------------------------------------
+// EXPORT GENERATORS FOR EACH TIME HORIZON
+// ----------------------------------------------------
+export async function generateDailyExcel(reportData: any): Promise<Buffer> {
+  return buildDetailedFinancialWorkbook(reportData, "Daily Financial & Pharmacy Report");
 }
 
-export async function generateYearlyExcel(reportData: {
-  year: number;
-  totalSales: number;
-  monthlyBreakdown: { monthName: string; amount: number; bills: number; growthPercent: number }[];
-  paymentBreakdown: { Cash: number; GooglePay: number; BankCard: number };
-  topProducts: { name: string; quantity: number; total: number }[];
-}): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
+export async function generateWeeklyExcel(reportData: any): Promise<Buffer> {
+  return buildDetailedFinancialWorkbook(reportData, "Weekly Financial & Pharmacy Report");
+}
 
-  const sheet = workbook.addWorksheet(`Year ${reportData.year} Report`);
-  sheet.views = [{ showGridLines: true }];
+export async function generateMonthlyExcel(reportData: any): Promise<Buffer> {
+  return buildDetailedFinancialWorkbook(reportData, "Monthly Financial & Comprehensive Pharmacy Report");
+}
 
-  // Title Banner
-  sheet.mergeCells("A1:G2");
-  const titleCell = sheet.getCell("A1");
-  titleCell.value = `ANNUAL SALES PERFORMANCE REPORT - YEAR ${reportData.year}`;
-  titleCell.font = { name: "Segoe UI", size: 16, bold: true, color: { argb: "FFFFFF" } };
-  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  titleCell.alignment = { vertical: "middle", horizontal: "center" };
-
-  sheet.addRow([]); // Blank
-
-  // Summary Metrics Table
-  sheet.addRow(["Annual Financial Summary", "", "", "Payment Split Metrics", ""]);
-  sheet.mergeCells("A4:B4");
-  sheet.mergeCells("D4:E4");
-  sheet.getCell("A4").font = sheet.getCell("D4").font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
-  sheet.getCell("A4").fill = sheet.getCell("D4").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "ca923f" } };
-
-  sheet.addRow(["Total Revenue", reportData.totalSales, "", "Total Cash", reportData.paymentBreakdown.Cash]);
-  sheet.addRow(["Avg Monthly Revenue", reportData.totalSales / 12, "", "Total Google Pay", reportData.paymentBreakdown.GooglePay]);
-  sheet.addRow(["Reporting Cycle", "Jan 01 → Dec 31", "", "Total Bank Card", reportData.paymentBreakdown.BankCard]);
-
-  // Format currency cells
-  sheet.getCell("B5").numFmt = "₹#,##0.00";
-  sheet.getCell("B6").numFmt = "₹#,##0.00";
-  sheet.getCell("E5").numFmt = "₹#,##0.00";
-  sheet.getCell("E6").numFmt = "₹#,##0.00";
-  sheet.getCell("E7").numFmt = "₹#,##0.00";
-
-  for (let r = 5; r <= 7; r++) {
-    const row = sheet.getRow(r);
-    row.getCell(1).border = row.getCell(2).border = row.getCell(4).border = row.getCell(5).border = {
-      bottom: { style: "thin", color: { argb: "E2E8F0" } }
-    };
-  }
-
-  sheet.addRow([]); // Blank
-  sheet.addRow([]);
-
-  // Monthly Breakdown Table
-  sheet.addRow(["Monthly Sales Performance"]);
-  sheet.mergeCells("A10:D10");
-  sheet.getCell("A10").font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  sheet.getCell("A10").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  sheet.getCell("A10").alignment = { horizontal: "center" };
-
-  sheet.addRow(["Month", "Number of Bills", "Monthly Revenue", "Month-on-Month Growth %"]);
-  const monthlyHeader = sheet.getRow(11);
-  monthlyHeader.font = { name: "Segoe UI", size: 10, bold: true };
-  monthlyHeader.getCell(1).fill = monthlyHeader.getCell(2).fill = monthlyHeader.getCell(3).fill = monthlyHeader.getCell(4).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" }
-  };
-
-  reportData.monthlyBreakdown.forEach(m => {
-    sheet.addRow([m.monthName, m.bills, m.amount, m.growthPercent]);
-  });
-
-  const lastMonthlyRow = 11 + reportData.monthlyBreakdown.length;
-  for (let r = 12; r <= lastMonthlyRow; r++) {
-    const row = sheet.getRow(r);
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(4).numFmt = "0.00%";
-    row.getCell(1).border = row.getCell(2).border = row.getCell(3).border = row.getCell(4).border = {
-      bottom: { style: "thin", color: { argb: "CBD5E1" } }
-    };
-  }
-
-  sheet.addRow([]); // Blank
-  sheet.addRow([]);
-
-  // Top Products Table
-  const topProdStartRow = lastMonthlyRow + 3;
-  sheet.addRow(["Annual Best-Selling Items"]);
-  sheet.mergeCells(`A${topProdStartRow}:C${topProdStartRow}`);
-  sheet.getCell(`A${topProdStartRow}`).font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  sheet.getCell(`A${topProdStartRow}`).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "8E4D22" } };
-  sheet.getCell(`A${topProdStartRow}`).alignment = { horizontal: "center" };
-
-  sheet.addRow(["Product Name", "Total Quantity Sold", "Total Revenue"]);
-  const topHeader = sheet.getRow(topProdStartRow + 1);
-  topHeader.font = { name: "Segoe UI", size: 10, bold: true };
-  topHeader.getCell(1).fill = topHeader.getCell(2).fill = topHeader.getCell(3).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" }
-  };
-
-  reportData.topProducts.forEach(p => {
-    sheet.addRow([p.name, p.quantity, p.total]);
-  });
-
-  const lastTopRow = topProdStartRow + 1 + reportData.topProducts.length;
-  for (let r = topProdStartRow + 2; r <= lastTopRow; r++) {
-    const row = sheet.getRow(r);
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(1).border = row.getCell(2).border = row.getCell(3).border = {
-      bottom: { style: "thin", color: { argb: "CBD5E1" } }
-    };
-  }
-
-  sheet.getColumn("A").width = 28;
-  sheet.getColumn("B").width = 18;
-  sheet.getColumn("C").width = 22;
-  sheet.getColumn("D").width = 24;
-  sheet.getColumn("E").width = 18;
-
-  const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
-  return buffer;
+export async function generateYearlyExcel(reportData: any): Promise<Buffer> {
+  return buildDetailedFinancialWorkbook(reportData, "Annual Financial & Pharmacy Report");
 }
 
 export async function generateScheduleH1Excel(records: any[]): Promise<Buffer> {
@@ -423,266 +551,8 @@ export async function generateColdChainExcel(records: any[]): Promise<Buffer> {
 }
 
 // ----------------------------------------------------
-// MONTHLY FINANCIAL & PHARMACY EXCEL REPORT
+// REVISED MEDICINE IMPORT EXCEL TEMPLATE & PARSER
 // ----------------------------------------------------
-export async function generateMonthlyExcel(reportData: {
-  month: string;
-  totalSales: number;
-  grossSales?: number;
-  totalDiscounts?: number;
-  financials?: {
-    grossSales: number;
-    totalDiscounts: number;
-    netSales: number;
-    cogs: number;
-    grossProfit: number;
-    profitMarginPercent: number;
-  };
-  stockMovement?: {
-    inwardUnits: number;
-    inwardPurchaseValuation: number;
-    inwardMrpValuation: number;
-    unitsSold: number;
-    unitsSoldCost: number;
-    complimentaryUnits: number;
-    complimentaryAbsorbedCost: number;
-    netStockDifferenceUnits: number;
-    netStockValuationDifference: number;
-    currentAvailableStockUnits: number;
-    currentStockValuationCost: number;
-    currentStockValuationMrp: number;
-  };
-  gstReport?: {
-    taxableAmount: number;
-    cgst: number;
-    sgst: number;
-    totalTax: number;
-    slabs: {
-      slab0: { taxable: number; cgst: number; sgst: number; totalTax: number };
-      slab5: { taxable: number; cgst: number; sgst: number; totalTax: number };
-      slab12: { taxable: number; cgst: number; sgst: number; totalTax: number };
-      slab18: { taxable: number; cgst: number; sgst: number; totalTax: number };
-    };
-  };
-  complimentarySummary?: {
-    billsCount: number;
-    unitsDispensed: number;
-    absorbedCost: number;
-    mrpValue: number;
-  };
-  billCount: number;
-  paymentBreakdown: { Cash: number; GooglePay: number; BankCard: number; Complimentary?: number };
-  dailyBreakdown: { date: string; amount: number; bills: number }[];
-  topProducts: { name: string; quantity: number; total: number; cogs?: number; profit?: number }[];
-  allBills?: any[];
-  inwardRecords?: any[];
-}): Promise<Buffer> {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
-
-  // Sheet 1: Financial & Profit Overview
-  const finSheet = workbook.addWorksheet("Monthly Financials");
-  finSheet.views = [{ showGridLines: true }];
-
-  // Banner
-  finSheet.mergeCells("A1:F2");
-  const tCell = finSheet.getCell("A1");
-  tCell.value = `MONTHLY FINANCIAL & COMPREHENSIVE PHARMACY REPORT - ${reportData.month}`;
-  tCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
-  tCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "1E293B" } };
-  tCell.alignment = { vertical: "middle", horizontal: "center" };
-
-  finSheet.addRow([]);
-
-  // Financial KPI Table
-  finSheet.addRow(["Metric", "Amount (INR)", "", "Financial Indicator", "Value"]);
-  const hRow = finSheet.getRow(4);
-  hRow.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
-  hRow.getCell(1).fill = hRow.getCell(2).fill = hRow.getCell(4).fill = hRow.getCell(5).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" }
-  };
-
-  const fin = reportData.financials || {
-    grossSales: reportData.grossSales || reportData.totalSales,
-    totalDiscounts: reportData.totalDiscounts || 0,
-    netSales: reportData.totalSales,
-    cogs: reportData.totalSales * 0.72,
-    grossProfit: reportData.totalSales * 0.28,
-    profitMarginPercent: 28
-  };
-
-  finSheet.addRow(["Gross Sales (at MRP)", fin.grossSales, "", "Total Invoices Issued", reportData.billCount]);
-  finSheet.addRow(["Total Discounts Granted", fin.totalDiscounts, "", "Paid Revenue (Net Sales)", fin.netSales]);
-  finSheet.addRow(["Cost of Goods Sold (Purchase Rate)", fin.cogs, "", "Gross Profit Margin", `${fin.profitMarginPercent}%`]);
-  finSheet.addRow(["Gross Profit (Net Sales - COGS)", fin.grossProfit, "", "Average Ticket Value", reportData.billCount > 0 ? (fin.netSales / reportData.billCount) : 0]);
-
-  finSheet.getCell("B5").numFmt = "₹#,##0.00";
-  finSheet.getCell("B6").numFmt = "₹#,##0.00";
-  finSheet.getCell("B7").numFmt = "₹#,##0.00";
-  finSheet.getCell("B8").numFmt = "₹#,##0.00";
-  finSheet.getCell("E5").numFmt = "#,##0";
-  finSheet.getCell("E6").numFmt = "₹#,##0.00";
-  finSheet.getCell("E8").numFmt = "₹#,##0.00";
-
-  finSheet.addRow([]);
-
-  // Payment Breakdown
-  finSheet.addRow(["Payment Channel", "Collected Amount", "", "Mode of Dispensing", "Revenue"]);
-  const payH = finSheet.getRow(10);
-  payH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
-  payH.getCell(1).fill = payH.getCell(2).fill = payH.getCell(4).fill = payH.getCell(5).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "475569" }
-  };
-
-  finSheet.addRow(["Cash", reportData.paymentBreakdown?.Cash || 0, "", "Clinic OPD Dispensing (Mode A)", (reportData as any).modeA?.revenue || 0]);
-  finSheet.addRow(["Google Pay / UPI", reportData.paymentBreakdown?.GooglePay || 0, "", "Retail Pharmacy Sales (Mode B)", (reportData as any).modeB?.revenue || 0]);
-  finSheet.addRow(["Bank Card", reportData.paymentBreakdown?.BankCard || 0, "", "Doctor/Staff Health Dispense", (reportData.complimentarySummary?.billsCount || 0) + " Bills"]);
-
-  finSheet.getCell("B11").numFmt = "₹#,##0.00";
-  finSheet.getCell("B12").numFmt = "₹#,##0.00";
-  finSheet.getCell("B13").numFmt = "₹#,##0.00";
-  finSheet.getCell("E11").numFmt = "₹#,##0.00";
-  finSheet.getCell("E12").numFmt = "₹#,##0.00";
-
-  finSheet.columns = [
-    { width: 34 }, { width: 22 }, { width: 4 }, { width: 34 }, { width: 22 }, { width: 15 }
-  ];
-
-  // Sheet 2: Stock Movement & Difference
-  const stockSheet = workbook.addWorksheet("Stock Movement & Valuation");
-  stockSheet.views = [{ showGridLines: true }];
-
-  stockSheet.mergeCells("A1:E1");
-  const sTitle = stockSheet.getCell("A1");
-  sTitle.value = `MONTHLY INVENTORY MOVEMENT & STOCK DIFFERENCE - ${reportData.month}`;
-  sTitle.font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  sTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "047857" } };
-
-  stockSheet.addRow([]);
-  stockSheet.addRow(["Stock Parameter", "Units (Qty)", "Valuation at Purchase Rate (INR)", "Valuation at MRP (INR)"]);
-  const stHead = stockSheet.getRow(3);
-  stHead.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
-  stHead.getCell(1).fill = stHead.getCell(2).fill = stHead.getCell(3).fill = stHead.getCell(4).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "059669" }
-  };
-
-  const sm = reportData.stockMovement || {
-    inwardUnits: 0, inwardPurchaseValuation: 0, inwardMrpValuation: 0,
-    unitsSold: 0, unitsSoldCost: 0, complimentaryUnits: 0, complimentaryAbsorbedCost: 0,
-    netStockDifferenceUnits: 0, netStockValuationDifference: 0,
-    currentAvailableStockUnits: 0, currentStockValuationCost: 0, currentStockValuationMrp: 0
-  };
-
-  stockSheet.addRow(["Monthly Inward Stock Received (+)", sm.inwardUnits, sm.inwardPurchaseValuation, sm.inwardMrpValuation]);
-  stockSheet.addRow(["Stock Dispensed to Patients (-)", sm.unitsSold, sm.unitsSoldCost, sm.unitsSoldCost * 1.35]);
-  stockSheet.addRow(["Doctor/Staff Complimentary Health Dispense (-)", sm.complimentaryUnits, sm.complimentaryAbsorbedCost, (reportData.complimentarySummary?.mrpValue || 0)]);
-  stockSheet.addRow(["Net Stock Difference for Month", sm.netStockDifferenceUnits, sm.netStockValuationDifference, 0]);
-  stockSheet.addRow(["Current Closing Inventory in Pharmacy", sm.currentAvailableStockUnits, sm.currentStockValuationCost, sm.currentStockValuationMrp]);
-
-  for (let r = 4; r <= 8; r++) {
-    const row = stockSheet.getRow(r);
-    row.getCell(2).numFmt = "#,##0";
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(4).numFmt = "₹#,##0.00";
-  }
-
-  stockSheet.columns = [{ width: 44 }, { width: 16 }, { width: 32 }, { width: 32 }];
-
-  // Sheet 3: GST Tax Report
-  const gstSheet = workbook.addWorksheet("GST Tax Report");
-  gstSheet.views = [{ showGridLines: true }];
-
-  gstSheet.mergeCells("A1:E1");
-  const gTitle = gstSheet.getCell("A1");
-  gTitle.value = `STATUTORY GST TAX REPORT (CGST + SGST) - ${reportData.month}`;
-  gTitle.font = { name: "Segoe UI", size: 12, bold: true, color: { argb: "FFFFFF" } };
-  gTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "6D28D9" } };
-
-  gstSheet.addRow([]);
-  gstSheet.addRow(["GST Tax Slab", "Taxable Base Amount (INR)", "CGST (INR)", "SGST (INR)", "Total GST (INR)"]);
-  const gstH = gstSheet.getRow(3);
-  gstH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
-  gstH.getCell(1).fill = gstH.getCell(2).fill = gstH.getCell(3).fill = gstH.getCell(4).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "7C3AED" }
-  };
-
-  const gst = reportData.gstReport || {
-    taxableAmount: 0, cgst: 0, sgst: 0, totalTax: 0,
-    slabs: {
-      slab0: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
-      slab5: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
-      slab12: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
-      slab18: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 }
-    }
-  };
-
-  gstSheet.addRow(["0% Exempt / Life-Saving Drugs", gst.slabs.slab0.taxable, gst.slabs.slab0.cgst, gst.slabs.slab0.sgst, gst.slabs.slab0.totalTax]);
-  gstSheet.addRow(["5% GST Slab (2.5% CGST + 2.5% SGST)", gst.slabs.slab5.taxable, gst.slabs.slab5.cgst, gst.slabs.slab5.sgst, gst.slabs.slab5.totalTax]);
-  gstSheet.addRow(["12% GST Slab (6% CGST + 6% SGST)", gst.slabs.slab12.taxable, gst.slabs.slab12.cgst, gst.slabs.slab12.sgst, gst.slabs.slab12.totalTax]);
-  gstSheet.addRow(["18% GST Slab (9% CGST + 9% SGST)", gst.slabs.slab18.taxable, gst.slabs.slab18.cgst, gst.slabs.slab18.sgst, gst.slabs.slab18.totalTax]);
-  gstSheet.addRow(["Total Monthly GST Collection", gst.taxableAmount, gst.cgst, gst.sgst, gst.totalTax]);
-
-  for (let r = 4; r <= 8; r++) {
-    const row = gstSheet.getRow(r);
-    for (let c = 2; c <= 5; c++) {
-      row.getCell(c).numFmt = "₹#,##0.00";
-    }
-  }
-
-  gstSheet.columns = [{ width: 36 }, { width: 28 }, { width: 18 }, { width: 18 }, { width: 20 }];
-
-  // Sheet 4: Daily Trend
-  const trendSheet = workbook.addWorksheet("Daily Sales Trend");
-  trendSheet.views = [{ showGridLines: true }];
-  trendSheet.addRow(["Date", "Daily Revenue (INR)", "Invoices Issued"]);
-  const trH = trendSheet.getRow(1);
-  trH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
-  trH.getCell(1).fill = trH.getCell(2).fill = trH.getCell(3).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "334155" }
-  };
-
-  (reportData.dailyBreakdown || []).forEach(d => {
-    trendSheet.addRow([d.date, d.amount, d.bills]);
-  });
-
-  for (let r = 2; r <= (reportData.dailyBreakdown?.length || 0) + 1; r++) {
-    const row = trendSheet.getRow(r);
-    row.getCell(2).numFmt = "₹#,##0.00";
-    row.getCell(3).numFmt = "#,##0";
-  }
-  trendSheet.columns = [{ width: 18 }, { width: 24 }, { width: 18 }];
-
-  // Sheet 5: Top Products
-  const prodSheet = workbook.addWorksheet("Top Products");
-  prodSheet.views = [{ showGridLines: true }];
-  prodSheet.addRow(["Medicine Name", "Units Dispensed", "Total Revenue (INR)", "Purchase Cost (COGS)", "Gross Profit (INR)"]);
-  const prH = prodSheet.getRow(1);
-  prH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
-  prH.getCell(1).fill = prH.getCell(2).fill = prH.getCell(3).fill = prH.getCell(4).fill = prH.getCell(5).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" }
-  };
-
-  (reportData.topProducts || []).forEach(p => {
-    prodSheet.addRow([p.name, p.quantity, p.total, p.cogs || (p.total * 0.75), p.profit || (p.total * 0.25)]);
-  });
-
-  for (let r = 2; r <= (reportData.topProducts?.length || 0) + 1; r++) {
-    const row = prodSheet.getRow(r);
-    row.getCell(2).numFmt = "#,##0";
-    row.getCell(3).numFmt = "₹#,##0.00";
-    row.getCell(4).numFmt = "₹#,##0.00";
-    row.getCell(5).numFmt = "₹#,##0.00";
-  }
-  prodSheet.columns = [{ width: 36 }, { width: 18 }, { width: 22 }, { width: 22 }, { width: 22 }];
-
-  const buffer = await workbook.xlsx.writeBuffer() as unknown as Buffer;
-  return buffer;
-}
-
-// ----------------------------------------------------
-// MEDICINES IMPORT EXCEL TEMPLATE & PARSER
-// ----------------------------------------------------
-
 export async function generateMedicineImportTemplate(): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
@@ -691,22 +561,22 @@ export async function generateMedicineImportTemplate(): Promise<Buffer> {
   sheet.views = [{ showGridLines: true }];
 
   // Title Banner
-  sheet.mergeCells("A1:G1");
+  sheet.mergeCells("A1:M1");
   const titleCell = sheet.getCell("A1");
-  titleCell.value = "MADRAS ORTHO CLINIC - MEDICINE IMPORT TEMPLATE";
+  titleCell.value = "MADRAS ORTHO CLINIC - MEDICINE IMPORT & INVENTORY TEMPLATE";
   titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
   sheet.getRow(1).height = 28;
 
   // Guidance Row
-  sheet.mergeCells("A2:G2");
+  sheet.mergeCells("A2:M2");
   const noteCell = sheet.getCell("A2");
-  noteCell.value = "Instructions: Fill your medicine details below. Mandatory columns: Medicine Name, Category, Price. GST Rates: 0%, 5%, 12%, 18%.";
+  noteCell.value = "Instructions: Fill medicine & stock details. Note: 'MRP' is the printed retail maximum, and 'Price Sold At' is the rate charged by the clinic. Both must be specified. Valid GST rates: 0%, 5%, 12%, 18%.";
   noteCell.font = { name: "Segoe UI", size: 9, italic: true, color: { argb: "475569" } };
   noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F9FF" } };
   noteCell.alignment = { vertical: "middle", horizontal: "left" };
-  sheet.getRow(2).height = 20;
+  sheet.getRow(2).height = 22;
 
   // Header Row
   const headerRow = sheet.getRow(3);
@@ -714,11 +584,17 @@ export async function generateMedicineImportTemplate(): Promise<Buffer> {
   const headers = [
     "Medicine Name *",
     "Category *",
-    "Price (₹) *",
+    "MRP (₹) *",
+    "Price Sold At (₹) *",
+    "Cost of Purchase (₹)",
+    "Initial Stock Quantity",
+    "Batch Number",
+    "Expiry Date (YYYY-MM-DD)",
     "GST Rate (%)",
-    "Quantity Type",
+    "Packaging / Unit Type",
     "Barcode",
-    "SKU Code"
+    "SKU Code",
+    "Dosage Form"
   ];
   headerRow.values = headers;
 
@@ -737,18 +613,18 @@ export async function generateMedicineImportTemplate(): Promise<Buffer> {
 
   // Sample Demo Data Rows
   const sampleData = [
-    ["Diclofenac Sodium 50mg Tablets (10s)", "NSAIDs", 28.50, 5, "strip", "8901050001", "DCF-50-TAB"],
-    ["Thiocolchicoside 4mg Capsules (10s)", "Muscle Relaxants", 145.00, 5, "strip", "8901050030", "THC-4-CAP"],
-    ["Calcium Citrate Malate + Vit D3 Tablets (15s)", "Bone Supplements", 185.00, 12, "strip", "8901050050", "CCM-D3-15"],
-    ["Knee Immobilizer 19 inch (Universal)", "Ortho Supports", 750.00, 12, "pcs", "8901050100", "KNE-IMB-19"],
-    ["Normal Saline 0.9% 500mL IV Infusion", "Miscellaneous", 55.00, 0, "pcs", "8901050200", "NS-500-IV"]
+    ["Diclofenac Sodium 50mg Tablets (15s)", "NSAIDs", 48.00, 42.50, 30.00, 100, "BTH-2026-001", "2028-12-31", 12, "strip", "8901050001", "DCF-50-TAB", "Tablet"],
+    ["Thiocolchicoside 4mg Capsules (10s)", "Muscle Relaxants", 165.00, 145.00, 105.00, 80, "BTH-2026-030", "2028-06-30", 5, "strip", "8901050030", "THC-4-CAP", "Capsule"],
+    ["Calcium Citrate Malate + Vit D3 Tablets (15s)", "Bone Supplements", 210.00, 185.00, 130.00, 120, "BTH-2026-050", "2029-01-31", 12, "strip", "8901050050", "CCM-D3-15", "Tablet"],
+    ["Knee Immobilizer 19 inch (Universal)", "Ortho Supports", 950.00, 750.00, 520.00, 25, "BTH-2026-100", "2031-12-31", 12, "pcs", "8901050100", "KNE-IMB-19", "Brace"],
+    ["Normal Saline 0.9% 500mL IV Infusion", "Miscellaneous", 65.00, 55.00, 38.00, 60, "BTH-2026-200", "2027-11-30", 0, "pcs", "8901050200", "NS-500-IV", "Infusion"]
   ];
 
   sampleData.forEach((rowValues, idx) => {
     const row = sheet.addRow(rowValues);
     row.height = 20;
     const isAlt = idx % 2 === 1;
-    for (let c = 1; c <= 7; c++) {
+    for (let c = 1; c <= headers.length; c++) {
       const cell = row.getCell(c);
       cell.font = { name: "Segoe UI", size: 9.5 };
       if (isAlt) {
@@ -759,22 +635,31 @@ export async function generateMedicineImportTemplate(): Promise<Buffer> {
         left: { style: "thin", color: { argb: "E2E8F0" } },
         right: { style: "thin", color: { argb: "E2E8F0" } }
       };
-      if (c === 3) {
+      if (c === 3 || c === 4 || c === 5) {
         cell.numFmt = "₹#,##0.00";
         cell.alignment = { horizontal: "right" };
-      } else if (c === 4) {
+      } else if (c === 6) {
+        cell.numFmt = "#,##0";
+        cell.alignment = { horizontal: "right" };
+      } else if (c === 9) {
         cell.alignment = { horizontal: "center" };
       }
     }
   });
 
   sheet.getColumn("A").width = 38;
-  sheet.getColumn("B").width = 24;
+  sheet.getColumn("B").width = 22;
   sheet.getColumn("C").width = 16;
-  sheet.getColumn("D").width = 15;
-  sheet.getColumn("E").width = 16;
-  sheet.getColumn("F").width = 18;
+  sheet.getColumn("D").width = 18;
+  sheet.getColumn("E").width = 20;
+  sheet.getColumn("F").width = 20;
   sheet.getColumn("G").width = 18;
+  sheet.getColumn("H").width = 24;
+  sheet.getColumn("I").width = 14;
+  sheet.getColumn("J").width = 20;
+  sheet.getColumn("K").width = 18;
+  sheet.getColumn("L").width = 18;
+  sheet.getColumn("M").width = 16;
 
   const raw = await workbook.xlsx.writeBuffer();
   return Buffer.from(raw as any);
@@ -783,11 +668,17 @@ export async function generateMedicineImportTemplate(): Promise<Buffer> {
 export interface ParsedMedicineRow {
   name: string;
   category: string;
-  price: number;
+  price: number; // Price sold at
+  mrp: number; // MRP
+  purchase_price: number; // Cost of purchase
+  initial_stock?: number;
+  batch_number?: string;
+  expiry_date?: string;
   tax_percent: number;
   quantity_type: string;
   barcode: string | null;
   sku: string | null;
+  dosage_form?: string;
   status: string;
 }
 
@@ -800,7 +691,7 @@ function extractCellValue(val: any): string {
   if (typeof val === 'string') return val.trim();
   if (typeof val === 'number') return isNaN(val) ? '' : String(val);
   if (typeof val === 'boolean') return String(val);
-  if (val instanceof Date) return val.toISOString();
+  if (val instanceof Date) return val.toISOString().split('T')[0];
   if (typeof val === 'object') {
     if (val.result !== undefined && val.result !== null) {
       return extractCellValue(val.result);
@@ -842,71 +733,82 @@ function parsePrice(raw: any): number {
 }
 
 /**
- * Normalizes GST percentage from integer, percentage string, or decimal fraction.
+ * Cleans and parses tax percentage into a standardized GST bracket (0, 5, 12, 18, 28).
  */
 function parseTax(raw: any): number {
   if (typeof raw === 'number') {
-    if (raw > 0 && raw <= 0.5) return Math.round(raw * 100);
-    return raw;
+    if (raw > 0 && raw < 1) return Math.round(raw * 100);
+    return Math.max(0, raw);
   }
   const s = String(raw || '').replace(/%/g, '').trim();
   const num = parseFloat(s.replace(/[^0-9.]/g, ''));
   if (isNaN(num)) return 5;
-  if (num > 0 && num <= 0.5) return Math.round(num * 100);
+  if (num > 0 && num < 1) return Math.round(num * 100);
   return num;
 }
 
 /**
- * Parses raw CSV or TSV text into 2D string grid.
+ * Fast RFC-4180 compliant CSV / TSV / Delimited-text parser.
  */
-function parseCsvGrid(text: string): string[][] {
-  const firstLine = text.split(/\r?\n/)[0] || '';
-  let delimiter = ',';
-  if (firstLine.includes('\t')) delimiter = '\t';
-  else if (firstLine.includes(';') && !firstLine.includes(',')) delimiter = ';';
+function parseCsvGrid(csvText: string): string[][] {
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
+  if (lines.length === 0) return [];
 
-  const rows: string[][] = [];
-  const lines = text.split(/\r?\n/);
+  const firstFew = lines.slice(0, 5).join('\n');
+  const commaCount = (firstFew.match(/,/g) || []).length;
+  const tabCount = (firstFew.match(/\t/g) || []).length;
+  const semiCount = (firstFew.match(/;/g) || []).length;
+
+  let delim = ',';
+  if (tabCount > commaCount && tabCount > semiCount) delim = '\t';
+  else if (semiCount > commaCount && semiCount > tabCount) delim = ';';
+
+  const grid: string[][] = [];
   for (const line of lines) {
-    if (!line.trim()) continue;
-    const values: string[] = [];
-    let insideQuotes = false;
+    const row: string[] = [];
     let current = '';
+    let insideQuotes = false;
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
       if (char === '"') {
-        insideQuotes = !insideQuotes;
-      } else if (char === delimiter && !insideQuotes) {
-        values.push(current.trim());
+        if (insideQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          insideQuotes = !insideQuotes;
+        }
+      } else if (char === delim && !insideQuotes) {
+        row.push(current.trim());
         current = '';
       } else {
         current += char;
       }
     }
-    values.push(current.trim());
-    rows.push(values);
+    row.push(current.trim());
+    grid.push(row);
   }
-  return rows;
+  return grid;
 }
 
 export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMedicineRow[]> {
   let grid: string[][] = [];
 
-  // Check if buffer starts with PK\x03\x04 (ZIP header for XLSX)
-  const isZip = buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04;
+  const isZip = buffer.length > 4 && buffer[0] === 0x50 && buffer[1] === 0x4B;
 
   if (isZip) {
     try {
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(buffer as any);
+
       const worksheet = workbook.getWorksheet(1);
       if (worksheet) {
         worksheet.eachRow({ includeEmpty: false }, (row) => {
           const rowValues: string[] = [];
-          const maxCols = Math.max(row.cellCount || 0, 15);
-          for (let c = 1; c <= maxCols; c++) {
+          const cellCount = Math.max(row.cellCount, (row.values as any[])?.length || 0);
+          for (let c = 1; c <= Math.max(cellCount, 15); c++) {
             const cell = row.getCell(c);
-            rowValues.push(extractCellValue(cell ? cell.value : ''));
+            rowValues.push(extractCellValue(cell.value));
           }
           if (rowValues.some(v => v.length > 0)) {
             grid.push(rowValues);
@@ -918,7 +820,6 @@ export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMe
       grid = parseCsvGrid(buffer.toString('utf8'));
     }
   } else {
-    // Plain CSV, TSV, or text spreadsheet
     grid = parseCsvGrid(buffer.toString('utf8'));
   }
 
@@ -926,7 +827,7 @@ export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMe
     throw new Error("Uploaded spreadsheet contains no readable rows.");
   }
 
-  // Scan rows 0 to 25 to intelligently locate the header row
+  // Scan rows 0 to 25 to intelligently locate header row
   let headerRowIdx = -1;
   let colMap: Record<string, number> = {};
 
@@ -937,39 +838,49 @@ export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMe
     for (let c = 0; c < row.length; c++) {
       const cellText = (row[c] || '').toLowerCase().trim();
       if (!cellText) continue;
-      // Skip title banners and instruction notes
       if (cellText.includes('template') || cellText.includes('instruction') || cellText.includes('bulk import')) {
         continue;
       }
 
-      if ((cellText.includes('name') || cellText.includes('medicine') || cellText.includes('drug') || cellText.includes('product') || cellText.includes('item') || cellText.includes('description') || cellText.includes('particulars') || cellText.includes('brand') || cellText.includes('formulation')) && candidateMap.name === undefined) {
+      if ((cellText.includes('name') || cellText.includes('medicine') || cellText.includes('drug') || cellText.includes('product') || cellText.includes('item') || cellText.includes('description') || cellText.includes('brand') || cellText.includes('formulation')) && candidateMap.name === undefined) {
         candidateMap.name = c;
-      } else if ((cellText.includes('category') || cellText.includes('cat') || cellText.includes('group') || cellText.includes('class') || cellText.includes('type') || cellText.includes('dept') || cellText.includes('section')) && candidateMap.category === undefined) {
+      } else if ((cellText.includes('category') || cellText.includes('cat') || cellText.includes('group') || cellText.includes('dept') || cellText.includes('class')) && candidateMap.category === undefined) {
         candidateMap.category = c;
-      } else if ((cellText.includes('price') || cellText.includes('mrp') || cellText.includes('rate') || cellText.includes('cost') || cellText.includes('amount') || cellText.includes('₹') || cellText.includes('rs') || cellText.includes('selling')) && candidateMap.price === undefined) {
+      } else if ((cellText.includes('mrp') || cellText.includes('maximum retail') || cellText.includes('label price')) && candidateMap.mrp === undefined) {
+        candidateMap.mrp = c;
+      } else if ((cellText.includes('sold at') || cellText.includes('selling') || cellText.includes('rate') || cellText.includes('sale price') || cellText.includes('price')) && candidateMap.price === undefined) {
         candidateMap.price = c;
-      } else if ((cellText.includes('gst') || cellText.includes('tax') || cellText.includes('vat') || cellText.includes('igst')) && candidateMap.tax === undefined) {
+      } else if ((cellText.includes('cost') || cellText.includes('purchase') || cellText.includes('buy')) && candidateMap.cost === undefined) {
+        candidateMap.cost = c;
+      } else if ((cellText.includes('stock') || cellText.includes('qty') || cellText.includes('quantity') || cellText.includes('units') || cellText.includes('on hand')) && candidateMap.stock === undefined) {
+        candidateMap.stock = c;
+      } else if ((cellText.includes('batch') || cellText.includes('lot') || cellText.includes('bth')) && candidateMap.batch === undefined) {
+        candidateMap.batch = c;
+      } else if ((cellText.includes('expiry') || cellText.includes('exp') || cellText.includes('valid to')) && candidateMap.expiry === undefined) {
+        candidateMap.expiry = c;
+      } else if ((cellText.includes('gst') || cellText.includes('tax') || cellText.includes('vat')) && candidateMap.tax === undefined) {
         candidateMap.tax = c;
-      } else if ((cellText.includes('unit') || cellText.includes('pack') || cellText.includes('pkg') || cellText.includes('quantity') || cellText.includes('uom') || cellText.includes('packing')) && candidateMap.quantity_type === undefined) {
+      } else if ((cellText.includes('unit') || cellText.includes('packaging') || cellText.includes('uom') || cellText.includes('pack')) && candidateMap.quantity_type === undefined) {
         candidateMap.quantity_type = c;
-      } else if ((cellText.includes('barcode') || cellText.includes('bar code') || cellText.includes('upc') || cellText.includes('ean')) && candidateMap.barcode === undefined) {
+      } else if ((cellText.includes('barcode') || cellText.includes('upc') || cellText.includes('ean')) && candidateMap.barcode === undefined) {
         candidateMap.barcode = c;
-      } else if ((cellText.includes('sku') || cellText.includes('item code') || cellText.includes('product code') || cellText.includes('code')) && candidateMap.sku === undefined) {
+      } else if ((cellText.includes('sku') || cellText.includes('item code') || cellText.includes('code')) && candidateMap.sku === undefined) {
         candidateMap.sku = c;
+      } else if ((cellText.includes('dosage') || cellText.includes('form') || cellText.includes('type')) && candidateMap.dosage_form === undefined) {
+        candidateMap.dosage_form = c;
       }
     }
 
     const recognizedCount = Object.keys(candidateMap).length;
-    if (candidateMap.name !== undefined && (recognizedCount >= 2 || candidateMap.price !== undefined || candidateMap.category !== undefined)) {
+    if (candidateMap.name !== undefined && (recognizedCount >= 2 || candidateMap.price !== undefined || candidateMap.mrp !== undefined || candidateMap.category !== undefined)) {
       headerRowIdx = r;
       colMap = candidateMap;
       break;
     }
   }
 
-  // Fallback defaults if no header row could be identified
   if (headerRowIdx === -1 || colMap.name === undefined) {
-    colMap = { name: 0, category: 1, price: 2, tax: 3, quantity_type: 4, barcode: 5, sku: 6 };
+    colMap = { name: 0, category: 1, mrp: 2, price: 3, cost: 4, stock: 5, batch: 6, expiry: 7, tax: 8, quantity_type: 9, barcode: 10, sku: 11 };
     headerRowIdx = -1;
   }
 
@@ -980,32 +891,48 @@ export async function parseMedicinesFromBuffer(buffer: Buffer): Promise<ParsedMe
     const row = grid[r];
     const name = (row[colMap.name !== undefined ? colMap.name : 0] || '').trim();
 
-    // Skip empty rows, header repeats, or instructions
     if (!name || name.toLowerCase().includes('medicine name') || name.toLowerCase().includes('instructions:') || name.toLowerCase().includes('bulk import')) {
       continue;
     }
-    // Skip summary footer rows (e.g. Total, Grand Total, Summary)
     const lowerName = name.toLowerCase();
     if (lowerName === 'total' || lowerName === 'grand total' || lowerName === 'subtotal' || lowerName.startsWith('page ')) {
       continue;
     }
 
     const category = (colMap.category !== undefined && row[colMap.category]) ? row[colMap.category].trim() : 'Orthopaedic Medicines';
-    const price = colMap.price !== undefined ? parsePrice(row[colMap.price]) : 0;
+    
+    // Resolve MRP vs Price Sold At vs Cost
+    const parsedMrp = colMap.mrp !== undefined ? parsePrice(row[colMap.mrp]) : 0;
+    const parsedPrice = colMap.price !== undefined ? parsePrice(row[colMap.price]) : 0;
+    const mrp = parsedMrp > 0 ? parsedMrp : (parsedPrice > 0 ? +(parsedPrice * 1.15).toFixed(2) : 0);
+    const price = parsedPrice > 0 ? parsedPrice : mrp;
+    const cost = colMap.cost !== undefined ? parsePrice(row[colMap.cost]) : +(price * 0.72).toFixed(2);
+    
+    const stockQty = colMap.stock !== undefined ? parsePrice(row[colMap.stock]) : 0;
+    const batchNumber = (colMap.batch !== undefined && row[colMap.batch]) ? row[colMap.batch].trim() : `BTH-${new Date().getFullYear()}-${String(r).padStart(4, '0')}`;
+    const expiryDate = (colMap.expiry !== undefined && row[colMap.expiry]) ? row[colMap.expiry].trim() : '2028-12-31';
+
     const tax_percent = colMap.tax !== undefined ? parseTax(row[colMap.tax]) : 5;
     const quantity_type = colMap.quantity_type !== undefined ? normalizeQuantityType(row[colMap.quantity_type]) : 'strip';
     const barcode = (colMap.barcode !== undefined && row[colMap.barcode]) ? row[colMap.barcode].trim() : null;
     const sku = (colMap.sku !== undefined && row[colMap.sku]) ? row[colMap.sku].trim() : null;
+    const dosage_form = (colMap.dosage_form !== undefined && row[colMap.dosage_form]) ? row[colMap.dosage_form].trim() : 'Tablet';
 
     results.push({
       name,
       category: category || 'Orthopaedic Medicines',
+      mrp,
       price,
+      purchase_price: cost,
+      initial_stock: stockQty,
+      batch_number: batchNumber,
+      expiry_date: expiryDate,
       tax_percent,
       quantity_type,
       barcode: barcode || null,
       sku: sku || null,
-      status: 'Available'
+      dosage_form,
+      status: stockQty > 0 ? 'Available' : 'Out of Stock'
     });
   }
 

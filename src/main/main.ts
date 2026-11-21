@@ -172,6 +172,9 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
       const hasScheduleH1 = items.some((it: any) => String(it.schedule || '').toUpperCase().includes('H1'));
       const hasScheduleH = items.some((it: any) => String(it.schedule || '').toUpperCase().includes('SCHEDULE H'));
 
+      const totalMrp = items.reduce((sum: number, it: any) => sum + (Number(it.mrp || it.rate || 0) * Number(it.quantity || 1)), 0);
+      const patientSavings = Math.max(0, totalMrp - Number(grandTotal));
+
       // Compile styled statutory pharmacy thermal receipt HTML markup
       const thermalHtml = `
         <!DOCTYPE html>
@@ -282,6 +285,7 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
                     <span class="bold">${item.product_name}</span>
                     ${item.generic_name ? `<br/><span style="font-size:8.5px;color:#333;">${item.generic_name}</span>` : ''}
                     <br/><span style="font-size:8px;">B:${item.batch_number || 'B-STD'} | Exp:${item.expiry_date || 'N/A'} | HSN:${item.hsn_code || '3004'}</span>
+                    ${Number(item.mrp || 0) > Number(item.rate || 0) ? `<br/><span style="font-size:8px;color:#059669;font-weight:bold;">MRP: ₹${Number(item.mrp).toFixed(2)} (Save ₹${(Number(item.mrp) - Number(item.rate)).toFixed(2)})</span>` : (item.mrp ? `<br/><span style="font-size:8px;color:#555;">MRP: ₹${Number(item.mrp).toFixed(2)}</span>` : '')}
                   </td>
                   <td class="right">${item.quantity}</td>
                   <td class="right">₹${Number(item.rate).toFixed(2)}</td>
@@ -299,6 +303,16 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
                 <td>Taxable Subtotal:</td>
                 <td class="right">₹${Number(subtotal).toFixed(2)}</td>
               </tr>
+              ${totalMrp > Number(subtotal) && patientSavings > 0 ? `
+                <tr>
+                  <td>Total MRP Value:</td>
+                  <td class="right">₹${totalMrp.toFixed(2)}</td>
+                </tr>
+                <tr style="color: #059669; font-weight: bold;">
+                  <td>Patient Concession:</td>
+                  <td class="right">-₹${patientSavings.toFixed(2)}</td>
+                </tr>
+              ` : ''}
               ${discount > 0 ? `
                 <tr>
                   <td>Discount:</td>

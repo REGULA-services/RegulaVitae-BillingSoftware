@@ -75,6 +75,9 @@ const electronAPI = isElectron ? (window as any).electron : {
       const cgst = tax > 0 ? tax / 2 : 0;
       const sgst = tax > 0 ? tax / 2 : 0;
 
+      const totalMrp = items.reduce((sum: number, it: any) => sum + (Number(it.mrp || it.rate || 0) * Number(it.quantity || 1)), 0);
+      const patientSavings = Math.max(0, totalMrp - Number(grandTotal));
+
       const thermalHtml = `
         <!DOCTYPE html>
         <html>
@@ -150,7 +153,10 @@ const electronAPI = isElectron ? (window as any).electron : {
             <tbody>
               ${items.map((item: any) => `
                 <tr>
-                  <td>${item.product_name}</td>
+                  <td>
+                    ${item.product_name}
+                    ${Number(item.mrp || 0) > Number(item.rate || 0) ? `<br/><span style="font-size:8px;color:#059669;font-weight:bold;">MRP: ₹${Number(item.mrp).toFixed(2)} (Save ₹${(Number(item.mrp) - Number(item.rate)).toFixed(2)})</span>` : (item.mrp ? `<br/><span style="font-size:8px;color:#555;">MRP: ₹${Number(item.mrp).toFixed(2)}</span>` : '')}
+                  </td>
                   <td class="right">${item.quantity}</td>
                   <td class="right">₹${Number(item.rate).toFixed(2)}</td>
                   <td class="right">₹${Number(item.total).toFixed(2)}</td>
@@ -165,6 +171,16 @@ const electronAPI = isElectron ? (window as any).electron : {
                 <td>Subtotal (excl. GST):</td>
                 <td class="right">₹${Number(subtotal).toFixed(2)}</td>
               </tr>
+              ${totalMrp > Number(subtotal) && patientSavings > 0 ? `
+                <tr>
+                  <td>Total MRP Value:</td>
+                  <td class="right">₹${totalMrp.toFixed(2)}</td>
+                </tr>
+                <tr style="color: #059669; font-weight: bold;">
+                  <td>Clinic Concession (Saved):</td>
+                  <td class="right">-₹${patientSavings.toFixed(2)}</td>
+                </tr>
+              ` : ''}
               ${discount > 0 ? `
                 <tr>
                   <td>Discount:</td>
@@ -234,14 +250,20 @@ interface Product {
   id: number;
   name: string;
   category: string;
-  price: number;
+  price: number; // Price sold at (selling price charged to patient)
   barcode: string | null;
   sku: string | null;
   tax_percent: number;
-  status: 'Available' | 'Out of Stock';
+  status: 'Available' | 'Out of Stock' | 'Expired';
   quantity_type: string;
   generic_name?: string;
-  mrp?: number;
+  mrp?: number; // Maximum Retail Price printed on drug package
+  purchase_price?: number; // Cost of purchase from wholesale/distributor
+  available_stock?: number; // Real-time non-expired physical units
+  batch_number?: string;
+  expiry_date?: string;
+  is_expired?: boolean;
+  is_out_of_stock?: boolean;
   hsn_code?: string;
   schedule?: 'Schedule H' | 'Schedule H1' | 'Schedule X' | 'NDPS' | 'Schedule G' | 'OTC' | 'Medical Device';
   dosage_form?: string;
@@ -272,7 +294,9 @@ interface BillItem {
   product_name: string;
   generic_name?: string;
   quantity: number;
-  rate: number;
+  rate: number; // Price sold at
+  mrp?: number; // MRP
+  purchase_price?: number; // Purchase rate / COGS
   tax_percent: number;
   total: number;
   batch_number?: string;
@@ -379,6 +403,7 @@ export default function App() {
     expiry_date: '',
     purchase_price: 0,
     mrp: 0,
+    selling_price: 0,
     supplier_name: '',
     invoice_no: '',
     received_date: new Date().toISOString().split('T')[0],
@@ -930,6 +955,7 @@ export default function App() {
         expiry_date: '',
         purchase_price: 0,
         mrp: 0,
+        selling_price: 0,
         supplier_name: '',
         invoice_no: '',
         received_date: new Date().toISOString().split('T')[0],
@@ -1358,14 +1384,30 @@ export default function App() {
   };
 
   const addItemToBill = (product: Product, quantity = 1) => {
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    // Prevent adding out-of-stock items
-    if (product.status === 'Out of Stock') {
-      showToast("Product is marked Out of Stock.", "error");
+    // Intelligent Guardrail 1: Check Expiry Date
+    const isExpired = Boolean(
+      product.status === 'Expired' ||
+      product.is_expired ||
+      (product.expiry_date && String(product.expiry_date).substring(0, 10) <= todayStr)
+    );
+    if (isExpired) {
+      showToast(`PROHIBITED: ${product.name} has EXPIRED on ${product.expiry_date || 'N/A'}. Dispensing expired drugs is illegal and strictly prohibited.`, "error");
       return;
     }
 
-
+    // Intelligent Guardrail 2: Check Stock Availability
+    const availStock = product.available_stock !== undefined ? product.available_stock : (product.status === 'Out of Stock' ? 0 : 9999);
+    const isOutOfStock = Boolean(
+      product.status === 'Out of Stock' ||
+      product.is_out_of_stock ||
+      availStock <= 0
+    );
+    if (isOutOfStock) {
+      showToast(`PROHIBITED: ${product.name} is OUT OF STOCK. Cannot be billed.`, "error");
+      return;
+    }
 
     // Ensure an active session exists
     if (!activeSession) {
@@ -1375,17 +1417,23 @@ export default function App() {
       return;
     }
 
+    // Intelligent Guardrail 3: Check quantity against available stock
+    const existingIndex = activeSession.items.findIndex(item => item.product_id === product.id);
+    const currentQty = existingIndex !== -1 ? activeSession.items[existingIndex].quantity : 0;
+    const requestedQty = currentQty + quantity;
+    if (requestedQty > availStock) {
+      showToast(`Cannot exceed available stock (${availStock} units available for ${product.name}).`, "error");
+      return;
+    }
+
     setSessions(prev => prev.map(s => {
       if (s.id !== activeSessionId) return s;
-      const existingIndex = s.items.findIndex(item => item.product_id === product.id);
       const updatedItems = [...s.items];
       if (existingIndex !== -1) {
-        const currentQty = updatedItems[existingIndex].quantity;
-        const newQty = currentQty + quantity;
         updatedItems[existingIndex] = {
           ...updatedItems[existingIndex],
-          quantity: newQty,
-          total: newQty * product.price,
+          quantity: requestedQty,
+          total: requestedQty * product.price,
         };
       } else {
         updatedItems.push({
@@ -1393,11 +1441,13 @@ export default function App() {
           product_name: product.name,
           generic_name: product.generic_name || product.name,
           quantity: quantity,
-          rate: product.price,
+          rate: product.price, // Price sold at
+          mrp: product.mrp || product.price,
+          purchase_price: product.purchase_price || 0,
           tax_percent: product.tax_percent || 0,
           total: quantity * product.price,
-          batch_number: `B-2026-${String(product.id).padStart(4, '0')}`,
-          expiry_date: '2028-12-31',
+          batch_number: product.batch_number || `B-2026-${String(product.id).padStart(4, '0')}`,
+          expiry_date: product.expiry_date || '2028-12-31',
           hsn_code: product.hsn_code || '30049099',
           schedule: product.schedule || 'Schedule H',
           dosage_instructions: product.dosage_form || 'Tablet'
@@ -1417,10 +1467,15 @@ export default function App() {
     setTimeout(() => barcodeInputRef.current?.focus(), 20);
   };
 
-
-
   const updateItemQuantity = (index: number, quantity: number) => {
     if (!activeSession || quantity <= 0) return;
+    const item = activeSession.items[index];
+    const prod = products.find(p => p.id === item.product_id);
+    const availStock = prod?.available_stock !== undefined ? prod.available_stock : 9999;
+    if (quantity > availStock) {
+      showToast(`Cannot exceed available stock (${availStock} units available for ${item.product_name}).`, "error");
+      return;
+    }
     setSessions(prev => prev.map(s => {
       if (s.id !== activeSessionId) return s;
       const updated = [...s.items];
@@ -2492,6 +2547,41 @@ export default function App() {
             csvContent += `"${p.name}",${p.quantity},₹${p.total.toFixed(2)}\n`;
           });
         }
+      } else if (type === 'monthly') {
+        filename = `Monthly_Pharmacy_Financial_Report_${reportMonth}.csv`;
+        csvContent += `Monthly Pharmacy Financial & Stock Management Report - ${reportMonth}\n\n`;
+        csvContent += `1. EXECUTIVE FINANCIAL INDICATORS (MRP vs. PRICE SOLD AT)\n`;
+        csvContent += `Gross Sales (Valuation at MRP),₹${(data.financials?.grossSales || 0).toFixed(2)}\n`;
+        csvContent += `Patient Savings & Clinic Discounts,₹${(data.financials?.totalDiscounts || 0).toFixed(2)}\n`;
+        csvContent += `Net Realized Sales (Price Sold At),₹${(data.financials?.netSales || data.totalSales || 0).toFixed(2)}\n`;
+        csvContent += `Cost of Goods Sold (Purchase Rate COGS),₹${(data.financials?.cogs || 0).toFixed(2)}\n`;
+        csvContent += `Gross Profit Margin,₹${(data.financials?.grossProfit || 0).toFixed(2)}\n`;
+        csvContent += `Overall Profit Margin %,${data.financials?.profitMarginPercent || 0}%\n\n`;
+
+        csvContent += `2. INVENTORY CAPITAL MOVEMENT & STOCK VALUATION\n`;
+        csvContent += `Inward Stock Received (Units),${data.stockMovement?.inwardUnits || 0}\n`;
+        csvContent += `Inward Purchase Valuation,₹${(data.stockMovement?.inwardPurchaseValuation || 0).toFixed(2)}\n`;
+        csvContent += `Stock Sold to Patients (Units),${data.stockMovement?.unitsSold || 0}\n`;
+        csvContent += `Units Sold COGS,₹${(data.stockMovement?.unitsSoldCost || 0).toFixed(2)}\n`;
+        csvContent += `Doctor / Staff Complimentary Dispense (Units),${data.stockMovement?.complimentaryUnits || 0}\n`;
+        csvContent += `Complimentary Absorbed Cost,₹${(data.stockMovement?.complimentaryAbsorbedCost || 0).toFixed(2)}\n`;
+        csvContent += `Current Closing Stock Available (Units),${data.stockMovement?.currentAvailableStockUnits || 0}\n`;
+        csvContent += `Current Closing Stock Valuation at Cost,₹${(data.stockMovement?.currentStockValuationCost || 0).toFixed(2)}\n`;
+        csvContent += `Current Closing Stock Valuation at MRP,₹${(data.stockMovement?.currentStockValuationMrp || 0).toFixed(2)}\n\n`;
+
+        csvContent += `3. STATUTORY GST AUDIT BREAKDOWN\n`;
+        csvContent += `Taxable Base Amount,₹${(data.gstReport?.taxableAmount || 0).toFixed(2)}\n`;
+        csvContent += `CGST Collected,₹${(data.gstReport?.cgst || 0).toFixed(2)}\n`;
+        csvContent += `SGST Collected,₹${(data.gstReport?.sgst || 0).toFixed(2)}\n`;
+        csvContent += `Total GST Collected,₹${(data.gstReport?.totalTax || 0).toFixed(2)}\n\n`;
+
+        csvContent += `4. TOP DISPENSED MEDICINES\n`;
+        csvContent += `Medicine Name,Units Dispensed,Revenue at Price Sold,COGS,Gross Margin\n`;
+        if (data.topProducts) {
+          data.topProducts.forEach((p: any) => {
+            csvContent += `"${p.name}",${p.quantity},₹${Number(p.total || 0).toFixed(2)},₹${Number(p.cogs || 0).toFixed(2)},₹${Number(p.profit || 0).toFixed(2)}\n`;
+          });
+        }
       } else if (type === 'yearly') {
         filename = `Yearly_Sales_Report_${year}.csv`;
         csvContent += `Yearly Sales Report - ${year}\n\n`;
@@ -2920,54 +3010,114 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              visibleGridProducts.map(p => (
+              visibleGridProducts.map(p => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isExpired = Boolean(
+                p.status === 'Expired' ||
+                p.is_expired ||
+                (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr)
+              );
+              const availStock = p.available_stock !== undefined ? p.available_stock : (p.status === 'Out of Stock' ? 0 : 50);
+              const isOutOfStock = Boolean(
+                p.status === 'Out of Stock' ||
+                p.is_out_of_stock ||
+                availStock <= 0
+              );
+              const mrpVal = Number(p.mrp || p.price || 0);
+              const sellingVal = Number(p.price || 0);
+              const hasConcession = mrpVal > sellingVal;
+
+              return (
               <div
                 key={p.id}
                 className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition-all shadow-sm ${
-                  p.status === 'Out of Stock'
-                    ? 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60'
-                    : 'bg-slate-800/40 border-slate-800/90 hover:border-sky-500/50 hover:bg-slate-800/70'
+                  isExpired
+                    ? 'bg-rose-950/20 border-rose-900/50 text-slate-500 opacity-75'
+                    : isOutOfStock
+                      ? 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60'
+                      : 'bg-slate-800/40 border-slate-800/90 hover:border-sky-500/50 hover:bg-slate-800/70'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between gap-1 mb-1.5">
-                    <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20 truncate max-w-[140px]">
+                  <div className="flex items-center justify-between gap-1 mb-1.5 flex-wrap">
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20 truncate max-w-[130px]">
                       {p.category}
                     </span>
-                    <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 flex-shrink-0">
-                      {p.quantity_type}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                        isExpired
+                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                          : isOutOfStock
+                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                            : availStock <= 15
+                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      }`}>
+                        Stk: {availStock}
+                      </span>
+                      <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                        {p.quantity_type}
+                      </span>
+                    </div>
                   </div>
                   <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug">
                     {p.name}
                   </h4>
+                  {p.expiry_date && (
+                    <span className={`text-[9px] font-mono mt-1 block ${isExpired ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
+                      Exp: {String(p.expiry_date).substring(0, 10)} {isExpired ? '(EXPIRED)' : ''}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-800/70">
+                <div className="flex items-end justify-between mt-3 pt-2.5 border-t border-slate-800/70">
                   <div className="flex flex-col">
-                    <span className="text-sm font-bold font-mono text-emerald-400 leading-none">
-                      ₹{p.price.toFixed(2)}
-                    </span>
-                    <span className="text-[9px] text-amber-400/90 font-medium mt-0.5">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <span className="text-sm font-bold font-mono text-emerald-400 leading-none">
+                        ₹{sellingVal.toFixed(2)}
+                      </span>
+                      {hasConcession && (
+                        <span className="text-[10px] text-slate-400 line-through font-mono">
+                          MRP ₹{mrpVal.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    {hasConcession && (
+                      <span className="text-[9px] font-bold text-emerald-400/90 mt-0.5">
+                        Save ₹{(mrpVal - sellingVal).toFixed(2)}
+                      </span>
+                    )}
+                    <span className="text-[8.5px] text-amber-400/80 font-medium">
                       {p.tax_percent}% GST
                     </span>
                   </div>
 
                   <button
                     onClick={() => addItemToBill(p, 1)}
-                    disabled={p.status === 'Out of Stock'}
+                    disabled={isExpired || isOutOfStock}
                     className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center space-x-1 active:scale-95 transition-all ${
-                      p.status === 'Out of Stock'
-                        ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed'
-                        : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 font-black'
+                      isExpired
+                        ? 'bg-rose-950/40 text-rose-400 border border-rose-800/80 cursor-not-allowed text-[10px]'
+                        : isOutOfStock
+                          ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed text-[10px]'
+                          : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 font-black'
                     }`}
                   >
-                    <Plus className="w-3.5 h-3.5 mr-0.5 stroke-[3]" />
-                    <span>Add</span>
+                    {isExpired ? (
+                      <span>Expired</span>
+                    ) : isOutOfStock ? (
+                      <span>Out of Stock</span>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5 mr-0.5 stroke-[3]" />
+                        <span>Add</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
-            )))}
+            );
+          }))}
           </div>
         </section>
 
@@ -3025,37 +3175,67 @@ export default function App() {
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{filteredSearchProducts.length} match{filteredSearchProducts.length !== 1 ? 'es' : ''} found</span>
                     <span className="text-[9px] text-slate-600">↑↓ Navigate · Enter to add</span>
                   </div>
-                  {filteredSearchProducts.map((p, idx) => (
+                  {filteredSearchProducts.map((p, idx) => {
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const isExp = Boolean(p.status === 'Expired' || p.is_expired || (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr));
+                    const isOos = Boolean(p.status === 'Out of Stock' || p.is_out_of_stock || (p.available_stock !== undefined && p.available_stock <= 0));
+                    const mrpVal = Number(p.mrp || p.price || 0);
+                    const sellingVal = Number(p.price || 0);
+
+                    return (
                     <div
                       key={p.id}
                       onMouseDown={(e) => {
                         e.preventDefault(); // prevent blur before click fires
-                        addItemToBill(p, 1);
-                        setSearchQuery('');
-                        setIsSearchFocused(false);
-                        setSearchSelectedIndex(0);
-                        setTimeout(() => barcodeInputRef.current?.focus(), 20);
+                        if (!isExp && !isOos) {
+                          addItemToBill(p, 1);
+                          setSearchQuery('');
+                          setIsSearchFocused(false);
+                          setSearchSelectedIndex(0);
+                          setTimeout(() => barcodeInputRef.current?.focus(), 20);
+                        } else {
+                          addItemToBill(p, 1); // will trigger statutory guardrail toast
+                        }
                       }}
                       onMouseEnter={() => setSearchSelectedIndex(idx)}
-                      className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${searchSelectedIndex === idx
-                        ? 'bg-bakery-500/20 border-l-2 border-bakery-500'
-                        : 'hover:bg-slate-800 border-l-2 border-transparent'
+                      className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
+                        isExp || isOos
+                          ? 'opacity-60 bg-slate-950/40 hover:bg-slate-900 border-l-2 border-rose-500/40'
+                          : searchSelectedIndex === idx
+                            ? 'bg-bakery-500/20 border-l-2 border-bakery-500'
+                            : 'hover:bg-slate-800 border-l-2 border-transparent'
                         }`}
                     >
                       <div className="flex flex-col min-w-0">
-                        <span className={`text-xs font-semibold truncate ${searchSelectedIndex === idx ? 'text-bakery-300' : 'text-slate-200'}`}>
+                        <span className={`text-xs font-semibold truncate ${
+                          isExp ? 'text-rose-400 line-through' : (isOos ? 'text-slate-400' : (searchSelectedIndex === idx ? 'text-bakery-300' : 'text-slate-200'))
+                        }`}>
                           {p.name}
                         </span>
-                        <span className="text-[10px] text-slate-500 mt-0.5">{p.category}</span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                          <span>{p.category}</span>
+                          <span className={`px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
+                            Stk: {p.available_stock ?? (isOos ? 0 : 50)}
+                          </span>
+                          {isExp && <span className="text-rose-400 font-bold uppercase text-[9px]">(Expired)</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                         <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono uppercase">{p.quantity_type}</span>
-                        <span className={`text-xs font-bold font-mono ${searchSelectedIndex === idx ? 'text-emerald-300' : 'text-emerald-400'}`}>
-                          ₹{p.price.toFixed(2)}
-                        </span>
+                        <div className="flex flex-col items-end">
+                          <span className={`text-xs font-bold font-mono ${searchSelectedIndex === idx ? 'text-emerald-300' : 'text-emerald-400'}`}>
+                            ₹{sellingVal.toFixed(2)}
+                          </span>
+                          {mrpVal > sellingVal && (
+                            <span className="text-[9px] text-slate-400 line-through font-mono">
+                              MRP ₹{mrpVal.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               )}
             </div>
@@ -3441,29 +3621,53 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {filteredSearchProducts.map((p, idx) => (
+              {filteredSearchProducts.map((p, idx) => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isExp = Boolean(p.status === 'Expired' || p.is_expired || (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr));
+                const isOos = Boolean(p.status === 'Out of Stock' || p.is_out_of_stock || (p.available_stock !== undefined && p.available_stock <= 0));
+                const mrpVal = Number(p.mrp || p.price || 0);
+                const sellingVal = Number(p.price || 0);
+
+                return (
                 <div
                   key={p.id}
                   onClick={() => {
                     addItemToBill(p, 1);
-                    setShowSearchModal(false);
-                    setSearchQuery('');
+                    if (!isExp && !isOos) {
+                      setShowSearchModal(false);
+                      setSearchQuery('');
+                    }
                   }}
-                  className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border ${searchSelectedIndex === idx
-                    ? 'bg-slate-800 border-bakery-500'
-                    : 'bg-slate-950/20 border-transparent hover:bg-slate-800'
+                  className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border ${
+                    isExp || isOos
+                      ? 'bg-slate-950/40 border-rose-500/30 opacity-60'
+                      : searchSelectedIndex === idx
+                        ? 'bg-slate-800 border-bakery-500'
+                        : 'bg-slate-950/20 border-transparent hover:bg-slate-800'
                     }`}
                 >
                   <div>
-                    <span className="text-xs font-bold text-white block">{p.name}</span>
-                    <span className="text-[10px] text-slate-500 uppercase">{p.category}</span>
+                    <span className={`text-xs font-bold block ${isExp ? 'text-rose-400 line-through' : 'text-white'}`}>
+                      {p.name}
+                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-slate-500 uppercase">{p.category}</span>
+                      <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
+                        Stk: {p.available_stock ?? (isOos ? 0 : 50)}
+                      </span>
+                      {isExp && <span className="text-[9px] text-rose-400 font-bold uppercase">(Expired)</span>}
+                    </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-bold text-emerald-400 block font-mono">₹{p.price.toFixed(2)}</span>
+                    <span className="text-xs font-bold text-emerald-400 block font-mono">₹{sellingVal.toFixed(2)}</span>
+                    {mrpVal > sellingVal && (
+                      <span className="text-[9px] text-slate-400 line-through font-mono block">MRP ₹{mrpVal.toFixed(2)}</span>
+                    )}
                     <span className="text-[9px] px-1 bg-slate-800 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
 
             <div className="p-3 bg-slate-950 text-[10px] text-slate-500 font-mono flex justify-between border-t border-slate-800">
@@ -4834,9 +5038,26 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Selling Price (₹ MRP) *</label>
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">MRP (₹ Printed) *</label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            required
+                            disabled={currentUser?.role !== 'admin'}
+                            step="0.01"
+                            placeholder="0.00"
+                            value={editingProduct?.mrp !== undefined ? editingProduct.mrp : (editingProduct?.price !== undefined ? editingProduct.price : '')}
+                            onChange={(e) => setEditingProduct(prev => ({ ...prev, mrp: Number(e.target.value) }))}
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Price Sold At (₹ Clinic Rate) *</label>
                         <div className="relative">
                           <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
                           <input
@@ -4847,9 +5068,63 @@ export default function App() {
                             placeholder="0.00"
                             value={editingProduct?.price !== undefined ? editingProduct.price : ''}
                             onChange={(e) => setEditingProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50 font-bold text-emerald-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Cost of Purchase (₹ Cost)</label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
+                          <input
+                            type="number"
+                            disabled={currentUser?.role !== 'admin'}
+                            step="0.01"
+                            placeholder="0.00"
+                            value={editingProduct?.purchase_price !== undefined ? editingProduct.purchase_price : ''}
+                            onChange={(e) => setEditingProduct(prev => ({ ...prev, purchase_price: Number(e.target.value) }))}
                             className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
                           />
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Stock Quantity (Units)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          disabled={currentUser?.role !== 'admin'}
+                          placeholder="e.g. 50"
+                          value={editingProduct?.available_stock !== undefined ? editingProduct.available_stock : ''}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, available_stock: Number(e.target.value) }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Batch Number</label>
+                        <input
+                          type="text"
+                          disabled={currentUser?.role !== 'admin'}
+                          placeholder="e.g. BTH-2026-099"
+                          value={editingProduct?.batch_number || ''}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, batch_number: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Expiry Date</label>
+                        <input
+                          type="date"
+                          disabled={currentUser?.role !== 'admin'}
+                          value={editingProduct?.expiry_date ? String(editingProduct.expiry_date).substring(0, 10) : ''}
+                          onChange={(e) => setEditingProduct(prev => ({ ...prev, expiry_date: e.target.value }))}
+                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        />
                       </div>
 
                       <div className="flex flex-col gap-1.5">
@@ -5157,7 +5432,10 @@ export default function App() {
                           <th className="py-2.5 px-3">Medicine Name</th>
                           <th className="py-2.5 px-3">Category</th>
                           <th className="py-2.5 px-3">Unit</th>
-                          <th className="py-2.5 px-3 text-right">Price (₹)</th>
+                          <th className="py-2.5 px-3 text-right">MRP (₹)</th>
+                          <th className="py-2.5 px-3 text-right">Price Sold (₹)</th>
+                          <th className="py-2.5 px-3 text-center">Available Stock</th>
+                          <th className="py-2.5 px-3 text-center">Expiry</th>
                           <th className="py-2.5 px-3 text-right">GST</th>
                           <th className="py-2.5 px-3 text-center">Status</th>
                           <th className="py-2.5 px-3 text-right w-24">Actions</th>
@@ -5166,22 +5444,41 @@ export default function App() {
                       <tbody className="divide-y divide-slate-800/40">
                         {products
                           .filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase()))
-                          .map(p => (
+                          .map(p => {
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            const isExp = Boolean(p.status === 'Expired' || p.is_expired || (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr));
+                            const availStk = p.available_stock !== undefined ? p.available_stock : (p.status === 'Out of Stock' ? 0 : 50);
+                            const isOos = Boolean(p.status === 'Out of Stock' || p.is_out_of_stock || availStk <= 0);
+
+                            return (
                             <tr key={p.id} className="hover:bg-slate-900/60 transition-colors">
                               <td className="py-2 px-3 font-semibold text-white">
-                                <div>{p.name}</div>
+                                <div className={isExp ? 'line-through text-rose-400' : ''}>{p.name}</div>
                                 {p.barcode && <div className="text-[9px] text-slate-500 font-mono">{p.barcode}</div>}
                               </td>
                               <td className="py-2 px-3 text-slate-400">{p.category}</td>
                               <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
+                              <td className="py-2 px-3 text-right font-mono text-slate-400">₹{(p.mrp || p.price).toFixed(2)}</td>
                               <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{p.price.toFixed(2)}</td>
+                              <td className="py-2 px-3 text-center font-mono">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (availStk <= 15 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
+                                }`}>
+                                  {availStk}
+                                </span>
+                              </td>
+                              <td className="py-2 px-3 text-center font-mono text-[11px]">
+                                <span className={isExp ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                                  {p.expiry_date ? String(p.expiry_date).substring(0, 10) : '2028-12-31'}
+                                </span>
+                              </td>
                               <td className="py-2 px-3 text-right font-mono text-slate-400">{p.tax_percent}%</td>
                               <td className="py-2 px-3 text-center">
                                 <div className="flex flex-col items-center gap-1">
                                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                                    p.status === 'Available' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                    isExp ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : (isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
                                   }`}>
-                                    {p.status === 'Available' ? 'In Stock' : 'Out'}
+                                    {isExp ? 'Expired' : (isOos ? 'Out of Stock' : 'In Stock')}
                                   </span>
                                   {p.is_example ? (
                                     <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
@@ -5202,8 +5499,9 @@ export default function App() {
                                         setInwardForm(prev => ({
                                           ...prev,
                                           product_id: p.id,
-                                          mrp: p.price || 0,
-                                          purchase_price: p.price ? +(p.price * 0.7).toFixed(2) : 0
+                                          mrp: p.mrp || p.price || 0,
+                                          selling_price: p.price || 0,
+                                          purchase_price: p.purchase_price || (p.price ? +(p.price * 0.7).toFixed(2) : 0)
                                         }));
                                         setProductModalTab('inward');
                                       }}
@@ -5242,7 +5540,8 @@ export default function App() {
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
@@ -5291,8 +5590,9 @@ export default function App() {
                               setInwardForm(prev => ({
                                 ...prev,
                                 product_id: pid,
-                                mrp: prod ? prod.price : prev.mrp,
-                                purchase_price: prod ? +(prod.price * 0.7).toFixed(2) : prev.purchase_price
+                                mrp: prod?.mrp || prod?.price || prev.mrp,
+                                selling_price: prod?.price || prev.selling_price,
+                                purchase_price: prod?.purchase_price || (prod?.price ? +(prod.price * 0.7).toFixed(2) : prev.purchase_price)
                               }));
                             }}
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
@@ -5300,7 +5600,7 @@ export default function App() {
                             <option value={0}>-- Choose Medicine ({products.length} available) --</option>
                             {products.map(p => (
                               <option key={p.id} value={p.id}>
-                                {p.name} ({p.category}) · MRP ₹{p.price.toFixed(2)}
+                                {p.name} ({p.category}) · MRP ₹{(p.mrp || p.price).toFixed(2)} · Rate ₹{p.price.toFixed(2)}
                               </option>
                             ))}
                           </select>
@@ -5355,7 +5655,7 @@ export default function App() {
                         </div>
 
                         <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-slate-300 uppercase">Selling Price (₹ MRP) *</label>
+                          <label className="text-[10px] font-bold text-slate-300 uppercase">MRP (₹ Printed) *</label>
                           <input
                             type="number"
                             step="0.01"
@@ -5363,6 +5663,18 @@ export default function App() {
                             value={inwardForm.mrp || ''}
                             onChange={(e) => setInwardForm(prev => ({ ...prev, mrp: Number(e.target.value) }))}
                             className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-3 flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-slate-300 uppercase">Price Sold At (₹ Clinic Rate) *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={inwardForm.selling_price || ''}
+                            onChange={(e) => setInwardForm(prev => ({ ...prev, selling_price: Number(e.target.value) }))}
+                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400 font-bold text-emerald-400"
                           />
                         </div>
 

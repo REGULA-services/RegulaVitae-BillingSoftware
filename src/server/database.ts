@@ -14,6 +14,7 @@ export interface BatchRecord {
   expiry_date: string;
   mrp: number;
   purchase_price: number;
+  selling_price?: number;
   available_stock: number;
   rack_location: string;
   status?: 'Active' | 'Quarantined' | 'Recalled';
@@ -32,6 +33,7 @@ export interface InwardStockRecord {
   mfg_date?: string;
   purchase_price: number;
   mrp: number;
+  selling_price?: number;
   supplier_name?: string;
   invoice_number?: string;
   received_date: string;
@@ -269,15 +271,15 @@ export class JSONDatabaseEngine implements DatabaseEngine {
 
   private seedIfNeeded() {
     const defaultProducts = getSeedProducts();
-    const existingByName = new Map((this.data.products || []).map(p => [(p.name || '').trim().toLowerCase(), p]));
-    let maxId = (this.data.products && this.data.products.length > 0) ? Math.max(...this.data.products.map(p => p.id)) : 0;
+    const existingByName = new Map((this.data.products || []).map(p => [String(p.name || '').trim().toLowerCase(), p]));
+    let maxId = (this.data.products && this.data.products.length > 0) ? Math.max(...this.data.products.map(p => Number(p.id) || 0)) : 0;
     let addedCount = 0;
     let updatedCount = 0;
 
     if (!this.data.products) this.data.products = [];
 
     for (const dp of defaultProducts) {
-      const key = (dp.name || '').trim().toLowerCase();
+      const key = String(dp.name || '').trim().toLowerCase();
       const existing = existingByName.get(key);
       if (!existing) {
         maxId++;
@@ -647,14 +649,47 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     }
 
     if (q.includes("FROM PRODUCTS")) {
-      let results = [...this.data.products];
+      const today = new Date().toISOString().split('T')[0];
+      let results = this.data.products.map(p => {
+        const prodBatches = (this.data.batches || [])
+          .filter(b => b.product_id === p.id && b.status !== 'Quarantined' && b.status !== 'Recalled')
+          .sort((a, b) => String(a.expiry_date || '').localeCompare(String(b.expiry_date || '')));
+        
+        const validBatches = prodBatches.filter(b => (b.expiry_date || '') >= today && Number(b.available_stock || 0) > 0);
+        const validStock = validBatches.reduce((sum, b) => sum + Number(b.available_stock || 0), 0);
+        const totalRawStock = prodBatches.reduce((sum, b) => sum + Number(b.available_stock || 0), 0);
+        
+        const activeBatch = validBatches[0] || prodBatches[0];
+        const isExpired = validStock === 0 && totalRawStock > 0 && prodBatches.every(b => (b.expiry_date || '') < today);
+        const isOutOfStock = validStock === 0 && !isExpired;
+
+        const mrp = Number(p.mrp || (activeBatch ? activeBatch.mrp : p.price));
+        const price = Number(p.price || (activeBatch ? (activeBatch.selling_price || activeBatch.mrp) : p.price));
+        const purchase_price = Number(p.purchase_price || (activeBatch ? activeBatch.purchase_price : (price * 0.75)));
+
+        return {
+          ...p,
+          mrp,
+          price,
+          purchase_price,
+          available_stock: validStock,
+          total_raw_stock: totalRawStock,
+          expiry_date: activeBatch?.expiry_date || '2028-12-31',
+          batch_number: activeBatch?.batch_number || `BTH-2026-${String(p.id).padStart(4, '0')}`,
+          is_expired: isExpired,
+          is_out_of_stock: isOutOfStock,
+          status: isExpired ? 'Expired' : (isOutOfStock ? 'Out of Stock' : 'Available'),
+          batches: prodBatches
+        };
+      });
+
       if (q.includes("WHERE CATEGORY = ?") && params.length > 0) {
         results = results.filter(p => p.category === params[0]);
       }
       if (q.includes("WHERE SCHEDULE = ?") && params.length > 0) {
         results = results.filter(p => p.schedule === params[0]);
       }
-      results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      results.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
       return results as any[];
     }
 
@@ -724,7 +759,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       } else if (q.includes("WHERE ID = ?") && params.length > 0) {
         results = results.filter(p => p.id === Number(params[0]));
       }
-      results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      results.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
       return results as any[];
     }
 
@@ -760,7 +795,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
 
     if (q.startsWith("SELECT * FROM EMPLOYEES")) {
       let results = [...this.data.employees];
-      results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      results.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
       return results as any[];
     }
 
@@ -930,7 +965,22 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       return { lastID: id, changes: 1 };
     }
 
-    // Update Product
+    // Update Product: specific price/mrp sync from inward stock
+    if (q.includes("PRICE = ?") && q.includes("MRP = ?") && q.includes("PURCHASE_PRICE = ?")) {
+      const idParam = params[params.length - 1];
+      const idx = this.data.products.findIndex(p => p.id === Number(idParam));
+      if (idx !== -1) {
+        this.data.products[idx].price = Number(params[0]);
+        this.data.products[idx].mrp = Number(params[1]);
+        this.data.products[idx].purchase_price = Number(params[2]);
+        this.data.products[idx].status = 'Available';
+        this.save();
+        return { changes: 1 };
+      }
+      return { changes: 0 };
+    }
+
+    // Update Product: full entity update
     if (q.startsWith("UPDATE PRODUCTS SET")) {
       const idParam = params[params.length - 1];
       const idx = this.data.products.findIndex(p => p.id === Number(idParam));
@@ -938,14 +988,14 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         const [name, category, price, barcode, sku, tax_percent, status, quantity_type, generic_name, mrp, hsn_code, schedule, dosage_form, strength, pack_size, storage_condition, is_prescription_required, is_cold_chain] = params;
         this.data.products[idx] = {
           ...this.data.products[idx],
-          name,
-          category,
-          price: Number(price),
+          name: String(name || this.data.products[idx].name),
+          category: String(category || this.data.products[idx].category),
+          price: Number(price !== undefined ? price : this.data.products[idx].price),
           barcode,
           sku,
           tax_percent: Number(tax_percent || 0),
-          status,
-          quantity_type,
+          status: status || this.data.products[idx].status,
+          quantity_type: quantity_type || this.data.products[idx].quantity_type,
           generic_name: generic_name || this.data.products[idx].generic_name,
           mrp: mrp ? Number(mrp) : this.data.products[idx].mrp,
           hsn_code: hsn_code || this.data.products[idx].hsn_code,
@@ -1419,9 +1469,10 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       const id = this.data.inward_stock.length > 0 ? Math.max(...this.data.inward_stock.map(r => r.id)) + 1 : 1;
       const [
         product_id, product_name, batch_number, quantity, expiry_date, mfg_date,
-        purchase_price, mrp, supplier_name, invoice_number, received_date, received_by, notes
+        purchase_price, mrp, selling_price, supplier_name, invoice_number, received_date, received_by, notes
       ] = params;
 
+      const sp = Number(selling_price || mrp || 0);
       const record: InwardStockRecord = {
         id,
         product_id: Number(product_id),
@@ -1432,6 +1483,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         mfg_date: mfg_date ? String(mfg_date) : undefined,
         purchase_price: Number(purchase_price),
         mrp: Number(mrp),
+        selling_price: sp,
         supplier_name: supplier_name ? String(supplier_name) : undefined,
         invoice_number: invoice_number ? String(invoice_number) : undefined,
         received_date: String(received_date || new Date().toISOString().split('T')[0]),
@@ -1449,6 +1501,8 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         existingBatch.expiry_date = String(expiry_date);
         existingBatch.purchase_price = Number(purchase_price);
         existingBatch.mrp = Number(mrp);
+        existingBatch.selling_price = sp;
+        existingBatch.status = 'Active';
       } else {
         const nextBatchId = this.data.batches.length > 0 ? Math.max(...this.data.batches.map(b => b.id)) + 1 : 1;
         this.data.batches.push({
@@ -1459,12 +1513,22 @@ export class JSONDatabaseEngine implements DatabaseEngine {
           expiry_date: String(expiry_date),
           mrp: Number(mrp),
           purchase_price: Number(purchase_price),
+          selling_price: sp,
           available_stock: Number(quantity),
           rack_location: 'MAIN-PHARMACY-DISPENSARY',
           status: 'Active',
           created_at: new Date().toISOString()
         });
       }
+
+      // Update active prices in product record
+      const prod = this.data.products.find(p => p.id === Number(product_id));
+      if (prod) {
+        if (mrp) prod.mrp = Number(mrp);
+        if (sp) prod.price = sp;
+        if (purchase_price) prod.purchase_price = Number(purchase_price);
+      }
+
       this.save();
       return { lastID: id, changes: 1 };
     }
@@ -1865,6 +1929,11 @@ export async function getDatabase(): Promise<DatabaseEngine> {
     try { await nativeEngine.run("ALTER TABLE employees ADD COLUMN qualification TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE employees ADD COLUMN reg_no TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE patients ADD COLUMN is_example INTEGER DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE products ADD COLUMN purchase_price REAL DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE batches ADD COLUMN selling_price REAL DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE inward_stock ADD COLUMN selling_price REAL DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE bill_items ADD COLUMN mrp REAL DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE bill_items ADD COLUMN purchase_price REAL DEFAULT 0"); } catch (e) {}
 
     // Tag seeded demo items as example
     try {

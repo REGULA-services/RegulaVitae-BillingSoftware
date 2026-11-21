@@ -265,30 +265,129 @@ app.put('/api/clinic/details', async (req, res) => {
 // ----------------------------------------------------
 
 // Get all products
+// Get all products enriched with live FEFO batch stock and expiry status
 app.get('/api/products', async (req, res) => {
   try {
     const db = await getDatabase();
-    const products = await db.all("SELECT * FROM products ORDER BY name ASC");
-    res.json(products);
+    const products = await db.all<any>("SELECT * FROM products ORDER BY name ASC");
+    const batches = await db.all<any>("SELECT * FROM batches WHERE status = 'Active'");
+    const today = new Date().toISOString().split('T')[0];
+
+    const batchesByProduct = new Map<number, any[]>();
+    for (const b of batches) {
+      if (!batchesByProduct.has(b.product_id)) {
+        batchesByProduct.set(b.product_id, []);
+      }
+      batchesByProduct.get(b.product_id)!.push(b);
+    }
+
+    const enriched = products.map(p => {
+      const prodBatches = batchesByProduct.get(p.id) || [];
+      // Sort batches by expiry date (FEFO: First Expiry First Out)
+      prodBatches.sort((a, b) => String(a.expiry_date || '').localeCompare(String(b.expiry_date || '')));
+      
+      const nonExpiredBatches = prodBatches.filter(b => (b.expiry_date || '') >= today && Number(b.available_stock || 0) > 0);
+      const totalAvailableStock = nonExpiredBatches.reduce((acc, b) => acc + Number(b.available_stock || 0), 0);
+      const totalRawStock = prodBatches.reduce((acc, b) => acc + Number(b.available_stock || 0), 0);
+
+      const activeBatch = nonExpiredBatches[0] || prodBatches[0];
+      const isExpired = totalAvailableStock === 0 && totalRawStock > 0 && prodBatches.every(b => (b.expiry_date || '') < today);
+      const isOutOfStock = totalAvailableStock === 0 && !isExpired;
+
+      const mrp = Number(p.mrp || (activeBatch ? activeBatch.mrp : p.price));
+      const priceSoldAt = Number(p.price || (activeBatch ? (activeBatch.selling_price || activeBatch.price) : p.price));
+      const purchasePrice = Number(p.purchase_price || (activeBatch ? activeBatch.purchase_price : (priceSoldAt * 0.72)));
+
+      return {
+        ...p,
+        mrp,
+        price: priceSoldAt,
+        purchase_price: purchasePrice,
+        available_stock: totalAvailableStock,
+        total_raw_stock: totalRawStock,
+        expiry_date: activeBatch?.expiry_date || '2028-12-31',
+        batch_number: activeBatch?.batch_number || `BTH-2026-${String(p.id).padStart(4, '0')}`,
+        is_expired: isExpired,
+        is_out_of_stock: isOutOfStock,
+        status: isExpired ? 'Expired' : (isOutOfStock ? 'Out of Stock' : 'Available'),
+        batches: prodBatches
+      };
+    });
+
+    res.json(enriched);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Create product
+// Create product (with distinct MRP, Price Sold At, Cost of Purchase, and initial stock)
 app.post('/api/products', async (req, res) => {
   try {
-    const { name, category, price, barcode, sku, tax_percent, status, quantity_type } = req.body;
+    const {
+      name, category, price, mrp, purchase_price, initial_stock, batch_number, expiry_date,
+      barcode, sku, tax_percent, status, quantity_type, generic_name, dosage_form, strength
+    } = req.body;
     if (!name || !category || price === undefined) {
-      return res.status(400).json({ error: "Missing required product fields." });
+      return res.status(400).json({ error: "Missing required product fields (Name, Category, Price Sold At)." });
     }
     const db = await getDatabase();
+    const priceSoldAt = Number(price);
+    const retailMrp = Number(mrp || priceSoldAt);
+    const costPrice = Number(purchase_price || (priceSoldAt * 0.72));
+    const stockQty = Number(initial_stock || 0);
+
     const result = await db.run(
-      `INSERT INTO products (name, category, price, barcode, sku, tax_percent, status, quantity_type) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, category, Number(price), barcode || null, sku || null, Number(tax_percent || 0), status || 'Available', quantity_type || 'pcs']
+      `INSERT INTO products (
+        name, category, price, mrp, purchase_price, barcode, sku, tax_percent, status,
+        quantity_type, generic_name, dosage_form, strength
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name, category, priceSoldAt, retailMrp, costPrice, barcode || null, sku || null,
+        Number(tax_percent || 0), stockQty > 0 ? 'Available' : (status || 'Available'),
+        quantity_type || 'strip', generic_name || name, dosage_form || 'Tablet', strength || null
+      ]
     );
-    res.status(201).json({ id: result.lastID, name, category, price, barcode, sku, tax_percent, status, quantity_type });
+
+    const productId = result.lastID;
+
+    // Automatically create initial batch and inward stock record if stock is provided
+    if (stockQty > 0) {
+      const bthNo = batch_number ? String(batch_number).trim() : `BTH-INIT-${String(productId).padStart(4, '0')}`;
+      const expDate = expiry_date ? String(expiry_date).trim() : '2028-12-31';
+
+      await db.run(
+        `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, selling_price, available_stock, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
+        [productId, bthNo, '2026-01-01', expDate, retailMrp, costPrice, priceSoldAt, stockQty]
+      );
+
+      await db.run(
+        `INSERT INTO inward_stock (
+          product_id, product_name, batch_number, quantity, expiry_date, mfg_date,
+          purchase_price, mrp, selling_price, supplier_name, invoice_number, received_date, received_by, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          productId, name, bthNo, stockQty, expDate, '2026-01-01',
+          costPrice, retailMrp, priceSoldAt, 'Initial Stock Intake', 'INV-INIT',
+          new Date().toISOString().split('T')[0], 'Admin', 'Initial stock on product creation'
+        ]
+      );
+    }
+
+    res.status(201).json({
+      id: productId,
+      name,
+      category,
+      price: priceSoldAt,
+      mrp: retailMrp,
+      purchase_price: costPrice,
+      available_stock: stockQty,
+      barcode,
+      sku,
+      tax_percent,
+      status: stockQty > 0 ? 'Available' : 'Out of Stock',
+      quantity_type
+    });
   } catch (err: any) {
     if (err.message.includes("UNIQUE")) {
       res.status(400).json({ error: "Product name, SKU, or Barcode already exists." });
@@ -302,18 +401,24 @@ app.post('/api/products', async (req, res) => {
 app.put('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category, price, barcode, sku, tax_percent, status, quantity_type } = req.body;
+    const {
+      name, category, price, mrp, purchase_price, barcode, sku, tax_percent, status, quantity_type
+    } = req.body;
     const db = await getDatabase();
+    const priceSoldAt = Number(price);
+    const retailMrp = Number(mrp || priceSoldAt);
+    const costPrice = Number(purchase_price || (priceSoldAt * 0.72));
+
     const result = await db.run(
       `UPDATE products 
-       SET name = ?, category = ?, price = ?, barcode = ?, sku = ?, tax_percent = ?, status = ?, quantity_type = ? 
+       SET name = ?, category = ?, price = ?, mrp = ?, purchase_price = ?, barcode = ?, sku = ?, tax_percent = ?, status = ?, quantity_type = ? 
        WHERE id = ?`,
-      [name, category, Number(price), barcode || null, sku || null, Number(tax_percent || 0), status || 'Available', quantity_type || 'pcs', Number(id)]
+      [name, category, priceSoldAt, retailMrp, costPrice, barcode || null, sku || null, Number(tax_percent || 0), status || 'Available', quantity_type || 'strip', Number(id)]
     );
     if (result.changes === 0) {
       return res.status(404).json({ error: "Product not found." });
     }
-    res.json({ id: Number(id), name, category, price, barcode, sku, tax_percent, status, quantity_type });
+    res.json({ id: Number(id), name, category, price: priceSoldAt, mrp: retailMrp, purchase_price: costPrice, barcode, sku, tax_percent, status, quantity_type });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -418,12 +523,19 @@ app.post('/api/products/batch', async (req, res) => {
 
       const name = String(p.name).trim();
       const category = String(p.category || 'Orthopaedic Medicines').trim();
-      const price = Math.max(0, Number(p.price) || 0);
+      const price = Math.max(0, Number(p.price) || 0); // Price sold at
+      const mrp = Number(p.mrp || (price > 0 ? price * 1.15 : 0));
+      const purchase_price = Number(p.purchase_price || (price > 0 ? price * 0.72 : 0));
+      const initial_stock = Number(p.initial_stock || p.stock || 0);
+      const batch_number = p.batch_number ? String(p.batch_number).trim() : `BTH-INIT-${Date.now().toString().slice(-4)}`;
+      const expiry_date = p.expiry_date ? String(p.expiry_date).trim() : '2028-12-31';
+
       const tax_percent = Math.max(0, Number(p.tax_percent) || 0);
       const quantity_type = p.quantity_type || 'strip';
-      const status = p.status || 'Available';
+      const status = initial_stock > 0 ? 'Available' : (p.status || 'Available');
       const barcode = p.barcode ? String(p.barcode).trim() : null;
       const sku = p.sku ? String(p.sku).trim() : null;
+      const dosage_form = p.dosage_form || 'Tablet';
 
       try {
         // Check if existing product with same name exists
@@ -432,33 +544,59 @@ app.post('/api/products/batch', async (req, res) => {
           [name]
         );
 
+        let productId: number;
+
         if (existing) {
+          productId = existing.id;
           if (updateExisting) {
             await db.run(
               `UPDATE products 
-               SET category = ?, price = ?, barcode = COALESCE(?, barcode), sku = COALESCE(?, sku), tax_percent = ?, status = ?, quantity_type = ? 
+               SET category = ?, price = ?, mrp = ?, purchase_price = ?, barcode = COALESCE(?, barcode), sku = COALESCE(?, sku), tax_percent = ?, status = ?, quantity_type = ? 
                WHERE id = ?`,
-              [category, price, barcode, sku, tax_percent, status, quantity_type, existing.id]
+              [category, price, mrp, purchase_price, barcode, sku, tax_percent, status, quantity_type, existing.id]
             );
             updated++;
           } else {
             // Add as variant / duplicate entry
             const variantName = `${name} (${Date.now().toString().slice(-4)})`;
-            await db.run(
-              `INSERT INTO products (name, category, price, barcode, sku, tax_percent, status, quantity_type) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [variantName, category, price, barcode ? `${barcode}-2` : null, sku ? `${sku}-2` : null, tax_percent, status, quantity_type]
+            const insRes = await db.run(
+              `INSERT INTO products (name, category, price, mrp, purchase_price, barcode, sku, tax_percent, status, quantity_type, dosage_form) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [variantName, category, price, mrp, purchase_price, barcode ? `${barcode}-2` : null, sku ? `${sku}-2` : null, tax_percent, status, quantity_type, dosage_form]
             );
+            productId = insRes.lastID!;
             added++;
           }
         } else {
           // Fresh insertion
-          await db.run(
-            `INSERT INTO products (name, category, price, barcode, sku, tax_percent, status, quantity_type) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, category, price, barcode, sku, tax_percent, status, quantity_type]
+          const insRes = await db.run(
+            `INSERT INTO products (name, category, price, mrp, purchase_price, barcode, sku, tax_percent, status, quantity_type, dosage_form) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, category, price, mrp, purchase_price, barcode, sku, tax_percent, status, quantity_type, dosage_form]
           );
+          productId = insRes.lastID!;
           added++;
+        }
+
+        // If initial stock was provided, create/update batch & log inward stock
+        if (initial_stock > 0 && productId) {
+          await db.run(
+            `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, selling_price, available_stock, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
+            [productId, batch_number, '2026-01-01', expiry_date, mrp, purchase_price, price, initial_stock]
+          );
+
+          await db.run(
+            `INSERT INTO inward_stock (
+              product_id, product_name, batch_number, quantity, expiry_date, mfg_date,
+              purchase_price, mrp, selling_price, supplier_name, invoice_number, received_date, received_by, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              productId, name, batch_number, initial_stock, expiry_date, '2026-01-01',
+              purchase_price, mrp, price, 'Bulk Excel Import', 'INV-EXCEL',
+              new Date().toISOString().split('T')[0], 'Admin', 'Imported via Excel template'
+            ]
+          );
         }
       } catch (itemErr: any) {
         errors.push(`${name}: ${itemErr.message}`);
@@ -604,29 +742,87 @@ app.post('/api/bills', async (req, res) => {
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0];
 
-    // Statutory Check 1: Expired Drugs Interceptor (Drugs and Cosmetics Rules, 1945 Rule 65)
+    // Intelligent Stock & Expiry Guardrails System:
+    // Only stocks that are not out-of-stock and are not expired should be available for billing.
+    // Prohibit out-of-stock medicines or expired medicines or both from billing.
     for (const it of items) {
       if (it.expiry_date) {
         const expDate = String(it.expiry_date).substring(0, 10);
         if (expDate <= dateStr) {
           return res.status(400).json({
-            error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${it.product_name}' (Expiry: ${it.expiry_date}). Sale blocked under Rule 65 of Drugs and Cosmetics Rules, 1945.`
+            error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${it.product_name}' (Expiry: ${it.expiry_date}). Dispensing expired drugs is illegal under Rule 65 of Drugs and Cosmetics Rules, 1945.`
           });
         }
       }
 
-      // Check Batch Quarantine / Drug Recall Status (CDSCO & TN Drugs Control)
+      // Query all batches for this product
+      const productBatches = await db.all<any>(
+        "SELECT * FROM batches WHERE product_id = ?",
+        [it.product_id || 0]
+      );
+
+      // Filter non-expired, active, non-quarantined batches
+      const nonExpiredBatches = productBatches.filter(
+        (b: any) => String(b.expiry_date).substring(0, 10) > dateStr && b.status !== 'Quarantined' && b.status !== 'Recalled'
+      );
+
       if (it.batch_number) {
-        const batches = await db.all<any>("SELECT * FROM batches WHERE product_id = ?", [it.product_id || 0]);
-        let matchingBatch = batches.find((b: any) => b.batch_number === it.batch_number);
+        let matchingBatch = productBatches.find((b: any) => b.batch_number === it.batch_number);
         if (!matchingBatch) {
           const allBatches = await db.all<any>("SELECT * FROM batches");
           matchingBatch = allBatches.find((b: any) => b.batch_number === it.batch_number);
         }
-        if (matchingBatch && (matchingBatch.status === 'Quarantined' || matchingBatch.status === 'Recalled')) {
+
+        if (matchingBatch) {
+          const bExp = String(matchingBatch.expiry_date || '').substring(0, 10);
+          if (bExp && bExp <= dateStr) {
+            return res.status(400).json({
+              error: `CRITICAL DISPENSING BLOCKED: Batch '${it.batch_number}' of '${it.product_name}' has EXPIRED on ${matchingBatch.expiry_date}. Billing is prohibited.`
+            });
+          }
+          if (matchingBatch.status === 'Quarantined' || matchingBatch.status === 'Recalled') {
+            return res.status(400).json({
+              error: `DISPENSING BLOCKED: Batch '${it.batch_number}' of '${it.product_name}' is QUARANTINED (${matchingBatch.quarantine_reason || 'Drug Recall Alert'}). Dispensing prohibited under Section 18 of Drugs & Cosmetics Act, 1940.`
+            });
+          }
+          const avail = Number(matchingBatch.available_stock || 0);
+          if (avail <= 0) {
+            return res.status(400).json({
+              error: `DISPENSING BLOCKED: '${it.product_name}' (Batch: ${it.batch_number}) is OUT OF STOCK. Cannot be billed.`
+            });
+          }
+          if (Number(it.quantity) > avail) {
+            return res.status(400).json({
+              error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}' (Batch: ${it.batch_number}). Requested: ${it.quantity}, Available: ${avail}.`
+            });
+          }
+
+          // Attach MRP and purchase price from batch if not set
+          if (!it.mrp && matchingBatch.mrp) it.mrp = matchingBatch.mrp;
+          if (!it.purchase_price && matchingBatch.purchase_price) it.purchase_price = matchingBatch.purchase_price;
+        }
+      } else {
+        // No batch specified: check total non-expired stock across product batches
+        const totalNonExpiredStock = nonExpiredBatches.reduce((sum: number, b: any) => sum + Math.max(0, Number(b.available_stock || 0)), 0);
+        if (totalNonExpiredStock <= 0) {
           return res.status(400).json({
-            error: `DISPENSING BLOCKED: Batch '${it.batch_number}' of '${it.product_name}' is QUARANTINED (${matchingBatch.quarantine_reason || 'Drug Recall Alert'}). Dispensing prohibited under Section 18 of Drugs & Cosmetics Act, 1940.`
+            error: `DISPENSING BLOCKED: '${it.product_name}' is OUT OF STOCK or all batches have expired. Cannot be billed.`
           });
+        }
+        if (Number(it.quantity) > totalNonExpiredStock) {
+          return res.status(400).json({
+            error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}'. Requested: ${it.quantity}, Total Available: ${totalNonExpiredStock}.`
+          });
+        }
+        // Auto-assign earliest expiring non-expired batch (FEFO)
+        const sortedBatches = nonExpiredBatches
+          .filter((b: any) => Number(b.available_stock || 0) > 0)
+          .sort((a: any, b: any) => String(a.expiry_date).localeCompare(String(b.expiry_date)));
+        if (sortedBatches.length > 0) {
+          it.batch_number = sortedBatches[0].batch_number;
+          it.expiry_date = sortedBatches[0].expiry_date;
+          if (!it.mrp && sortedBatches[0].mrp) it.mrp = sortedBatches[0].mrp;
+          if (!it.purchase_price && sortedBatches[0].purchase_price) it.purchase_price = sortedBatches[0].purchase_price;
         }
       }
     }
@@ -695,12 +891,14 @@ app.post('/api/bills', async (req, res) => {
       await db.run(
         `INSERT INTO bill_items (
           bill_id, product_id, product_name, quantity, rate, total,
-          batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule,
+          mrp, purchase_price
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           billId, item.product_id, item.product_name, Number(item.quantity), Number(item.rate), totalAmt,
           item.batch_number || 'B-STD', item.expiry_date || '2028-12-31', item.hsn_code || '30049099',
-          taxRate, cgst, sgst, item.dosage_instructions || null, item.schedule || 'Schedule H'
+          taxRate, cgst, sgst, item.dosage_instructions || null, item.schedule || 'Schedule H',
+          Number(item.mrp || item.rate || 0), Number(item.purchase_price || 0)
         ]
       );
 
@@ -1442,6 +1640,88 @@ async function compileComprehensiveStats(options: {
 
   const topProducts = Array.from(productAggMap.values()).sort((a, b) => b.quantity - a.quantity);
 
+  // Master Inventory Ledger for Detailed Stock Reporting
+  const allProducts = await db.all<any>("SELECT * FROM products");
+  const productMap = new Map<number, any>();
+  allProducts.forEach(p => productMap.set(p.id, p));
+
+  const todayIso = new Date().toISOString().split('T')[0];
+  const inventoryLedger = allBatches.map(b => {
+    const prod = productMap.get(b.product_id);
+    const prodName = prod ? prod.name : 'Medicine';
+    const category = prod ? prod.category : 'General';
+    const sellingPrice = Number(b.selling_price || prod?.price || b.mrp || 0);
+    const purchasePrice = Number(b.purchase_price || prod?.purchase_price || 0);
+    const mrp = Number(b.mrp || prod?.mrp || sellingPrice);
+    const availStock = Math.max(0, Number(b.available_stock || 0));
+    const marginPerUnit = Number((sellingPrice - purchasePrice).toFixed(2));
+    const marginPercent = sellingPrice > 0 ? Number(((marginPerUnit / sellingPrice) * 100).toFixed(2)) : 0;
+    const expDateStr = String(b.expiry_date || '2028-12-31').substring(0, 10);
+    const diffDays = Math.ceil((new Date(expDateStr).getTime() - new Date(todayIso).getTime()) / (1000 * 60 * 60 * 24));
+    const expiryStatus = diffDays < 0 ? 'EXPIRED' : (diffDays <= 60 ? 'EXPIRING SOON' : 'VALID');
+    const stockStatus = availStock <= 0 ? 'Out of Stock' : (availStock <= 15 ? 'Low Stock' : 'In Stock');
+
+    return {
+      product_name: prodName,
+      category,
+      batch_number: b.batch_number || 'BTH-STD',
+      expiry_date: expDateStr,
+      expiry_status: expiryStatus,
+      purchase_price: purchasePrice,
+      mrp: mrp,
+      selling_price: sellingPrice,
+      margin_per_unit: marginPerUnit,
+      margin_percent: marginPercent,
+      available_stock: availStock,
+      cost_valuation: Number((availStock * purchasePrice).toFixed(2)),
+      mrp_valuation: Number((availStock * mrp).toFixed(2)),
+      stock_status: stockStatus
+    };
+  });
+
+  const billMap = new Map<number, any>();
+  bills.forEach(b => billMap.set(b.id, b));
+
+  const detailedSalesItems = activeItems.map(it => {
+    const b = billMap.get(it.bill_id) || {};
+    const qty = Number(it.quantity || 0);
+    const rate = Number(it.rate || 0);
+    const totalAmt = Number(it.total || 0);
+    const batchInfo = batchPriceMap.get(String(it.batch_number)) || { purchase_price: rate * 0.75, mrp: rate };
+    const itemMrp = Number(it.mrp || batchInfo.mrp || rate);
+    const itemCost = Number(it.purchase_price || batchInfo.purchase_price || 0);
+    const concession = Math.max(0, itemMrp - rate);
+    const taxRate = Number(it.tax_percent || 0);
+    const taxable = totalAmt / (1 + (taxRate / 100));
+    const cgst = Number(it.cgst || (totalAmt - taxable) / 2);
+    const sgst = Number(it.sgst || (totalAmt - taxable) / 2);
+    const purchaseCost = qty * itemCost;
+    const grossProfit = totalAmt - purchaseCost;
+
+    return {
+      bill_number: b.bill_number || it.bill_id,
+      date: b.date || it.date || todayIso,
+      time: b.time || '10:00:00',
+      patient_name: b.patient_name || 'Walk-in Patient',
+      doctor_name: b.doctor_name || 'Dr. Arjun Sharma, MS (Ortho)',
+      payment_method: b.payment_method || 'Cash',
+      product_name: it.product_name || 'Medicine',
+      batch_number: it.batch_number || 'B-STD',
+      expiry_date: it.expiry_date || '2028-12-31',
+      mrp: itemMrp,
+      rate: rate,
+      discount_from_mrp: concession,
+      quantity: qty,
+      taxable_amount: Number(taxable.toFixed(2)),
+      tax_percent: taxRate,
+      cgst: Number(cgst.toFixed(2)),
+      sgst: Number(sgst.toFixed(2)),
+      total_amount: Number(totalAmt.toFixed(2)),
+      purchase_cost: Number(purchaseCost.toFixed(2)),
+      gross_profit: Number(grossProfit.toFixed(2))
+    };
+  });
+
   return {
     periodLabel,
     startDate,
@@ -1503,7 +1783,9 @@ async function compileComprehensiveStats(options: {
     modeB,
     topProducts,
     allBills: bills,
-    inwardRecords: inwardRows
+    inwardRecords: inwardRows,
+    inventoryLedger,
+    detailedSalesItems
   };
 }
 
@@ -1716,6 +1998,7 @@ app.post('/api/inventory/inward', async (req, res) => {
       mfg_date,
       purchase_price,
       mrp,
+      selling_price,
       supplier_name,
       invoice_number,
       received_date,
@@ -1729,16 +2012,17 @@ app.post('/api/inventory/inward', async (req, res) => {
 
     const db = await getDatabase();
     const rDate = received_date || new Date().toISOString().split('T')[0];
+    const finalSellingPrice = Number(selling_price !== undefined ? selling_price : (mrp || 0));
 
     const result = await db.run(
       `INSERT INTO inward_stock (
         product_id, product_name, batch_number, quantity, expiry_date, mfg_date,
-        purchase_price, mrp, supplier_name, invoice_number, received_date, received_by, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        purchase_price, mrp, selling_price, supplier_name, invoice_number, received_date, received_by, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         Number(product_id), String(product_name || 'Medicine'), String(batch_number), Number(quantity),
         String(expiry_date), mfg_date || '2026-01-01', Number(purchase_price || 0), Number(mrp || 0),
-        supplier_name || 'Direct Wholesale', invoice_number || 'INV-MONTHLY', rDate, received_by, notes || ''
+        finalSellingPrice, supplier_name || 'Direct Wholesale', invoice_number || 'INV-MONTHLY', rDate, received_by, notes || ''
       ]
     );
 
@@ -1746,16 +2030,22 @@ app.post('/api/inventory/inward', async (req, res) => {
     const existingBatches = await db.all<any>("SELECT * FROM batches WHERE product_id = ? AND batch_number = ?", [Number(product_id), String(batch_number)]);
     if (existingBatches && existingBatches.length > 0) {
       await db.run(
-        "UPDATE batches SET available_stock = available_stock + ?, expiry_date = ?, purchase_price = ?, mrp = ? WHERE id = ?",
-        [Number(quantity), String(expiry_date), Number(purchase_price || 0), Number(mrp || 0), existingBatches[0].id]
+        "UPDATE batches SET available_stock = available_stock + ?, expiry_date = ?, purchase_price = ?, mrp = ?, selling_price = ? WHERE id = ?",
+        [Number(quantity), String(expiry_date), Number(purchase_price || 0), Number(mrp || 0), finalSellingPrice, existingBatches[0].id]
       );
     } else {
       await db.run(
-        `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, available_stock, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')`,
-        [Number(product_id), String(batch_number), mfg_date || '2026-01-01', String(expiry_date), Number(mrp || 0), Number(purchase_price || 0), Number(quantity)]
+        `INSERT INTO batches (product_id, batch_number, mfg_date, expiry_date, mrp, selling_price, purchase_price, available_stock, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
+        [Number(product_id), String(batch_number), mfg_date || '2026-01-01', String(expiry_date), Number(mrp || 0), finalSellingPrice, Number(purchase_price || 0), Number(quantity)]
       );
     }
+
+    // Synchronize product active catalogue selling rate, MRP, and purchase cost
+    await db.run(
+      "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, status = 'Available' WHERE id = ?",
+      [finalSellingPrice, Number(mrp || 0), Number(purchase_price || 0), Number(product_id)]
+    );
 
     await db.run(
       `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)

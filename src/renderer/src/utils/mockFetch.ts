@@ -15309,8 +15309,42 @@ export function initMockFetch() {
         let products = getDbData('products', ORTHO_PHARMACY_PRODUCTS);
 
         if (method === 'GET') {
-          products.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
-          return makeResponse(products);
+          const batches = getDbData('batches', []);
+          const todayIso = new Date().toISOString().split('T')[0];
+
+          const enriched = products.map((p: any) => {
+            const pBatches = batches.filter((b: any) => b.product_id === p.id);
+            const activeNonExpired = pBatches.filter((b: any) => {
+              const bExp = String(b.expiry_date || '').substring(0, 10);
+              return bExp > todayIso && b.status !== 'Quarantined' && b.status !== 'Recalled';
+            });
+            const totalStock = activeNonExpired.length > 0
+              ? activeNonExpired.reduce((sum: number, b: any) => sum + Math.max(0, Number(b.available_stock || 0)), 0)
+              : (p.available_stock !== undefined ? p.available_stock : (p.status === 'Out of Stock' ? 0 : 50));
+
+            const sorted = [...activeNonExpired].sort((a: any, b: any) => String(a.expiry_date).localeCompare(String(b.expiry_date)));
+            const primaryBatch = sorted[0] || pBatches[0];
+
+            const isExpired = pBatches.length > 0 && activeNonExpired.length === 0;
+            const isOutOfStock = totalStock <= 0;
+            const intelligentStatus = isExpired ? 'Expired' : (isOutOfStock ? 'Out of Stock' : 'Available');
+
+            return {
+              ...p,
+              mrp: Number(p.mrp || primaryBatch?.mrp || p.price),
+              price: Number(p.price),
+              purchase_price: Number(p.purchase_price || primaryBatch?.purchase_price || +(p.price * 0.75).toFixed(2)),
+              available_stock: totalStock,
+              batch_number: primaryBatch?.batch_number || p.batch_number || `B-2026-${String(p.id).padStart(4, '0')}`,
+              expiry_date: primaryBatch?.expiry_date || p.expiry_date || '2028-12-31',
+              is_expired: isExpired,
+              is_out_of_stock: isOutOfStock,
+              status: intelligentStatus
+            };
+          });
+
+          enriched.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+          return makeResponse(enriched);
         }
 
         if (method === 'POST') {
@@ -15319,20 +15353,66 @@ export function initMockFetch() {
             return makeResponse({ error: "Missing required product fields." }, 400);
           }
           const newId = products.length > 0 ? Math.max(...products.map((p: any) => Number(p.id) || 0)) + 1 : 1;
+          const sellingPrice = Number(body.price);
+          const mrp = Number(body.mrp !== undefined ? body.mrp : sellingPrice);
+          const purchasePrice = Number(body.purchase_price || 0);
+          const initialStock = Number(body.initial_stock || body.available_stock || 0);
+          const batchNo = String(body.batch_number || `B-2026-${String(newId).padStart(4, '0')}`);
+          const expDate = String(body.expiry_date || '2028-12-31');
+
           const newProduct = {
             id: newId,
             name: body.name,
             category: body.category,
-            price: Number(body.price),
+            price: sellingPrice,
+            mrp: mrp,
+            purchase_price: purchasePrice,
+            available_stock: initialStock,
+            batch_number: batchNo,
+            expiry_date: expDate,
             barcode: body.barcode || null,
             sku: body.sku || null,
             tax_percent: Number(body.tax_percent || 0),
-            status: body.status || 'Available',
+            status: initialStock > 0 ? 'Available' : 'Out of Stock',
             quantity_type: body.quantity_type || 'strip',
             is_example: 0
           };
           products.push(newProduct);
           saveDbData('products', products);
+
+          if (initialStock > 0) {
+            let batches = getDbData('batches', []);
+            batches.push({
+              id: batches.length + 1,
+              product_id: newId,
+              batch_number: batchNo,
+              mfg_date: '2026-01-01',
+              expiry_date: expDate,
+              mrp: mrp,
+              selling_price: sellingPrice,
+              purchase_price: purchasePrice,
+              available_stock: initialStock,
+              status: 'Active'
+            });
+            saveDbData('batches', batches);
+
+            let inwardList = getDbData('inward_stock', []);
+            inwardList.unshift({
+              id: inwardList.length + 1,
+              product_id: newId,
+              product_name: body.name,
+              batch_number: batchNo,
+              quantity: initialStock,
+              expiry_date: expDate,
+              purchase_price: purchasePrice,
+              mrp: mrp,
+              selling_price: sellingPrice,
+              received_date: new Date().toISOString().split('T')[0],
+              received_by: 'Admin'
+            });
+            saveDbData('inward_stock', inwardList);
+          }
+
           return makeResponse(newProduct, 201);
         }
       }
@@ -15457,6 +15537,8 @@ export function initMockFetch() {
             name: body.name !== undefined ? body.name : products[idx].name,
             category: body.category !== undefined ? body.category : products[idx].category,
             price: body.price !== undefined ? Number(body.price) : products[idx].price,
+            mrp: body.mrp !== undefined ? Number(body.mrp) : (products[idx].mrp || products[idx].price),
+            purchase_price: body.purchase_price !== undefined ? Number(body.purchase_price) : products[idx].purchase_price,
             barcode: body.barcode !== undefined ? body.barcode : products[idx].barcode,
             sku: body.sku !== undefined ? body.sku : products[idx].sku,
             tax_percent: body.tax_percent !== undefined ? Number(body.tax_percent) : products[idx].tax_percent,
@@ -15749,6 +15831,35 @@ export function initMockFetch() {
           const now = new Date();
           const dateStr = now.toISOString().split('T')[0];
           const timeStr = now.toTimeString().split(' ')[0];
+          const items = body.items || [];
+
+          // Intelligent Stock & Expiry Guardrails System
+          let batches = getDbData('batches', []);
+          for (const it of items) {
+            const expDate = String(it.expiry_date || '').substring(0, 10);
+            if (expDate && expDate <= dateStr) {
+              return makeResponse({
+                error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${it.product_name}' (Expiry: ${it.expiry_date}). Sale blocked under Rule 65.`
+              }, 400);
+            }
+
+            const pBatches = batches.filter((b: any) => b.product_id === it.product_id || b.batch_number === it.batch_number);
+            const activeBatches = pBatches.filter((b: any) => String(b.expiry_date).substring(0, 10) > dateStr);
+            const totalStock = activeBatches.reduce((sum: number, b: any) => sum + Math.max(0, Number(b.available_stock || 0)), 0);
+
+            if (pBatches.length > 0) {
+              if (totalStock <= 0) {
+                return makeResponse({
+                  error: `DISPENSING BLOCKED: '${it.product_name}' is OUT OF STOCK. Cannot be billed.`
+                }, 400);
+              }
+              if (Number(it.quantity || 1) > totalStock) {
+                return makeResponse({
+                  error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}'. Requested: ${it.quantity}, Available: ${totalStock}.`
+                }, 400);
+              }
+            }
+          }
 
           const isComplimentary = Boolean(body.is_complimentary || body.payment_method === 'Complimentary');
           const newId = bills.length > 0 ? Math.max(...bills.map((b: any) => Number(b.id) || 0)) + 1 : 1;
@@ -15770,11 +15881,13 @@ export function initMockFetch() {
             patient_phone: body.patient_phone || null,
             operating_mode: body.operating_mode || 'CLINIC_DISPENSING',
             status: 'Active',
-            items: (body.items || []).map((it: any) => ({
+            items: items.map((it: any) => ({
               product_id: it.product_id,
               product_name: it.product_name,
               quantity: Number(it.quantity || 1),
               rate: Number(it.rate || 0),
+              mrp: Number(it.mrp || it.rate || 0),
+              purchase_price: Number(it.purchase_price || 0),
               total: isComplimentary ? 0 : Number(it.total || 0),
               batch_number: it.batch_number || 'B-STD',
               expiry_date: it.expiry_date || '2028-12-31'
@@ -15785,8 +15898,7 @@ export function initMockFetch() {
 
           // Decrement stock in local batches
           try {
-            let batches = getDbData('batches', []);
-            (body.items || []).forEach((it: any) => {
+            items.forEach((it: any) => {
               const match = batches.find((bat: any) => bat.batch_number === it.batch_number || bat.product_id === it.product_id);
               if (match) {
                 match.available_stock = Math.max(0, Number(match.available_stock || 0) - Number(it.quantity || 1));
@@ -15901,6 +16013,7 @@ export function initMockFetch() {
         if (method === 'POST') {
           const body = JSON.parse(init?.body as string || '{}');
           const newId = inwardList.length > 0 ? Math.max(...inwardList.map((r: any) => Number(r.id) || 0)) + 1 : 1;
+          const sellingPrice = Number(body.selling_price !== undefined ? body.selling_price : (body.mrp || 0));
           const newEntry = {
             id: newId,
             product_id: Number(body.product_id),
@@ -15911,6 +16024,7 @@ export function initMockFetch() {
             mfg_date: body.mfg_date || '2026-01-01',
             purchase_price: Number(body.purchase_price || 0),
             mrp: Number(body.mrp || 0),
+            selling_price: sellingPrice,
             supplier_name: body.supplier_name || 'Direct Wholesale',
             invoice_number: body.invoice_number || 'INV-MONTHLY',
             received_date: body.received_date || new Date().toISOString().split('T')[0],
@@ -15929,6 +16043,7 @@ export function initMockFetch() {
             existing.expiry_date = newEntry.expiry_date;
             existing.purchase_price = newEntry.purchase_price;
             existing.mrp = newEntry.mrp;
+            existing.selling_price = sellingPrice;
           } else {
             const nextBId = batches.length > 0 ? Math.max(...batches.map((b: any) => Number(b.id) || 0)) + 1 : 1;
             batches.push({
@@ -15938,6 +16053,7 @@ export function initMockFetch() {
               mfg_date: newEntry.mfg_date,
               expiry_date: newEntry.expiry_date,
               mrp: newEntry.mrp,
+              selling_price: sellingPrice,
               purchase_price: newEntry.purchase_price,
               available_stock: newEntry.quantity,
               rack_location: 'MAIN-DISPENSARY',
@@ -15946,6 +16062,17 @@ export function initMockFetch() {
             });
           }
           saveDbData('batches', batches);
+
+          // Sync product active catalogue selling rate, MRP, and purchase cost
+          let products = getDbData('products', ORTHO_PHARMACY_PRODUCTS);
+          const pIdx = products.findIndex((p: any) => p.id === newEntry.product_id);
+          if (pIdx !== -1) {
+            products[pIdx].price = sellingPrice;
+            products[pIdx].mrp = newEntry.mrp;
+            products[pIdx].purchase_price = newEntry.purchase_price;
+            products[pIdx].status = 'Available';
+            saveDbData('products', products);
+          }
 
           return makeResponse({ success: true, id: newId, message: `Inward stock recorded for batch ${newEntry.batch_number}` }, 201);
         }

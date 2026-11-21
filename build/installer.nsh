@@ -45,7 +45,14 @@
   Pop $R0
   nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC SOFTWARE.exe" /T'
   Pop $R0
+  nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC LOCALHOST.exe" /T'
+  Pop $R0
   Sleep 500
+
+  ; Register custom local domain http://madrasorthoclinic.local in Windows hosts file
+  DetailPrint "Configuring custom URL http://madrasorthoclinic.local:4848..."
+  nsExec::Exec 'powershell -NoProfile -Command "try { if (-not (Select-String -Path \"$SYSDIR\drivers\etc\hosts\" -Pattern \"madrasorthoclinic\.local\" -Quiet)) { Add-Content -Path \"$SYSDIR\drivers\etc\hosts\" -Value \"`r`n127.0.0.1 madrasorthoclinic.local\" } } catch {}"'
+  Pop $R0
 !macroend
 
 !macro customUnInit

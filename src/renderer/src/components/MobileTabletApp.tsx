@@ -917,14 +917,15 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 <Wifi className="h-5 w-5" />
                 <h2 className="text-sm font-bold text-slate-900">Clinic Local Network Host</h2>
               </div>
-              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div><strong>Localhost URL:</strong> <code className="text-blue-700 font-mono">http://localhost:4848</code></div>
+              <div className="text-xs text-slate-600 space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div><strong>Custom Clinic URL:</strong> <code className="text-blue-700 font-bold font-mono">http://madrasorthoclinic.local:4848</code></div>
+                <div><strong>Localhost Fallback:</strong> <code className="text-slate-700 font-mono">http://localhost:4848</code></div>
                 {networkInfo?.primaryLanUrl && (
-                  <div><strong>Same Wi-Fi URL:</strong> <code className="text-emerald-700 font-bold font-mono">{networkInfo.primaryLanUrl}</code></div>
+                  <div><strong>Same Wi-Fi Direct:</strong> <code className="text-emerald-700 font-bold font-mono">{networkInfo.primaryLanUrl}</code></div>
                 )}
               </div>
               <p className="text-[11px] text-slate-500">
-                Devices on the same clinic Wi-Fi can open the Wi-Fi URL to access this ordered mobile software simultaneously.
+                Any device on the clinic network can access the software via <strong>http://madrasorthoclinic.local:4848</strong>.
               </p>
             </div>
 

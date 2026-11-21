@@ -57,9 +57,10 @@ async function generateQrDataUrl(text: string): Promise<string> {
 
 async function createControllerWindow() {
   const lanInfo = getPrimaryLanIp();
+  const customUrl = `http://madrasorthoclinic.local:${PORT}`;
   const localhostUrl = `http://localhost:${PORT}`;
   const wifiUrl = `http://${lanInfo.ip}:${PORT}`;
-  const qrDataUrl = await generateQrDataUrl(wifiUrl);
+  const qrDataUrl = await generateQrDataUrl(customUrl);
 
   const iconPath = process.platform === 'win32'
     ? (fs.existsSync(path.join(app.getAppPath(), 'build', 'icon.ico'))
@@ -256,18 +257,21 @@ async function createControllerWindow() {
 
     <div class="container">
       <div class="main-left">
-        <!-- Localhost Card -->
-        <div class="card">
-          <div class="card-title">🖥️ Access from this computer (Local Host)</div>
-          <div class="url-box">
-            <span id="localhostUrl">${localhostUrl}</span>
-            <button class="btn btn-secondary btn-sm" onclick="copyText('${localhostUrl}')">Copy</button>
+        <!-- Custom Clinic URL Card (Primary) -->
+        <div class="card" style="border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(14, 116, 144, 0.15);">
+          <div class="card-title" style="color: #38bdf8;">🏥 Primary Custom Clinic URL</div>
+          <div class="url-box" style="border-color: #38bdf8;">
+            <span id="customUrl" style="font-weight: bold; font-size: 16px;">${customUrl}</span>
+            <button class="btn btn-secondary btn-sm" onclick="copyText('${customUrl}')">Copy</button>
           </div>
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 10px; line-height: 1.4;">
+            Custom friendly domain active for this clinic system. Open directly in any web browser.
+          </p>
           <div class="actions-row">
-            <button class="btn btn-primary" onclick="openUrl('${localhostUrl}')">
-              🌐 Open Web POS in Browser
+            <button class="btn btn-primary" onclick="openUrl('${customUrl}')">
+              🌐 Open Custom URL in Browser
             </button>
-            <button class="btn btn-secondary" onclick="openUrl('${localhostUrl}?view=mobile')">
+            <button class="btn btn-secondary" onclick="openUrl('${customUrl}?view=mobile')">
               📱 Open Mobile & Tablet UI Preview
             </button>
           </div>
@@ -275,20 +279,23 @@ async function createControllerWindow() {
 
         <!-- Same Wi-Fi Network Card -->
         <div class="card">
-          <div class="card-title">📶 Access from Phones, Tablets & Other Laptops (Same Wi-Fi)</div>
+          <div class="card-title">📶 Access from Phones, Tablets & Wi-Fi Devices</div>
           <div class="url-box">
             <span id="wifiUrl">${wifiUrl}</span>
             <button class="btn btn-secondary btn-sm" onclick="copyText('${wifiUrl}')">Copy</button>
           </div>
           <p style="font-size: 12px; color: #94a3b8; margin-top: 10px; line-height: 1.5;">
-            Connect your phone or tablet to the <strong>same clinic Wi-Fi network</strong>, then open this URL in Chrome, Safari, or scan the QR code to access the dedicated <strong>Phone & Tablet UI</strong>.
+            Connect your phone or tablet to the <strong>same clinic Wi-Fi</strong>, then open this URL or <strong>${customUrl}</strong> to access the dedicated <strong>Phone & Tablet UI</strong>.
           </p>
           <div class="actions-row">
             <button class="btn btn-emerald" onclick="openUrl('${wifiUrl}')">
               🚀 Launch Wi-Fi URL
             </button>
+            <button class="btn btn-secondary" onclick="openUrl('${localhostUrl}')">
+              🖥️ Localhost Fallback
+            </button>
             <button class="btn btn-secondary" onclick="minimizeToTray()">
-              📥 Minimize to System Tray
+              📥 Minimize to Tray
             </button>
           </div>
         </div>
@@ -340,9 +347,9 @@ async function createControllerWindow() {
   // Tray Setup
   setupTray(iconPath);
 
-  // Auto-launch localhost in system default browser on first launch
+  // Auto-launch custom clinic URL in system default browser on first launch
   setTimeout(() => {
-    shell.openExternal(localhostUrl);
+    shell.openExternal(customUrl);
   }, 1200);
 
   controllerWindow.on('close', (e) => {
@@ -357,6 +364,7 @@ function setupTray(iconPath: string) {
   if (tray) return;
 
   const lanInfo = getPrimaryLanIp();
+  const customUrl = `http://madrasorthoclinic.local:${PORT}`;
   const localhostUrl = `http://localhost:${PORT}`;
   const wifiUrl = `http://${lanInfo.ip}:${PORT}`;
 
@@ -372,12 +380,16 @@ function setupTray(iconPath: string) {
       },
       { type: 'separator' },
       {
+        label: '🏥 Open Custom URL (madrasorthoclinic.local)',
+        click: () => shell.openExternal(customUrl)
+      },
+      {
         label: '🌐 Open Localhost in Browser',
         click: () => shell.openExternal(localhostUrl)
       },
       {
         label: '📱 Open Mobile View (Phone & Tab)',
-        click: () => shell.openExternal(`${localhostUrl}?view=mobile`)
+        click: () => shell.openExternal(`${customUrl}?view=mobile`)
       },
       {
         label: `📶 Open Wi-Fi URL (${lanInfo.ip})`,

@@ -2675,6 +2675,7 @@ app.get('/api/network-info', (req, res) => {
 
     res.json({
       port: Number(PORT),
+      customUrl: `http://madrasorthoclinic.local:${PORT}`,
       localhostUrl: `http://localhost:${PORT}`,
       primaryLanUrl: addresses.length > 0 ? addresses[0].url : `http://localhost:${PORT}`,
       interfaces: addresses
@@ -2682,6 +2683,7 @@ app.get('/api/network-info', (req, res) => {
   } catch (err: any) {
     res.json({
       port: Number(PORT),
+      customUrl: `http://madrasorthoclinic.local:${PORT}`,
       localhostUrl: `http://localhost:${PORT}`,
       primaryLanUrl: `http://localhost:${PORT}`,
       interfaces: []
@@ -2706,7 +2708,8 @@ for (const p of distCandidates) {
 
 const HOST = '0.0.0.0';
 const server = app.listen(Number(PORT), HOST, () => {
-  console.log(`[SERVER] API running on http://localhost:${PORT} and accepting LAN/Wi-Fi connections on http://${HOST}:${PORT}`);
+  console.log(`[SERVER] API running on http://madrasorthoclinic.local:${PORT} (and http://localhost:${PORT})`);
+  console.log(`[SERVER] Accepting LAN/Wi-Fi connections on http://${HOST}:${PORT}`);
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

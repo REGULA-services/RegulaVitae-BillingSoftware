@@ -762,14 +762,32 @@ app.post('/api/bills', async (req, res) => {
       items
     } = req.body;
 
-    if (!bill_number || grand_total === undefined || !payment_method || !items || !Array.isArray(items)) {
-      return res.status(400).json({ error: "Invalid bill payload. Missing required properties." });
+    if (grand_total === undefined || !payment_method || !items || !Array.isArray(items)) {
+      return res.status(400).json({ error: "Invalid bill payload. Missing required properties: grand_total, payment_method, items." });
     }
 
     const db = await getDatabase();
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0];
+
+    // Automatically auto-assign next sequential bill number for today if not provided
+    let finalBillNumber = bill_number;
+    if (!finalBillNumber) {
+      const row = await db.get<{ "MAX(bill_number)": number | null }>(
+        "SELECT MAX(bill_number) FROM bills WHERE date = ?",
+        [dateStr]
+      );
+      finalBillNumber = (row && row["MAX(bill_number)"]) ? row["MAX(bill_number)"] + 1 : 1;
+    }
+
+    // Normalize item fields (ensure product_name and total are always populated)
+    for (const it of items) {
+      if (!it.product_name && it.name) it.product_name = it.name;
+      if (it.total === undefined || it.total === null) {
+        it.total = Math.round(Number(it.rate || 0) * Number(it.quantity || 1) * 100) / 100;
+      }
+    }
 
     // Intelligent Stock & Expiry Guardrails System:
     // Only stocks that are not out-of-stock and are not expired should be available for billing.
@@ -894,7 +912,7 @@ app.post('/api/bills', async (req, res) => {
         is_complimentary, complimentary_recipient, complimentary_reason
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        Number(bill_number), finalSubtotal, finalDiscount, finalTax, finalGrandTotal,
+        Number(finalBillNumber), finalSubtotal, finalDiscount, finalTax, finalGrandTotal,
         finalPaymentMethod, dateStr, timeStr, cashier_name || 'Pharmacist',
         finalPatientName, patient_age ? Number(patient_age) : null, patient_gender || null,
         patient_phone || null, patient_address || null,
@@ -954,7 +972,7 @@ app.post('/api/bills', async (req, res) => {
             batch_number, quantity, dispensing_pharmacist
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            billId, Number(bill_number), dateStr,
+            billId, Number(finalBillNumber), dateStr,
             patient_name || 'Walk-in Patient', patient_address || 'Chennai, TN', patient_phone || 'N/A',
             doctor_name || 'Dr. Arjun Sharma, MS (Ortho)', doctor_clinic || 'Madras Ortho Clinic', doctor_reg_no || 'TNMC/2012/94821',
             item.product_name, item.generic_name || item.product_name,
@@ -971,14 +989,14 @@ app.post('/api/bills', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         1, cashier_name || 'pharmacist', 'DISPENSE_INVOICE', 'bills', billId,
-        null, JSON.stringify({ bill_number, grand_total, items_count: items.length }),
+        null, JSON.stringify({ bill_number: finalBillNumber, grand_total, items_count: items.length }),
         req.ip || '127.0.0.1'
       ]
     );
 
     res.status(201).json({
       id: billId,
-      bill_number,
+      bill_number: finalBillNumber,
       subtotal,
       discount,
       tax,

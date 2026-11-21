@@ -15837,10 +15837,11 @@ export function initMockFetch() {
           // Intelligent Stock & Expiry Guardrails System
           let batches = getDbData('batches', []);
           for (const it of items) {
+            const prodName = it.product_name || it.name || 'Medicine';
             const expDate = String(it.expiry_date || '').substring(0, 10);
             if (expDate && expDate <= dateStr) {
               return makeResponse({
-                error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${it.product_name}' (Expiry: ${it.expiry_date}). Sale blocked under Rule 65.`
+                error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${prodName}' (Expiry: ${it.expiry_date}). Sale blocked under Rule 65.`
               }, 400);
             }
 
@@ -15851,12 +15852,12 @@ export function initMockFetch() {
             if (pBatches.length > 0) {
               if (totalStock <= 0) {
                 return makeResponse({
-                  error: `DISPENSING BLOCKED: '${it.product_name}' is OUT OF STOCK. Cannot be billed.`
+                  error: `DISPENSING BLOCKED: '${prodName}' is OUT OF STOCK. Cannot be billed.`
                 }, 400);
               }
               if (Number(it.quantity || 1) > totalStock) {
                 return makeResponse({
-                  error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}'. Requested: ${it.quantity}, Available: ${totalStock}.`
+                  error: `DISPENSING BLOCKED: Insufficient stock for '${prodName}'. Requested: ${it.quantity}, Available: ${totalStock}.`
                 }, 400);
               }
             }

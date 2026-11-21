@@ -331,14 +331,26 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
     setIsSubmittingBill(true);
     try {
+      let nextBillNum: number | string = 1;
+      try {
+        const numRes = await fetch(apiUrl('/api/bills/next-number'));
+        if (numRes.ok) {
+          const numData = await numRes.json();
+          if (numData.nextBillNumber) nextBillNum = numData.nextBillNumber;
+        }
+      } catch (e) {}
+
       const billPayload = {
+        bill_number: nextBillNum,
         patient_name: isWalkIn ? (selectedPatient?.name || "Walk-in Patient") : (selectedPatient?.name || "Walk-in Patient"),
         patient_phone: selectedPatient?.phone || "",
         patient_id: selectedPatient?.id || null,
+        doctor_name: selectedDoctor,
         prescribing_doctor: selectedDoctor,
         payment_method: paymentMethod,
         items: cart.map((it) => ({
           product_id: it.id,
+          product_name: it.name,
           name: it.name,
           batch_number: it.batch_number,
           expiry_date: it.expiry_date,
@@ -346,10 +358,12 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           rate: it.rate,
           purchase_price: it.purchase_price,
           quantity: it.quantity,
-          tax_percent: it.tax_percent
+          tax_percent: it.tax_percent,
+          total: Math.round(it.rate * it.quantity * 100) / 100
         })),
         subtotal: totalAmount,
         discount: totalSavings,
+        tax: 0,
         total_mrp: totalMrp,
         grand_total: totalAmount,
         cash_tendered: paymentMethod === 'Cash' ? parseFloat(cashTendered) || totalAmount : totalAmount,

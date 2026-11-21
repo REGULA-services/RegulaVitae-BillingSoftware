@@ -21,17 +21,45 @@ const PORT = process.env.PORT || 4848;
 
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
-// Serve static client bundle from dist/ when available
-const distCandidates = [
-  path.join(__dirname, '..', '..', 'dist'),
-  path.join(process.cwd(), 'dist'),
-  path.join(__dirname, '..', 'dist')
-];
-for (const p of distCandidates) {
-  if (fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html'))) {
-    app.use(express.static(p));
-    break;
+// Robust static dist folder resolution across all environments (Dev, Electron ASAR, Unpacked)
+function getDistPath(): string | null {
+  // 1. Try Electron app.getAppPath() when running in Electron container
+  try {
+    const electron = require('electron');
+    const electronApp = electron.app || (electron.remote && electron.remote.app);
+    if (electronApp && typeof electronApp.getAppPath === 'function') {
+      const p = path.join(electronApp.getAppPath(), 'dist');
+      if (fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html'))) {
+        return p;
+      }
+    }
+  } catch (e) {}
+
+  // 2. Comprehensive filesystem search
+  const candidates = [
+    path.join(__dirname, '..', '..', '..', 'dist'), // from dist-electron/src/server/ -> root/dist
+    path.join(__dirname, '..', '..', 'dist'),       // from src/server/ -> root/dist
+    path.join(process.cwd(), 'dist'),
+    path.join(process.cwd(), 'resources', 'app.asar', 'dist'),
+    path.join(process.cwd(), 'resources', 'app', 'dist'),
+    path.join(__dirname, '..', 'dist'),
+    path.join(__dirname, 'dist')
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c) && fs.existsSync(path.join(c, 'index.html'))) {
+      return c;
+    }
   }
+  return null;
+}
+
+const resolvedDistPath = getDistPath();
+if (resolvedDistPath) {
+  console.log(`[SERVER] Serving static frontend from: ${resolvedDistPath}`);
+  app.use(express.static(resolvedDistPath));
+} else {
+  console.warn(`[SERVER] WARNING: dist/ directory containing index.html was not found!`);
 }
 
 
@@ -2696,14 +2724,26 @@ app.get('/api/network-info', (req, res) => {
 // log clearly instead of crashing silently which would cause a blank screen.
 
 // Wildcard fallback to serve index.html for client-side routing
-for (const p of distCandidates) {
-  if (fs.existsSync(p) && fs.existsSync(path.join(p, 'index.html'))) {
-    app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api')) return next();
-      res.sendFile(path.join(p, 'index.html'));
-    });
-    break;
-  }
+if (resolvedDistPath) {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(resolvedDistPath, 'index.html'));
+  });
+} else {
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.status(503).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Madras Ortho Clinic Server</title></head>
+      <body style="font-family: -apple-system, sans-serif; padding: 40px; text-align: center; background: #0f172a; color: #f8fafc;">
+        <h2 style="color: #38bdf8;">🏥 MADRAS ORTHO CLINIC PHARMACY SERVER</h2>
+        <p style="color: #94a3b8; margin-top: 10px;">Backend API is active on port ${PORT}.</p>
+        <p style="color: #cbd5e1; margin-top: 10px;">Frontend static bundle (dist/index.html) is being located.</p>
+      </body>
+      </html>
+    `);
+  });
 }
 
 const HOST = '0.0.0.0';

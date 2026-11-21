@@ -15168,13 +15168,14 @@ export function initMockFetch() {
   window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const urlStr = typeof input === 'string' ? input : (input as any).url || input.toString();
 
-    // Only intercept local Express API server endpoints
-    if (!urlStr.includes("localhost:4848") && !urlStr.startsWith("/api/")) {
+    // If not an API request, pass through to browser's native fetch
+    const isApiRequest = urlStr.includes(":4848/api/") || urlStr.includes("localhost:4848") || urlStr.startsWith("/api/");
+    if (!isApiRequest) {
       return originalFetch.apply(this, arguments as any);
     }
 
-    // In local browser testing (localhost / 127.0.0.1), try the live Express backend server first
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    // In web browser (localhost, 127.0.0.1, or same Wi-Fi IP e.g. 192.168.x.x), try the live Express backend server first
+    if (typeof window !== 'undefined' && window.location && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
       try {
         const liveRes = await originalFetch.apply(this, arguments as any);
         return liveRes;

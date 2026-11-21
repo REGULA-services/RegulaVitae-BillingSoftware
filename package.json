@@ -14,6 +14,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm run build:vite && npm run build:electron",
     "package": "npm run build && electron-builder",
+    "package:localhost": "npm run build && electron-builder --config electron-builder-localhost.json",
     "package:msix": "npm run build && electron-builder --win appx",
     "package:msi": "npm run build && electron-builder --win msi",
     "start": "node dist-server/server.js"

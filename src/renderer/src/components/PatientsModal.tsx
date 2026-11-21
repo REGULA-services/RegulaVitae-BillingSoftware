@@ -3,6 +3,7 @@ import {
   Users, Search, Plus, Edit, UserCheck, Phone, MapPin, AlertCircle,
   X, HeartPulse, History, Trash2, Lock
 } from 'lucide-react';
+import { apiUrl } from '../utils/apiConfig';
 
 export interface Patient {
   id: number;
@@ -73,7 +74,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
   const loadPatients = async (query = '') => {
     try {
       setLoading(true);
-      const url = query ? `http://localhost:4848/api/patients?search=${encodeURIComponent(query)}` : 'http://localhost:4848/api/patients';
+      const url = query ? apiUrl(`/api/patients?search=${encodeURIComponent(query)}`) : apiUrl('/api/patients');
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -107,7 +108,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
   const loadPatientHistory = async (patient: Patient) => {
     try {
       setLoadingHistory(true);
-      const res = await fetch(`http://localhost:4848/api/patients/${patient.id}/history`);
+      const res = await fetch(apiUrl(`/api/patients/${patient.id}/history`));
       if (res.ok) {
         const data = await res.json();
         setPatientHistory(data.history || []);
@@ -135,7 +136,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
     if (!confirmed) return;
 
     try {
-      const res = await fetch(`http://localhost:4848/api/patients/${p.id}`, {
+      const res = await fetch(apiUrl(`/api/patients/${p.id}`), {
         method: 'DELETE'
       });
       const data = await res.json();
@@ -154,7 +155,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
     setFormError('');
     setFormMode('create');
     try {
-      const res = await fetch('http://localhost:4848/api/patients/next-mrn');
+      const res = await fetch(apiUrl('/api/patients/next-mrn'));
       const data = await res.json();
       setFormData({
         patient_id: data.nextMrn || `MOC-${new Date().getFullYear()}-0001`,
@@ -217,7 +218,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
       setSaving(true);
       setFormError('');
       const isCreate = formMode === 'create';
-      const url = isCreate ? 'http://localhost:4848/api/patients' : `http://localhost:4848/api/patients/${formData.id}`;
+      const url = isCreate ? apiUrl('/api/patients') : apiUrl(`/api/patients/${formData.id}`);
       const method = isCreate ? 'POST' : 'PUT';
 
       const res = await fetch(url, {

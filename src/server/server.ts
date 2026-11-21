@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { checkClinicalInteractions } from './clinicalRules';
 import express from 'express';
 import cors from 'cors';
@@ -2647,6 +2648,47 @@ app.post('/api/system/clear-example-records', async (req, res) => {
   }
 });
 
+// ----------------------------------------------------
+// NETWORK & WI-FI HOST INFORMATION ENDPOINT
+// ----------------------------------------------------
+app.get('/api/network-info', (req, res) => {
+  try {
+    const interfaces = os.networkInterfaces();
+    const addresses: { interface: string; ip: string; isWifi: boolean; url: string }[] = [];
+    
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name] || []) {
+        if (net.family === 'IPv4' && !net.internal) {
+          const isWifi = /wi-?fi|wlan|wireless|802\.11/i.test(name);
+          addresses.push({
+            interface: name,
+            ip: net.address,
+            isWifi,
+            url: `http://${net.address}:${PORT}`
+          });
+        }
+      }
+    }
+
+    // Sort so Wi-Fi interfaces appear first
+    addresses.sort((a, b) => (b.isWifi ? 1 : 0) - (a.isWifi ? 1 : 0));
+
+    res.json({
+      port: Number(PORT),
+      localhostUrl: `http://localhost:${PORT}`,
+      primaryLanUrl: addresses.length > 0 ? addresses[0].url : `http://localhost:${PORT}`,
+      interfaces: addresses
+    });
+  } catch (err: any) {
+    res.json({
+      port: Number(PORT),
+      localhostUrl: `http://localhost:${PORT}`,
+      primaryLanUrl: `http://localhost:${PORT}`,
+      interfaces: []
+    });
+  }
+});
+
 // Start API server with EADDRINUSE guard.
 // If the port is already in use (e.g., zombie process from a previous run),
 // log clearly instead of crashing silently which would cause a blank screen.
@@ -2662,8 +2704,9 @@ for (const p of distCandidates) {
   }
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`[SERVER] API running on http://localhost:${PORT}`);
+const HOST = '0.0.0.0';
+const server = app.listen(Number(PORT), HOST, () => {
+  console.log(`[SERVER] API running on http://localhost:${PORT} and accepting LAN/Wi-Fi connections on http://${HOST}:${PORT}`);
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

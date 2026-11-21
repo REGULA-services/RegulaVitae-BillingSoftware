@@ -8,6 +8,8 @@ import {
   Sparkles, Stethoscope
 } from 'lucide-react';
 import { PatientsModal } from './components/PatientsModal';
+import { MobileTabletApp } from './components/MobileTabletApp';
+import { apiUrl } from './utils/apiConfig';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
   isBluetoothSupported,
@@ -357,6 +359,30 @@ interface ClinicBranding {
 }
 
 export default function App() {
+  // View Switcher (Desktop POS vs Dedicated Mobile & Tablet UI)
+  const [isMobileView, setIsMobileView] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('view') === 'mobile') return true;
+      if (params.get('view') === 'desktop') return false;
+      return window.innerWidth <= 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('view')) {
+        if (window.innerWidth <= 768 && !isMobileView) {
+          setIsMobileView(true);
+        }
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobileView]);
+
   // App states
   const [sessions, setSessions] = useState<BillingSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
@@ -438,7 +464,7 @@ export default function App() {
     }
     setIsLoggingIn(true);
     try {
-      const res = await fetch("http://localhost:4848/api/auth/login", {
+      const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm)
@@ -539,7 +565,7 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch("http://localhost:4848/api/auth/change-password", {
+      const res = await fetch(apiUrl("/api/auth/change-password"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -590,7 +616,7 @@ export default function App() {
     localStorage.setItem("madrasortho_clinic_branding", JSON.stringify(updated));
 
     try {
-      const res = await fetch("http://localhost:4848/api/clinic/details", {
+      const res = await fetch(apiUrl("/api/clinic/details"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updated)
@@ -862,7 +888,7 @@ export default function App() {
   // Fetch custom categories created by admin
   const fetchCustomCategories = async (): Promise<string[]> => {
     try {
-      const res = await fetch("http://localhost:4848/api/categories");
+      const res = await fetch(apiUrl("/api/categories"));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -878,7 +904,7 @@ export default function App() {
   const handleCreateCategory = async (name: string) => {
     if (!name.trim()) return;
     try {
-      const res = await fetch("http://localhost:4848/api/categories", {
+      const res = await fetch(apiUrl("/api/categories"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() })
@@ -900,7 +926,7 @@ export default function App() {
   // Fetch inward stock intake audit records
   const fetchInwardRecords = async () => {
     try {
-      const res = await fetch("http://localhost:4848/api/inventory/inward");
+      const res = await fetch(apiUrl("/api/inventory/inward"));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -933,7 +959,7 @@ export default function App() {
 
     setSavingInward(true);
     try {
-      const res = await fetch("http://localhost:4848/api/inventory/inward", {
+      const res = await fetch(apiUrl("/api/inventory/inward"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -974,7 +1000,7 @@ export default function App() {
   const loadProducts = async () => {
     try {
       const [res, customCats] = await Promise.all([
-        fetch("http://localhost:4848/api/products"),
+        fetch(apiUrl("/api/products")),
         fetchCustomCategories()
       ]);
       const data = await res.json();
@@ -992,7 +1018,7 @@ export default function App() {
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch("http://localhost:4848/api/patients");
+      const res = await fetch(apiUrl("/api/patients"));
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -1063,7 +1089,7 @@ export default function App() {
 
   const loadEmployees = async () => {
     try {
-      const res = await fetch("http://localhost:4848/api/employees");
+      const res = await fetch(apiUrl("/api/employees"));
       const data = await res.json();
       if (Array.isArray(data)) {
         setEmployees(data);
@@ -1079,7 +1105,7 @@ export default function App() {
     fetchPatients();
 
     // Fetch and sync clinic & doctor branding details
-    fetch("http://localhost:4848/api/clinic/details")
+    fetch(apiUrl("/api/clinic/details"))
       .then(res => res.json())
       .then(data => {
         if (data && data.name) {
@@ -1122,7 +1148,7 @@ export default function App() {
 
       if (restored.length > 0) {
         try {
-          const res = await fetch("http://localhost:4848/api/bills/next-number");
+          const res = await fetch(apiUrl("/api/bills/next-number"));
           const data = await res.json();
           const dbNextNum = data.nextBillNumber || 1;
 
@@ -1189,7 +1215,7 @@ export default function App() {
     const timer = setTimeout(async () => {
       try {
         setIsCheckingInteractions(true);
-        const res = await fetch("http://localhost:4848/api/clinical/check-interactions", {
+        const res = await fetch(apiUrl("/api/clinical/check-interactions"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1320,7 +1346,7 @@ export default function App() {
   const createNewBill = async () => {
     try {
       // Get next consecutive bill number from server (scoped to today)
-      const res = await fetch("http://localhost:4848/api/bills/next-number");
+      const res = await fetch(apiUrl("/api/bills/next-number"));
       const data = await res.json();
       const dbNextNum = data.nextBillNumber || 1;
 
@@ -1493,7 +1519,7 @@ export default function App() {
     const item = activeSession.items[index];
 
     // Log item deletion to Audit History API
-    fetch("http://localhost:4848/api/deleted-items", {
+    fetch(apiUrl("/api/deleted-items"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1655,7 +1681,7 @@ export default function App() {
           await (electronAPI as any).printNetwork(wifiPrinterIp, Number(wifiPrinterPort) || 9100, printData);
           showToast(`Receipt sent to WiFi printer (${wifiPrinterIp})!`, "success");
         } else {
-          const res = await fetch("http://localhost:4848/api/print/network", {
+          const res = await fetch(apiUrl("/api/print/network"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ host: wifiPrinterIp, port: Number(wifiPrinterPort) || 9100, receiptData: printData })
@@ -1806,7 +1832,7 @@ export default function App() {
 
     try {
       // POST invoice to server DB
-      const res = await fetch("http://localhost:4848/api/bills", {
+      const res = await fetch(apiUrl("/api/bills"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -1981,7 +2007,7 @@ export default function App() {
     }
 
     const isNew = !editingProduct.id;
-    const url = isNew ? "http://localhost:4848/api/products" : `http://localhost:4848/api/products/${editingProduct.id}`;
+    const url = isNew ? apiUrl("/api/products") : apiUrl(`/api/products/${editingProduct.id}`);
     const method = isNew ? "POST" : "PUT";
 
     try {
@@ -2021,7 +2047,7 @@ export default function App() {
       confirmText: "Delete",
       onConfirm: async () => {
         try {
-          const res = await fetch(`http://localhost:4848/api/products/${id}`, {
+          const res = await fetch(apiUrl(`/api/products/${id}`), {
             method: "DELETE"
           });
           if (res.ok) {
@@ -2058,7 +2084,7 @@ export default function App() {
   // ----------------------------------------------------
 
   const handleDownloadTemplate = () => {
-    window.open("http://localhost:4848/api/products/template-excel", "_blank");
+    window.open(apiUrl("/api/products/template-excel"), "_blank");
     showToast("Downloading Ortho Medicines Excel template...", "info");
   };
 
@@ -2073,7 +2099,7 @@ export default function App() {
 
       if (isCsv) {
         const text = await file.text();
-        res = await fetch("http://localhost:4848/api/products/parse-excel", {
+        res = await fetch(apiUrl("/api/products/parse-excel"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ csvText: text, filename: file.name })
@@ -2090,7 +2116,7 @@ export default function App() {
         }
         const base64 = btoa(binary);
 
-        res = await fetch("http://localhost:4848/api/products/parse-excel", {
+        res = await fetch(apiUrl("/api/products/parse-excel"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fileBase64: base64, filename: file.name })
@@ -2161,7 +2187,7 @@ export default function App() {
 
     setIsBatchImporting(true);
     try {
-      const res = await fetch("http://localhost:4848/api/products/batch", {
+      const res = await fetch(apiUrl("/api/products/batch"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2203,7 +2229,7 @@ export default function App() {
     }
 
     const isNew = !editingEmployee.id;
-    const url = isNew ? "http://localhost:4848/api/employees" : `http://localhost:4848/api/employees/${editingEmployee.id}`;
+    const url = isNew ? apiUrl("/api/employees") : apiUrl(`/api/employees/${editingEmployee.id}`);
     const method = isNew ? "POST" : "PUT";
 
     try {
@@ -2244,7 +2270,7 @@ export default function App() {
       confirmText: "Remove Example",
       onConfirm: async () => {
         try {
-          const res = await fetch(`http://localhost:4848/api/employees/${id}`, {
+          const res = await fetch(apiUrl(`/api/employees/${id}`), {
             method: "DELETE"
           });
           if (res.ok) {
@@ -2284,7 +2310,7 @@ export default function App() {
       confirmText: "Delete Demo Bill",
       onConfirm: async () => {
         try {
-          const res = await fetch(`http://localhost:4848/api/bills/${id}`, {
+          const res = await fetch(apiUrl(`/api/bills/${id}`), {
             method: "DELETE"
           });
           const data = await res.json();
@@ -2311,7 +2337,7 @@ export default function App() {
   const fetchReports = async () => {
     setLoadingAnalytics(true);
     try {
-      let url = `http://localhost:4848/api/reports/${reportType}`;
+      let url = apiUrl(`/api/reports/${reportType}`);
       if (reportType === 'yearly') {
         url += `?year=${reportYear}`;
       } else if (reportType === 'monthly') {
@@ -2336,7 +2362,7 @@ export default function App() {
       // Map UI reportType to API period values
       const periodMap: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
       const period = periodMap[reportType] || 'month';
-      let url = `http://localhost:4848/api/bills?period=${period}`;
+      let url = apiUrl(`/api/bills?period=${period}`);
       if (period === 'year') {
         url += `&year=${reportYear}`;
       } else if (period === 'month') {
@@ -2373,7 +2399,7 @@ export default function App() {
 
   const fetchBillItems = async (bill: any) => {
     try {
-      const res = await fetch(`http://localhost:4848/api/bills/${bill.id}/items`);
+      const res = await fetch(apiUrl(`/api/bills/${bill.id}/items`));
       if (!res.ok) {
         throw new Error("Server error");
       }
@@ -2438,7 +2464,7 @@ export default function App() {
   // Statutory Bill Cancellation / Credit Note (Compliant with Rule 65(4) D&C Rules & GST Sec 36)
   const handleCancelBill = async (id: number, reason: string) => {
     try {
-      const res = await fetch(`http://localhost:4848/api/bills/${id}/cancel`, {
+      const res = await fetch(apiUrl(`/api/bills/${id}/cancel`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2483,7 +2509,7 @@ export default function App() {
     year: number
   ) => {
     try {
-      let url = `http://localhost:4848/api/reports/${type}`;
+      let url = apiUrl(`/api/reports/${type}`);
       if (type === 'yearly') {
         url += `?year=${year}`;
       } else if (type === 'monthly') {
@@ -2629,7 +2655,7 @@ export default function App() {
       return;
     }
 
-    let url = `http://localhost:4848/api/reports/${reportType}?export=excel`;
+    let url = apiUrl(`/api/reports/${reportType}?export=excel`);
     if (reportType === 'yearly') {
       url += `&year=${reportYear}`;
     } else if (reportType === 'monthly') {
@@ -2747,6 +2773,17 @@ export default function App() {
           </form>
         </div>
       </div>
+    );
+  }
+
+  // Render dedicated Phone & Tablet UI if active
+  if (isMobileView) {
+    return (
+      <MobileTabletApp
+        onSwitchToDesktop={() => setIsMobileView(false)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+      />
     );
   }
 
@@ -2871,6 +2908,15 @@ export default function App() {
           >
             <Users className="w-3.5 h-3.5 mr-2 text-indigo-400" />
             <span>Patients Database</span>
+          </button>
+
+          <button
+            onClick={() => setIsMobileView(true)}
+            className="flex items-center px-3 py-1.5 bg-sky-950/70 hover:bg-sky-900 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-sky-700/60 text-sky-200"
+            title="Switch to dedicated Phone & Tablet UI"
+          >
+            <Smartphone className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
+            <span>Mobile View</span>
           </button>
 
           
@@ -7155,7 +7201,7 @@ export default function App() {
                           confirmText: "Purge Example Records",
                           onConfirm: async () => {
                             try {
-                              const res = await fetch('http://localhost:4848/api/system/clear-example-records', { method: 'POST' });
+                              const res = await fetch(apiUrl("/api/system/clear-example-records"), { method: 'POST' });
                               const data = await res.json();
                               closeConfirm();
                               setShowSettingsModal(false);
@@ -7194,7 +7240,7 @@ export default function App() {
                           confirmText: "Yes, Delete All Data",
                           onConfirm: async () => {
                             try {
-                              const res = await fetch('http://localhost:4848/api/system/wipe-all-data', { method: 'POST' });
+                              const res = await fetch(apiUrl("/api/system/wipe-all-data"), { method: 'POST' });
                               const data = await res.json();
                               // Clear client storage
                               localStorage.clear();

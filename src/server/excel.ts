@@ -62,25 +62,25 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
 
   finSheet.addRow([]); // Blank row 3
 
-  // Section 1: Financial Performance
+  // Section 1: Financial Performance (Clear, understandable language)
   finSheet.mergeCells("A4:F4");
   const sec1 = finSheet.getCell("A4");
-  sec1.value = "1. EXECUTIVE FINANCIAL INDICATORS (MRP vs. PRICE SOLD AT & MARGINS)";
+  sec1.value = "1. CLINIC INCOME & SALES SUMMARY";
   sec1.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
   sec1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
 
-  finSheet.addRow(["Financial Metric", "Amount (INR)", "", "Operational Metric", "Count / Ratio"]);
+  finSheet.addRow(["Sales Metric", "Amount (INR)", "", "Bill Counts & Status", "Count / Value"]);
   const hRow = finSheet.getRow(5);
   hRow.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
   hRow.getCell(1).fill = hRow.getCell(2).fill = hRow.getCell(4).fill = hRow.getCell(5).fill = {
     type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" }
   };
 
-  finSheet.addRow(["Gross Sales (Valuation at MRP)", fin.grossSales, "", "Total Invoices Issued", reportData.billCount || allBills.length]);
-  finSheet.addRow(["Patient Savings & Clinic Discounts", fin.totalDiscounts, "", "Active Paid Invoices", reportData.activeBillsCount || allBills.filter(b => b.status !== 'Cancelled').length]);
-  finSheet.addRow(["Net Realized Sales (Price Sold At)", fin.netSales, "", "Average Ticket Value", reportData.billCount > 0 ? (fin.netSales / reportData.billCount) : 0]);
-  finSheet.addRow(["Cost of Goods Sold (Purchase Rate)", fin.cogs, "", "Cancelled Invoices", reportData.cancelledBillsCount || allBills.filter(b => b.status === 'Cancelled').length]);
-  finSheet.addRow(["Gross Margin / Operating Profit", fin.grossProfit, "", "Overall Profit Margin %", `${fin.profitMarginPercent}%`]);
+  finSheet.addRow(["Total MRP Value of Medicines Sold", fin.grossSales, "", "Total Bills Generated", reportData.billCount || allBills.length]);
+  finSheet.addRow(["Discounts Given to Patients", fin.totalDiscounts, "", "Paid Bills Completed", reportData.activeBillsCount || allBills.filter(b => b.status !== 'Cancelled').length]);
+  finSheet.addRow(["Total Money Collected from Patients", fin.netSales, "", "Average Amount per Bill", reportData.billCount > 0 ? (fin.netSales / reportData.billCount) : 0]);
+  finSheet.addRow(["Wholesale Cost of Medicines Sold", fin.cogs, "", "Cancelled Bills (Refunded)", reportData.cancelledBillsCount || allBills.filter(b => b.status === 'Cancelled').length]);
+  finSheet.addRow(["Net Clinic Profit (Collections minus Wholesale Cost)", fin.grossProfit, "", "Profit Margin Percentage", `${fin.profitMarginPercent}%`]);
 
   for (let r = 6; r <= 10; r++) {
     const row = finSheet.getRow(r);
@@ -94,25 +94,26 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
 
   finSheet.addRow([]); // Blank row 11
 
-  // Section 2: Stock Capital & Balance
+  // Section 2: Stock Movement & Valuation (Clear, non-technical titles)
   finSheet.mergeCells("A12:F12");
   const sec2 = finSheet.getCell("A12");
-  sec2.value = "2. INVENTORY CAPITAL MOVEMENT & STOCK VALUATION";
+  sec2.value = "2. MEDICINE STOCK REPORT (INWARD & OUTWARD)";
   sec2.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
   sec2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "D97706" } };
 
-  finSheet.addRow(["Stock Parameter", "Units", "Valuation at Cost (INR)", "Valuation at MRP (INR)"]);
+  finSheet.addRow(["Medicine Stock Description", "Quantity (Units / Strips)", "Cost Value (Purchase Price)", "MRP Value (Printed Price)"]);
   const stRow = finSheet.getRow(13);
   stRow.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
   stRow.getCell(1).fill = stRow.getCell(2).fill = stRow.getCell(3).fill = stRow.getCell(4).fill = {
     type: "pattern", pattern: "solid", fgColor: { argb: "B45309" }
   };
 
-  finSheet.addRow(["Inward Stock Received in Period", sm.inwardUnits, sm.inwardPurchaseValuation, sm.inwardMrpValuation]);
-  finSheet.addRow(["Stock Sold to Patients (Outward)", sm.unitsSold, sm.unitsSoldCost, sm.unitsSoldCost * 1.35]);
-  finSheet.addRow(["Complimentary Doctor / Staff Health Dispense", sm.complimentaryUnits, sm.complimentaryAbsorbedCost, (reportData.complimentarySummary?.mrpValue || 0)]);
-  finSheet.addRow(["Net Stock Period Movement (Inward - Outward)", sm.netStockDifferenceUnits, sm.netStockValuationDifference, sm.netStockValuationDifference * 1.35]);
-  finSheet.addRow(["Current Closing Pharmacy Stock in Hand", sm.currentAvailableStockUnits, sm.currentStockValuationCost, sm.currentStockValuationMrp]);
+  const soldMrpVal = (sm as any).unitsSoldMrp || (sm.unitsSoldCost > 0 ? sm.unitsSoldCost * 1.35 : 0);
+  finSheet.addRow(["New Stock Received at Clinic (Refills)", sm.inwardUnits, sm.inwardPurchaseValuation, sm.inwardMrpValuation]);
+  finSheet.addRow(["Stock Sold to Patients", sm.unitsSold, sm.unitsSoldCost, soldMrpVal]);
+  finSheet.addRow(["Stocks given as compliments to doctors/staff", sm.complimentaryUnits, 0, 0]);
+  finSheet.addRow(["Net Stock Movement (Received minus Dispensed)", sm.netStockDifferenceUnits, sm.netStockValuationDifference, sm.netStockValuationDifference * 1.35]);
+  finSheet.addRow(["Total Medicines Currently in Stock (Closing Balance)", sm.currentAvailableStockUnits, sm.currentStockValuationCost, sm.currentStockValuationMrp]);
 
   for (let r = 14; r <= 18; r++) {
     const row = finSheet.getRow(r);
@@ -126,24 +127,24 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
 
   finSheet.addRow([]); // Blank row 19
 
-  // Section 3: Payment Settlement & Mode
+  // Section 3: Payment Breakdown & Collection (Simple, practical labels)
   finSheet.mergeCells("A20:F20");
   const sec3 = finSheet.getCell("A20");
-  sec3.value = "3. PAYMENT RECONCILIATION & DISPENSING CHANNELS";
+  sec3.value = "3. HOW PATIENTS PAID (CASH / UPI / CARD)";
   sec3.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
   sec3.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "475569" } };
 
-  finSheet.addRow(["Payment Channel", "Collected Amount (INR)", "", "Clinical Dispensing Mode", "Revenue (INR)"]);
+  finSheet.addRow(["Payment Method", "Amount Collected (INR)", "", "Dispensing Location", "Collections (INR)"]);
   const payH = finSheet.getRow(21);
   payH.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
   payH.getCell(1).fill = payH.getCell(2).fill = payH.getCell(4).fill = payH.getCell(5).fill = {
     type: "pattern", pattern: "solid", fgColor: { argb: "334155" }
   };
 
-  finSheet.addRow(["Cash Payments", pay.Cash || 0, "", "Mode A: In-Clinic Doctor Direct Dispensing", reportData.modeA?.revenue || (fin.netSales * 0.65)]);
-  finSheet.addRow(["Google Pay / UPI Payments", pay.GooglePay || 0, "", "Mode B: Retail Outpatient Pharmacy Sales", reportData.modeB?.revenue || (fin.netSales * 0.35)]);
-  finSheet.addRow(["Bank Debit / Credit Cards", pay.BankCard || 0, "", "Total Dispensary Collections", fin.netSales]);
-  finSheet.addRow(["Complimentary Healthcare Dispenses (Rs.0)", `${sm.complimentaryUnits} units dispensed`, "", "Absorbed Healthcare Stock Cost", sm.complimentaryAbsorbedCost]);
+  finSheet.addRow(["Cash in Counter", pay.Cash || 0, "", "Doctor Room Direct Dispensing", reportData.modeA?.revenue || (fin.netSales * 0.65)]);
+  finSheet.addRow(["UPI / QR Code (Google Pay / PhonePe)", pay.GooglePay || 0, "", "Pharmacy Counter Dispensing", reportData.modeB?.revenue || (fin.netSales * 0.35)]);
+  finSheet.addRow(["Card Swipes (Credit / Debit Cards)", pay.BankCard || 0, "", "Total Amount Collected", fin.netSales]);
+  finSheet.addRow(["Free Medicines Given (Complimentary)", `${sm.complimentaryUnits} units dispensed`, "", "Cost for Compliments", 0]);
 
   for (let r = 22; r <= 25; r++) {
     const row = finSheet.getRow(r);

@@ -775,13 +775,26 @@ app.post('/api/bills', async (req, res) => {
       operating_mode = 'CLINIC_DISPENSING',
       clinic_patient_id,
       dispensing_mode = 'DOCTOR_DIRECT',
-      items
+      items: bodyItems
     } = req.body;
 
-    const rawGrandTotal = grand_total !== undefined ? grand_total : (req.body.total_amount !== undefined ? req.body.total_amount : req.body.total);
-    if (rawGrandTotal === undefined || !payment_method || !items || !Array.isArray(items)) {
-      return res.status(400).json({ error: "Invalid bill payload. Missing required properties: grand_total, payment_method, items." });
+    const effectivePaymentMethod = payment_method || req.body.paymentMethod || 'Cash';
+    const rawItems = (bodyItems && Array.isArray(bodyItems)) ? bodyItems : (req.body.cart && Array.isArray(req.body.cart) ? req.body.cart : []);
+    if (!rawItems || rawItems.length === 0) {
+      return res.status(400).json({ error: "Invalid bill payload. Cart/items list cannot be empty." });
     }
+
+    const calculatedSubtotal = rawItems.reduce((acc: number, it: any) => acc + (Number(it.rate || it.price || 0) * Number(it.quantity || 1)), 0);
+    const rawGrandTotal = grand_total !== undefined
+      ? Number(grand_total)
+      : (req.body.total_amount !== undefined
+        ? Number(req.body.total_amount)
+        : (req.body.total !== undefined
+          ? Number(req.body.total)
+          : (req.body.subtotal !== undefined ? Number(req.body.subtotal) : calculatedSubtotal)));
+
+    const finalSubtotalValue = subtotal !== undefined ? Number(subtotal) : calculatedSubtotal;
+    const items = rawItems;
 
     const db = await getDatabase();
     const now = new Date();
@@ -894,9 +907,9 @@ app.post('/api/bills', async (req, res) => {
     // Statutory Check 2: Dual Operating Mode Validation & Patient / Prescriber Normalization
     // Patient name and details are completely optional for patient checkout / bill printing.
     const isComplimentary = Boolean(req.body.is_complimentary || payment_method === 'Complimentary');
-    const finalPaymentMethod = isComplimentary ? 'Complimentary' : payment_method;
+    const finalPaymentMethod = isComplimentary ? 'Complimentary' : effectivePaymentMethod;
     const finalGrandTotal = isComplimentary ? 0 : Number(rawGrandTotal);
-    const finalSubtotal = isComplimentary ? 0 : Number(subtotal !== undefined ? subtotal : (req.body.total_amount !== undefined ? req.body.total_amount : rawGrandTotal));
+    const finalSubtotal = isComplimentary ? 0 : finalSubtotalValue;
     const finalTax = isComplimentary ? 0 : Number(tax !== undefined ? tax : 0);
     const finalDiscount = isComplimentary ? 0 : Number(discount !== undefined ? discount : 0);
     const finalPatientName = (patient_name || '').trim() || (isComplimentary ? (req.body.complimentary_recipient || 'Doctor / Staff Health Beneficiary') : 'Walk-in Patient');
@@ -1596,6 +1609,7 @@ async function compileComprehensiveStats(options: {
   // Calculate COGS and Gross Profit
   let totalCogs = 0;
   let totalUnitsSold = 0;
+  let totalUnitsSoldMrp = 0;
   let totalComplimentaryUnits = 0;
   let complimentaryAbsorbedCost = 0;
   let complimentaryMrpValue = 0;
@@ -1620,12 +1634,14 @@ async function compileComprehensiveStats(options: {
 
     if (it.is_complimentary || it.payment_method === 'Complimentary') {
       totalComplimentaryUnits += qty;
-      complimentaryAbsorbedCost += itemCogs;
+      complimentaryAbsorbedCost = 0; // Statutory requirement: The cost for stocks as compliments must be 0 rs.
       complimentaryMrpValue += (qty * batchInfo.mrp);
     } else {
       totalUnitsSold += qty;
       totalCogs += itemCogs;
-      grossSales += (qty * (Number(it.rate) || batchInfo.mrp));
+      const itemMrpVal = Number(it.mrp || batchInfo.mrp || it.rate || 0);
+      totalUnitsSoldMrp += (qty * itemMrpVal);
+      grossSales += (qty * (Number(it.rate) || itemMrpVal));
 
       // GST Slab assignment
       const taxRate = Math.round(Number(it.tax_percent || 0));
@@ -1844,8 +1860,9 @@ async function compileComprehensiveStats(options: {
       inwardMrpValuation: Number(totalInwardMrpValuation.toFixed(2)),
       unitsSold: totalUnitsSold,
       unitsSoldCost: Number(totalCogs.toFixed(2)),
+      unitsSoldMrp: Number(totalUnitsSoldMrp.toFixed(2)),
       complimentaryUnits: totalComplimentaryUnits,
-      complimentaryAbsorbedCost: Number(complimentaryAbsorbedCost.toFixed(2)),
+      complimentaryAbsorbedCost: 0, // Requirement: The cost for stocks as compliments must be 0 rs.
       netStockDifferenceUnits: netStockUnitsDifference,
       netStockValuationDifference: Number(netStockValuationDifference.toFixed(2)),
       currentAvailableStockUnits: currentClosingStockUnits,

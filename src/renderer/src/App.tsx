@@ -479,6 +479,7 @@ export default function App() {
         localStorage.setItem("madrasortho_pos_user", JSON.stringify(data.user));
         localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
         setIsFirstTimeEver(false);
+        setIsLoggingIn(false);
         showToast(`Logged in as ${data.user.name} (${data.user.role.toUpperCase()})`, "success");
         return;
       }
@@ -552,6 +553,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setIsLoggingIn(false);
     localStorage.removeItem("madrasortho_pos_user");
     setLoginForm({ username: 'admin', password: '' });
     setLoginError('');

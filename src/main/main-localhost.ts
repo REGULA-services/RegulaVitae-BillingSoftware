@@ -352,11 +352,9 @@ async function createControllerWindow() {
     shell.openExternal(customUrl);
   }, 1200);
 
-  controllerWindow.on('close', (e) => {
-    if (!isQuitting) {
-      e.preventDefault();
-      controllerWindow?.hide();
-    }
+  controllerWindow.on('close', () => {
+    isQuitting = true;
+    app.quit();
   });
 }
 

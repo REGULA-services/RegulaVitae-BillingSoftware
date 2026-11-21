@@ -102,6 +102,185 @@ const CLINIC_DOCTORS = [
   { name: "Dr. K. Vigneshwaran, MS (Ortho)", specialty: "Sports Medicine & Arthroscopy" }
 ];
 
+export const printMobileThermalReceipt = (bill: any, pharmacyDetails: any = null) => {
+  const details = pharmacyDetails || {
+    name: "MADRAS ORTHO CLINIC PHARMACY",
+    address: "Chennai, Tamil Nadu",
+    phone: "+91 98400 12345",
+    gstin: "33AAAAA0000A1Z5",
+    dlNo: "20B/TN/CHE/00482"
+  };
+
+  const billNumber = bill.billNumber || bill.bill_number || 1;
+  const date = bill.date ? String(bill.date).substring(0, 10) : new Date().toISOString().split('T')[0];
+  const time = bill.time || new Date().toTimeString().split(' ')[0];
+  const paymentMethod = bill.paymentMethod || bill.payment_method || 'Cash';
+  const rawItems = bill.items || (bill.items_json ? (typeof bill.items_json === 'string' ? JSON.parse(bill.items_json) : bill.items_json) : []);
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  const subtotal = bill.subtotal !== undefined ? bill.subtotal : (bill.totalAmount || bill.total || bill.grand_total || 0);
+  const discount = bill.discount || 0;
+  const tax = bill.tax || 0;
+  const cgst = tax > 0 ? tax / 2 : 0;
+  const sgst = tax > 0 ? tax / 2 : 0;
+  const grandTotal = bill.grand_total !== undefined ? bill.grand_total : (bill.totalAmount !== undefined ? bill.totalAmount : (bill.total !== undefined ? bill.total : subtotal - discount + tax));
+
+  const thermalHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Receipt #${billNumber}</title>
+      <style>
+        @page { margin: 0; }
+        body {
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 11px;
+          line-height: 1.35;
+          margin: 0;
+          padding: 8px;
+          color: #000;
+          background: #fff;
+          width: 80mm;
+          max-width: 80mm;
+        }
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+        .header-title { font-size: 14px; font-weight: bold; margin-bottom: 2px; text-transform: uppercase; }
+        .sub-info { font-size: 9.5px; }
+        .separator { border-top: 1px dashed #000; margin: 4px 0; }
+        .info-table, .items-table { width: 100%; border-collapse: collapse; }
+        .info-table td { padding: 1px 0; font-size: 9.5px; }
+        .items-table th { text-align: left; border-bottom: 1px dashed #000; padding-bottom: 2px; font-size: 9.5px; font-weight: bold; }
+        .items-table td { padding: 2px 0; vertical-align: top; font-size: 10px; }
+        .right { text-align: right; }
+        .totals-container { width: 100%; margin-top: 4px; }
+        .totals-table { width: 85%; margin-left: 15%; font-size: 10px; }
+        .totals-table td { padding: 1.5px 0; }
+        .footer { margin-top: 8px; font-size: 9.5px; }
+      </style>
+    </head>
+    <body>
+      <div class="center">
+        <div class="header-title">${details.name || 'MADRAS ORTHO CLINIC PHARMACY'}</div>
+        <div class="sub-info bold">Center for Orthopaedic Surgery & Pharmacy</div>
+        <div class="sub-info">${details.address || 'Chennai, Tamil Nadu'}</div>
+        <div class="sub-info">Ph: ${details.phone || '+91 98400 12345'}</div>
+        ${details.gstin ? `<div class="sub-info bold">GSTIN: ${details.gstin}</div>` : ''}
+        <div class="sub-info">Drug Lic: ${details.dlNo || '20B/TN/CHE/00482'}</div>
+      </div>
+      <div class="separator"></div>
+      <table class="info-table">
+        <tr>
+          <td><span class="bold">Bill No:</span> #${billNumber}</td>
+          <td class="right"><span class="bold">Date:</span> ${date}</td>
+        </tr>
+        <tr>
+          <td><span class="bold">Time:</span> ${time}</td>
+          <td class="right"><span class="bold">Status:</span> Issued</td>
+        </tr>
+      </table>
+      <div class="separator"></div>
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="width: 50%;">Item</th>
+            <th class="right" style="width: 15%;">Qty</th>
+            <th class="right" style="width: 15%;">Rate</th>
+            <th class="right" style="width: 20%;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map((item: any) => `
+            <tr>
+              <td>
+                ${item.product_name || item.name}
+                ${item.mrp ? `<br/><span style="font-size:8px;color:#555;">MRP: ₹${Number(item.mrp).toFixed(2)}</span>` : ''}
+              </td>
+              <td class="right">${item.quantity}</td>
+              <td class="right">₹${Number(item.rate || item.price || 0).toFixed(2)}</td>
+              <td class="right">₹${Number(item.total || (Number(item.rate || item.price || 0) * Number(item.quantity || 1))).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div class="separator"></div>
+      <div class="totals-container">
+        <table class="totals-table">
+          <tr>
+            <td>Subtotal (excl. GST):</td>
+            <td class="right">₹${Number(subtotal).toFixed(2)}</td>
+          </tr>
+          ${discount > 0 ? `
+            <tr>
+              <td>Discount:</td>
+              <td class="right">-₹${Number(discount).toFixed(2)}</td>
+            </tr>
+          ` : ''}
+          ${tax > 0 ? `
+            <tr>
+              <td>CGST:</td>
+              <td class="right">+₹${cgst.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>SGST:</td>
+              <td class="right">+₹${sgst.toFixed(2)}</td>
+            </tr>
+            <tr class="bold">
+              <td>Total GST Added:</td>
+              <td class="right">+₹${Number(tax).toFixed(2)}</td>
+            </tr>
+          ` : ''}
+          <tr class="bold">
+            <td>Grand Total (incl. GST):</td>
+            <td class="right" style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0;">
+              ₹${Number(grandTotal).toFixed(2)}
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="separator"></div>
+      <div class="center">
+        <span class="bold">Payment Method: ${paymentMethod}</span>
+      </div>
+      <div class="separator"></div>
+      <div class="center footer">
+        <div class="bold" style="font-size: 11px; margin-top: 4px; letter-spacing: 0.5px;">Drugs sold cannot be refunded</div>
+        <div class="bold" style="margin-top: 4px;">Thank You. Stay Healthy!</div>
+        <div style="font-size: 9px; color: #666; margin-top: 4px;">MADRAS ORTHO CLINIC SOFTWARE | Mission for Cure</div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (doc) {
+    doc.open();
+    doc.write(thermalHtml);
+    doc.close();
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.print();
+      } catch (e) {
+        window.print();
+      }
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch {}
+      }, 1000);
+    }, 300);
+  } else {
+    window.print();
+  }
+};
+
 export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   onSwitchToDesktop,
   currentUser = { username: 'admin', role: 'admin', name: 'Dr. Arjun Sharma' },
@@ -1047,7 +1226,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen max-w-full overflow-hidden bg-slate-100 text-slate-800 font-sans select-none antialiased">
+    <div className="flex flex-col h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen max-w-full overflow-hidden bg-slate-100 text-slate-800 font-sans select-none antialiased">
       {/* ─── APP HEADER ─────────────────────────────────────────────── */}
       <header className="bg-slate-900 text-white shrink-0 shadow-md z-30">
         <div className="flex items-center justify-between px-3.5 py-2.5 max-w-lg mx-auto">
@@ -1097,7 +1276,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       </header>
 
       {/* ─── MAIN CONTENT VIEWPORT ──────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto p-3 overscroll-contain">
+      <main className="flex-1 overflow-y-auto p-3 pb-28 overscroll-contain">
         {/* ── TAB 1: POS BILLING ────────────────────────────────────── */}
         {activeTab === 'billing' && (
           <div className="space-y-3 max-w-lg mx-auto">
@@ -1627,10 +1806,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                                 <Eye className="h-3 w-3" /> View
                               </button>
                               <button
-                                onClick={() => {
-                                  setViewingBillModal(b);
-                                  setTimeout(() => window.print(), 300);
-                                }}
+                                onClick={() => printMobileThermalReceipt(b)}
                                 className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg flex items-center gap-1"
                               >
                                 <Printer className="h-3 w-3" /> Reprint
@@ -2039,7 +2215,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
       {/* ─── STICKY BOTTOM CART TRIGGER (BILLING TAB) ───────────────── */}
       {cart.length > 0 && !isCartOpen && activeTab === 'billing' && (
-        <div className="fixed bottom-14 left-0 right-0 p-3 z-30 pointer-events-none">
+        <div className="fixed bottom-16 left-0 right-0 p-3 z-30 pointer-events-none">
           <div className="max-w-lg mx-auto pointer-events-auto">
             <button
               onClick={() => setIsCartOpen(true)}
@@ -2064,7 +2240,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       )}
 
       {/* ─── BOTTOM NAVIGATION BAR ──────────────────────────────────── */}
-      <nav className="bg-white border-t border-slate-200 grid grid-cols-5 py-2 px-1 shrink-0 z-30 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 grid grid-cols-5 py-2 px-1 pb-[max(8px,env(safe-area-inset-bottom))] shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
         <button
           onClick={() => setActiveTab('billing')}
           className={`flex flex-col items-center justify-center gap-0.5 ${
@@ -2481,7 +2657,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             <div className="space-y-1.5 pt-1">
               <button
-                onClick={() => window.print()}
+                onClick={() => printMobileThermalReceipt(billSuccessModal)}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs"
               >
                 🖨️ Print Receipt
@@ -3073,7 +3249,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             <div className="flex gap-2">
               <button
-                onClick={() => window.print()}
+                onClick={() => printMobileThermalReceipt(viewingBillModal)}
                 className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1"
               >
                 <Printer className="h-3.5 w-3.5" /> Print

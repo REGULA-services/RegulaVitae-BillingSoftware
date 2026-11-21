@@ -663,9 +663,9 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         const isExpired = validStock === 0 && totalRawStock > 0 && prodBatches.every(b => (b.expiry_date || '') < today);
         const isOutOfStock = validStock === 0 && !isExpired;
 
-        const mrp = Number(p.mrp || (activeBatch ? activeBatch.mrp : p.price));
-        const price = Number(p.price || (activeBatch ? (activeBatch.selling_price || activeBatch.mrp) : p.price));
-        const purchase_price = Number(p.purchase_price || (activeBatch ? activeBatch.purchase_price : (price * 0.75)));
+        const mrp = Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (activeBatch ? activeBatch.mrp : p.price));
+        const price = Number(p.price !== undefined && p.price !== null && !isNaN(Number(p.price)) ? p.price : (activeBatch ? (activeBatch.selling_price || activeBatch.mrp) : p.price));
+        const purchase_price = Number(p.purchase_price !== undefined && p.purchase_price !== null && !isNaN(Number(p.purchase_price)) ? p.purchase_price : (activeBatch ? activeBatch.purchase_price : (price * 0.75)));
 
         return {
           ...p,
@@ -824,33 +824,90 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       return bills as any[];
     }
 
-        if ((q.includes("FROM BILL_ITEMS BI") || q.includes("FROM BILL_ITEMS")) && q.includes("JOIN BILLS") && params.length > 0) {
-      const targetBatch = String(params[0]);
-      const matchedItems = this.data.bill_items.filter(bi => bi.batch_number === targetBatch);
-      const results: any[] = [];
-      for (const it of matchedItems) {
-        const b = this.data.bills.find(bill => bill.id === it.bill_id && bill.status !== 'Cancelled');
-        if (b) {
-          results.push({
-            bill_id: b.id,
-            bill_number: b.bill_number,
-            dispense_date: b.date,
-            dispense_time: b.time,
-            operating_mode: (b as any).operating_mode || 'RETAIL_PHARMACY',
-            patient_name: b.patient_name,
-            patient_phone: b.patient_phone,
-            patient_address: b.patient_address,
-            doctor_name: b.doctor_name,
-            doctor_reg_no: b.doctor_reg_no,
-            pharmacist_name: b.pharmacist_name,
-            product_name: it.product_name,
-            quantity: it.quantity,
-            batch_number: it.batch_number,
-            expiry_date: it.expiry_date
-          });
-        }
+    if ((q.includes("FROM BILL_ITEMS BI") || q.includes("FROM BILL_ITEMS")) && q.includes("JOIN BILLS")) {
+      // Date range query e.g. for reports
+      if (q.includes("BETWEEN ? AND ?") && params.length >= 2) {
+        const start = String(params[0]);
+        const end = String(params[1]);
+        const matchingBills = new Map<number, any>();
+        this.data.bills.forEach(b => {
+          if (b.date >= start && b.date <= end) {
+            matchingBills.set(b.id, b);
+          }
+        });
+        const results: any[] = [];
+        this.data.bill_items.forEach(it => {
+          const b = matchingBills.get(it.bill_id);
+          if (b) {
+            results.push({
+              ...it,
+              date: b.date,
+              time: b.time,
+              payment_method: b.payment_method,
+              status: b.status,
+              is_complimentary: b.is_complimentary || (b.payment_method === 'Complimentary' ? 1 : 0),
+              operating_mode: (b as any).operating_mode || 'RETAIL_PHARMACY'
+            });
+          }
+        });
+        return results as any[];
       }
-      return results as any[];
+
+      if (q.includes("B.DATE = ?") && params.length >= 1) {
+        const targetDate = String(params[0]);
+        const matchingBills = new Map<number, any>();
+        this.data.bills.forEach(b => {
+          if (b.date === targetDate) {
+            matchingBills.set(b.id, b);
+          }
+        });
+        const results: any[] = [];
+        this.data.bill_items.forEach(it => {
+          const b = matchingBills.get(it.bill_id);
+          if (b) {
+            results.push({
+              ...it,
+              date: b.date,
+              time: b.time,
+              payment_method: b.payment_method,
+              status: b.status,
+              is_complimentary: b.is_complimentary || (b.payment_method === 'Complimentary' ? 1 : 0),
+              operating_mode: (b as any).operating_mode || 'RETAIL_PHARMACY'
+            });
+          }
+        });
+        return results as any[];
+      }
+
+      // Batch query e.g. for batch audit trail
+      if (params.length > 0) {
+        const targetBatch = String(params[0]);
+        const matchedItems = this.data.bill_items.filter(bi => bi.batch_number === targetBatch);
+        const results: any[] = [];
+        for (const it of matchedItems) {
+          const b = this.data.bills.find(bill => bill.id === it.bill_id && bill.status !== 'Cancelled');
+          if (b) {
+            results.push({
+              bill_id: b.id,
+              bill_number: b.bill_number,
+              dispense_date: b.date,
+              dispense_time: b.time,
+              operating_mode: (b as any).operating_mode || 'RETAIL_PHARMACY',
+              patient_name: b.patient_name,
+              patient_phone: b.patient_phone,
+              patient_address: b.patient_address,
+              doctor_name: b.doctor_name,
+              doctor_reg_no: b.doctor_reg_no,
+              pharmacist_name: b.pharmacist_name,
+              product_name: it.product_name,
+              quantity: it.quantity,
+              batch_number: it.batch_number,
+              expiry_date: it.expiry_date
+            });
+          }
+        }
+        return results as any[];
+      }
     }
 
     if (q.includes("FROM BILL_ITEMS") && params.length > 0) {
@@ -937,32 +994,53 @@ export class JSONDatabaseEngine implements DatabaseEngine {
   async run(query: string, params: any[] = []): Promise<{ lastID?: number; changes?: number }> {
     const q = query.trim().toUpperCase().replace(/\s+/g, ' ');
 
-    // Insert Product
-    if (q.startsWith("INSERT INTO PRODUCTS")) {
+    // Insert Product (Dynamically maps columns from SQL query to preserve exact user inputs)
+    if (q.startsWith("INSERT INTO PRODUCTS") || q.startsWith("INSERT OR IGNORE INTO PRODUCTS")) {
       const id = this.data.products.length > 0 ? Math.max(...this.data.products.map(p => p.id)) + 1 : 1;
-      const [name, category, price, barcode, sku, tax_percent, status, quantity_type, generic_name, mrp, hsn_code, schedule, dosage_form, strength, pack_size, storage_condition, is_prescription_required, is_cold_chain] = params;
-      this.data.products.push({
+      const product: any = {
         id,
-        name,
-        category,
-        price: Number(price),
-        barcode: barcode || null,
-        sku: sku || null,
-        tax_percent: Number(tax_percent || 0),
-        status: status || 'Available',
-        quantity_type: quantity_type || 'strip',
-        generic_name: generic_name || name,
-        mrp: Number(mrp || price * 1.15),
-        hsn_code: hsn_code || "30049099",
-        schedule: schedule || "Schedule H",
-        dosage_form: dosage_form || "Tablet",
-        strength: strength || "",
-        pack_size: pack_size || "10 Tablets",
-        storage_condition: storage_condition || "Store below 25°C in a dry place",
-        is_prescription_required: is_prescription_required !== undefined ? Number(is_prescription_required) : 1,
-        is_cold_chain: Number(is_cold_chain || 0),
+        status: 'Available',
+        quantity_type: 'strip',
+        tax_percent: 0,
+        is_prescription_required: 1,
+        is_cold_chain: 0,
         is_example: 0
-      });
+      };
+
+      const colMatch = query.match(/\(([^)]+)\)\s+VALUES/i);
+      if (colMatch && colMatch[1]) {
+        const cols = colMatch[1].split(',').map(c => c.trim().toLowerCase());
+        cols.forEach((col, idx) => {
+          if (idx < params.length) {
+            product[col] = params[idx];
+          }
+        });
+      } else {
+        const [name, category, price, barcode, sku, tax_percent, status, quantity_type, generic_name, mrp] = params;
+        product.name = name;
+        product.category = category;
+        product.price = price;
+        product.barcode = barcode;
+        product.sku = sku;
+        product.tax_percent = tax_percent;
+        product.status = status;
+        product.quantity_type = quantity_type;
+        product.generic_name = generic_name;
+        product.mrp = mrp;
+      }
+
+      product.price = Number(product.price || 0);
+      product.mrp = Number(product.mrp !== undefined && product.mrp !== null && !isNaN(Number(product.mrp)) ? product.mrp : product.price);
+      product.purchase_price = Number(product.purchase_price !== undefined && product.purchase_price !== null && !isNaN(Number(product.purchase_price)) ? product.purchase_price : product.price * 0.72);
+      product.tax_percent = Number(product.tax_percent || 0);
+      product.generic_name = product.generic_name || product.name;
+      product.hsn_code = product.hsn_code || "30049099";
+      product.schedule = product.schedule || "Schedule H";
+      product.dosage_form = product.dosage_form || "Tablet";
+      product.pack_size = product.pack_size || "10 Tablets";
+      product.storage_condition = product.storage_condition || "Store below 25°C in a dry place";
+
+      this.data.products.push(product);
       this.save();
       return { lastID: id, changes: 1 };
     }
@@ -982,33 +1060,29 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       return { changes: 0 };
     }
 
-    // Update Product: full entity update
+    // Update Product: full entity update (Dynamically maps columns from SET clause)
     if (q.startsWith("UPDATE PRODUCTS SET")) {
       const idParam = params[params.length - 1];
       const idx = this.data.products.findIndex(p => p.id === Number(idParam));
       if (idx !== -1) {
-        const [name, category, price, barcode, sku, tax_percent, status, quantity_type, generic_name, mrp, hsn_code, schedule, dosage_form, strength, pack_size, storage_condition, is_prescription_required, is_cold_chain] = params;
-        this.data.products[idx] = {
-          ...this.data.products[idx],
-          name: String(name || this.data.products[idx].name),
-          category: String(category || this.data.products[idx].category),
-          price: Number(price !== undefined ? price : this.data.products[idx].price),
-          barcode,
-          sku,
-          tax_percent: Number(tax_percent || 0),
-          status: status || this.data.products[idx].status,
-          quantity_type: quantity_type || this.data.products[idx].quantity_type,
-          generic_name: generic_name || this.data.products[idx].generic_name,
-          mrp: mrp ? Number(mrp) : this.data.products[idx].mrp,
-          hsn_code: hsn_code || this.data.products[idx].hsn_code,
-          schedule: schedule || this.data.products[idx].schedule,
-          dosage_form: dosage_form || this.data.products[idx].dosage_form,
-          strength: strength !== undefined ? strength : this.data.products[idx].strength,
-          pack_size: pack_size || this.data.products[idx].pack_size,
-          storage_condition: storage_condition || this.data.products[idx].storage_condition,
-          is_prescription_required: is_prescription_required !== undefined ? Number(is_prescription_required) : this.data.products[idx].is_prescription_required,
-          is_cold_chain: is_cold_chain !== undefined ? Number(is_cold_chain) : this.data.products[idx].is_cold_chain
-        };
+        const target = this.data.products[idx];
+        const upperQuery = query.toUpperCase();
+        const setIdx = upperQuery.indexOf("SET");
+        const whereIdx = upperQuery.indexOf("WHERE");
+        if (setIdx !== -1 && whereIdx !== -1) {
+          const setPart = query.substring(setIdx + 3, whereIdx);
+          const setPairs = setPart.split(',').map(s => s.trim());
+          setPairs.forEach((pair, pIdx) => {
+            const col = pair.split('=')[0].trim().toLowerCase();
+            if (pIdx < params.length - 1) {
+              target[col] = params[pIdx];
+            }
+          });
+        }
+        target.price = Number(target.price !== undefined ? target.price : 0);
+        if (target.mrp !== undefined) target.mrp = Number(target.mrp);
+        if (target.purchase_price !== undefined) target.purchase_price = Number(target.purchase_price);
+        target.tax_percent = Number(target.tax_percent || 0);
         this.save();
         return { changes: 1 };
       }
@@ -1364,26 +1438,47 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       return { changes: 0 };
     }
 
-    // Insert Batch
+    // Insert Batch (Dynamically maps columns from SQL query)
     if (q.startsWith("INSERT INTO BATCHES")) {
       if (!this.data.batches) this.data.batches = [];
       const id = this.data.batches.length > 0 ? Math.max(...this.data.batches.map(b => b.id)) + 1 : 1;
-      const [product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, available_stock, status, quarantine_reason, quarantined_at] = params;
-      const batch: BatchRecord = {
+      const batch: any = {
         id,
-        product_id: Number(product_id),
-        batch_number,
-        mfg_date,
-        expiry_date,
-        mrp: Number(mrp),
-        purchase_price: Number(purchase_price),
-        available_stock: Number(available_stock),
-        status: (status as any) || 'Active',
-        quarantine_reason: quarantine_reason || null,
-        quarantined_at: quarantined_at || null,
-        rack_location: 'QUARANTINE-AREA-01',
+        status: 'Active',
+        rack_location: 'MAIN-PHARMACY-DISPENSARY',
         created_at: new Date().toISOString()
       };
+
+      const colMatch = query.match(/\(([^)]+)\)\s+VALUES/i);
+      if (colMatch && colMatch[1]) {
+        const cols = colMatch[1].split(',').map(c => c.trim().toLowerCase());
+        cols.forEach((col, idx) => {
+          if (idx < params.length) {
+            batch[col] = params[idx];
+          }
+        });
+      } else {
+        const [product_id, batch_number, mfg_date, expiry_date, mrp, purchase_price, available_stock, status, quarantine_reason, quarantined_at] = params;
+        batch.product_id = product_id;
+        batch.batch_number = batch_number;
+        batch.mfg_date = mfg_date;
+        batch.expiry_date = expiry_date;
+        batch.mrp = mrp;
+        batch.purchase_price = purchase_price;
+        batch.available_stock = available_stock;
+        batch.status = status;
+        batch.quarantine_reason = quarantine_reason;
+        batch.quarantined_at = quarantined_at;
+      }
+
+      batch.product_id = Number(batch.product_id || 0);
+      batch.mrp = Number(batch.mrp || 0);
+      batch.purchase_price = Number(batch.purchase_price || 0);
+      batch.selling_price = Number(batch.selling_price !== undefined ? batch.selling_price : (batch.mrp || 0));
+      batch.available_stock = Number(batch.available_stock || 0);
+      batch.status = (batch.status as any) || 'Active';
+      batch.rack_location = batch.rack_location || 'MAIN-PHARMACY-DISPENSARY';
+
       this.data.batches.push(batch);
       this.save();
       return { lastID: id, changes: 1 };

@@ -1662,18 +1662,42 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       return { changes: before - this.data.categories.length };
     }
 
-    // Increment Batch Stock (Returns / Credit Note / Cancellation)
+    // Increment Batch Stock (Returns / Credit Note / Cancellation / Inward Stock Consignment)
     if (q.includes("UPDATE BATCHES SET AVAILABLE_STOCK = AVAILABLE_STOCK + ?") || q.includes("AVAILABLE_STOCK = AVAILABLE_STOCK +")) {
       if (!this.data.batches) this.data.batches = [];
       const qty = Number(params[0]);
-      const prodId = Number(params[1]);
-      const batchNo = params[2] ? String(params[2]) : null;
-      let b = batchNo ? this.data.batches.find(bat => bat.product_id === prodId && bat.batch_number === batchNo) : null;
-      if (!b) {
-        b = this.data.batches.find(bat => bat.product_id === prodId);
+      const upperQuery = query.toUpperCase();
+      const whereIdx = upperQuery.indexOf("WHERE");
+      const idParam = params[params.length - 1];
+
+      let b: any = null;
+      if (upperQuery.includes("WHERE ID = ?") || upperQuery.includes("WHERE BATCHES.ID = ?")) {
+        b = this.data.batches.find(bat => bat.id === Number(idParam));
+      } else if (upperQuery.includes("PRODUCT_ID = ?") && upperQuery.includes("BATCH_NUMBER = ?")) {
+        const prodParam = Number(params[params.length - 2]);
+        const batchParam = String(params[params.length - 1]);
+        b = this.data.batches.find(bat => bat.product_id === prodParam && bat.batch_number === batchParam);
+      } else {
+        b = this.data.batches.find(bat => bat.id === Number(idParam) || bat.product_id === Number(idParam));
       }
+
       if (b) {
-        b.available_stock += qty;
+        b.available_stock = Math.max(0, Number(b.available_stock || 0) + qty);
+        // Dynamically update other SET fields (e.g. expiry_date, mrp, purchase_price, selling_price, status)
+        const setIdx = upperQuery.indexOf("SET");
+        if (setIdx !== -1 && whereIdx !== -1) {
+          const setPart = query.substring(setIdx + 3, whereIdx);
+          const setPairs = setPart.split(',').map(s => s.trim());
+          setPairs.forEach((pair, pIdx) => {
+            const col = pair.split('=')[0].trim().toLowerCase();
+            if (col !== 'available_stock' && pIdx < params.length - 1) {
+              b[col] = params[pIdx];
+            }
+          });
+        }
+        if (b.mrp !== undefined) b.mrp = Number(b.mrp);
+        if (b.purchase_price !== undefined) b.purchase_price = Number(b.purchase_price);
+        if (b.selling_price !== undefined) b.selling_price = Number(b.selling_price);
         this.save();
         return { changes: 1 };
       }
@@ -1684,8 +1708,11 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     if (q.includes("UPDATE BATCHES SET AVAILABLE_STOCK = MAX(0, AVAILABLE_STOCK - ?)") || q.includes("UPDATE BATCHES SET AVAILABLE_STOCK =")) {
       if (!this.data.batches) this.data.batches = [];
       const qty = Number(params[0]);
-      const target = params[1];
+      const target = params[params.length - 1];
       let b = this.data.batches.find(bat => bat.batch_number === String(target));
+      if (!b) {
+        b = this.data.batches.find(bat => bat.id === Number(target));
+      }
       if (!b) {
         b = this.data.batches.find(bat => bat.product_id === Number(target) && bat.available_stock > 0);
       }

@@ -15867,7 +15867,7 @@ export function initMockFetch() {
           const newId = bills.length > 0 ? Math.max(...bills.map((b: any) => Number(b.id) || 0)) + 1 : 1;
           const newBill = {
             id: newId,
-            bill_number: Number(body.bill_number || 1),
+            bill_number: typeof body.bill_number === 'number' ? body.bill_number : (parseInt(String(body.bill_number).replace(/\D/g, ''), 10) || body.bill_number || 1),
             subtotal: isComplimentary ? 0 : Number(body.subtotal || 0),
             discount: isComplimentary ? 0 : Number(body.discount || 0),
             tax: isComplimentary ? 0 : Number(body.tax || 0),

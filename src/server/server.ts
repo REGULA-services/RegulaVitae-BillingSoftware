@@ -832,9 +832,9 @@ app.post('/api/bills', async (req, res) => {
         }
       }
 
-      // Query all batches for this product
+      // Query all batches for this product in strict FEFO order (earliest expiry first)
       const productBatches = await db.all<any>(
-        "SELECT * FROM batches WHERE product_id = ?",
+        "SELECT * FROM batches WHERE product_id = ? ORDER BY expiry_date ASC",
         [it.product_id || 0]
       );
 
@@ -2609,7 +2609,7 @@ app.get('/api/batches/product/:productId', async (req, res) => {
   try {
     const prodId = Number(req.params.productId);
     const db = await getDatabase();
-    const batches = await db.all("SELECT * FROM batches WHERE product_id = ?", [prodId]);
+    const batches = await db.all("SELECT * FROM batches WHERE product_id = ? ORDER BY expiry_date ASC", [prodId]);
     res.json(batches);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

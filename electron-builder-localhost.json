@@ -30,6 +30,7 @@
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "runAfterFinish": true,
+    "include": "build/installer.nsh",
     "artifactName": "MADRAS ORTHO CLINIC LOCALHOST Setup ${version}.${ext}"
   }
 }

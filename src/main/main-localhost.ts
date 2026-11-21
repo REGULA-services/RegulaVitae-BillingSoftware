@@ -435,6 +435,33 @@ app.on('second-instance', () => {
 
 app.whenReady().then(createControllerWindow);
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+app.on('will-quit', () => {
+  if (tray) {
+    try { tray.destroy(); } catch {}
+    tray = null;
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  isQuitting = true;
+  app.quit();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  isQuitting = true;
+  app.quit();
+  process.exit(0);
+});
+
 app.on('window-all-closed', () => {
-  // Do not quit - stay alive in system tray so devices on Wi-Fi remain connected
+  if (isQuitting) {
+    app.quit();
+  }
+  // Otherwise stay alive in system tray so devices on Wi-Fi remain connected
 });

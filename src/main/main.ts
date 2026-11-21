@@ -110,6 +110,20 @@ app.whenReady().then(async () => {
   });
 });
 
+app.on('before-quit', () => {
+  // Ensure windows and processes can terminate cleanly without being held
+});
+
+process.on('SIGINT', () => {
+  app.quit();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  app.quit();
+  process.exit(0);
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();

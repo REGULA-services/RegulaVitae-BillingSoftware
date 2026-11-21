@@ -1,21 +1,24 @@
 ; ==============================================================================
-; MADRAS ORTHO CLINIC SOFTWARE - Custom NSIS Installer Script
-; Prevents "App cannot be closed. Please close it manually" error during install.
+; MADRAS ORTHO CLINIC SOFTWARE & LOCALHOST - Custom NSIS Installer Script
+; Completely prevents "App cannot be closed. Please close it manually" error.
+; Forcefully terminates any running instances before setup, uninstallation, or upgrade.
 ; ==============================================================================
 
 !macro customInit
-  ; Forcefully terminate any running instances of the app or older versions
-  ; right as the installer initializes so all file handles and locks are released.
-  DetailPrint "Terminating any running instances before setup..."
-  nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
+  ; Forcefully terminate any running instances of the app, localhost server, or legacy processes
+  ; right as the installer initializes so all file handles and locks are released before uninstaller or extraction.
+  DetailPrint "Terminating any running instances of clinic applications..."
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC LOCALHOST.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC SOFTWARE.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC SOFTWARE.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "BakersChestPOS.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "${APP_EXECUTABLE_FILENAME}"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "BillingSoftwarePOS.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "BakersChestPOS.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "RegulaVitae POS.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "BillingSoftwarePOS.exe"`
+  Pop $R0
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "RegulaVitae POS.exe"`
   Pop $R0
   Sleep 1000
 !macroend
@@ -24,16 +27,18 @@
   ; Override electron-builder's default app-running check.
   ; Default check shows "cannot be closed. Please close it manually and click Retry".
   ; This custom macro forcefully terminates the process tree silently without blocking the user.
-  DetailPrint "Ensuring ${PRODUCT_NAME} is closed..."
-  nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
+  DetailPrint "Ensuring ${PRODUCT_NAME} is completely closed..."
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "${APP_EXECUTABLE_FILENAME}"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC SOFTWARE.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC LOCALHOST.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "BakersChestPOS.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC SOFTWARE.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "BillingSoftwarePOS.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "BakersChestPOS.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "RegulaVitae POS.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "BillingSoftwarePOS.exe"`
+  Pop $R0
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "RegulaVitae POS.exe"`
   Pop $R0
   Sleep 1000
 !macroend
@@ -41,11 +46,11 @@
 !macro customInstall
   ; Immediately before copying/extracting files to destination folder,
   ; re-verify that no process has reopened or locked the directory.
-  nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "${APP_EXECUTABLE_FILENAME}"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC SOFTWARE.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC SOFTWARE.exe"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC LOCALHOST.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC LOCALHOST.exe"`
   Pop $R0
   Sleep 500
 
@@ -57,9 +62,12 @@
 
 !macro customUnInit
   ; Ensure uninstaller can delete the executable cleanly without file-in-use errors.
-  nsExec::Exec 'taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /T'
+  DetailPrint "Terminating application before uninstall..."
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "${APP_EXECUTABLE_FILENAME}"`
   Pop $R0
-  nsExec::Exec 'taskkill /F /IM "MADRAS ORTHO CLINIC SOFTWARE.exe" /T'
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC LOCALHOST.exe"`
+  Pop $R0
+  nsExec::Exec `%SYSTEMROOT%\System32\taskkill.exe /F /T /IM "MADRAS ORTHO CLINIC SOFTWARE.exe"`
   Pop $R0
   Sleep 500
 !macroend
@@ -75,6 +83,9 @@
     RMDir /r "$APPDATA\MADRAS ORTHO CLINIC SOFTWARE"
     RMDir /r "$LOCALAPPDATA\madras-ortho-clinic-software"
     RMDir /r "$LOCALAPPDATA\madras-ortho-clinic-software-updater"
+    RMDir /r "$APPDATA\madras-ortho-clinic-localhost"
+    RMDir /r "$LOCALAPPDATA\madras-ortho-clinic-localhost"
+    RMDir /r "$LOCALAPPDATA\madras-ortho-clinic-localhost-updater"
     RMDir /r "$APPDATA\BakersChestPOS"
     RMDir /r "$APPDATA\RegulaVitaePOS"
     DetailPrint "All clinic data and databases have been permanently removed."

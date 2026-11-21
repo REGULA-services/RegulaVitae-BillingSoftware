@@ -2116,7 +2116,8 @@ app.post('/api/inventory/inward', async (req, res) => {
 app.get('/api/categories', async (req, res) => {
   try {
     const db = await getDatabase();
-    const rows = await db.all("SELECT * FROM categories ORDER BY name ASC");
+    // Return newly created categories first so admin can easily select them
+    const rows = await db.all("SELECT * FROM categories ORDER BY id DESC, created_at DESC");
     res.json(rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

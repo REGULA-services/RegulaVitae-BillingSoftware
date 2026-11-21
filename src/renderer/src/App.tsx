@@ -903,15 +903,21 @@ export default function App() {
 
   const handleCreateCategory = async (name: string) => {
     if (!name.trim()) return;
+    const catName = name.trim();
     try {
       const res = await fetch(apiUrl("/api/categories"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() })
+        body: JSON.stringify({ name: catName })
       });
       if (res.ok) {
-        showToast(`Category "${name.trim()}" created successfully`, "success");
-        setCategories(prev => Array.from(new Set([...prev, name.trim()])));
+        showToast(`Category "${catName}" created successfully`, "success");
+        // Prepend new category to the beginning of the list so it appears FIRST
+        setCategories(prev => Array.from(new Set([catName, ...prev])));
+        setSelectedCategory(catName);
+        if (editingProduct) {
+          setEditingProduct(prev => prev ? ({ ...prev, category: catName }) : prev);
+        }
         setShowAddCategoryModal(false);
         setNewCategoryName('');
       } else {
@@ -1007,8 +1013,11 @@ export default function App() {
       if (Array.isArray(data)) {
         setProducts(data);
         // Unique non-empty categories including custom clinic categories
-        const prodCats: string[] = data.map((p: Product) => p.category).filter(Boolean);
-        const mergedCats: string[] = Array.from(new Set([...prodCats, ...(customCats || [])]));
+        // New custom categories appear FIRST so admin can easily select them
+        const customCatNames: string[] = (customCats || []).map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean);
+        const prodCats: string[] = Array.from(new Set(data.map((p: Product) => p.category).filter(Boolean)));
+        const remainingProdCats = prodCats.filter((c: string) => !customCatNames.includes(c));
+        const mergedCats: string[] = [...customCatNames, ...remainingProdCats];
         setCategories(mergedCats);
       }
     } catch (err) {

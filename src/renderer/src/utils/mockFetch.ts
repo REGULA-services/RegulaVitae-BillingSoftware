@@ -16095,7 +16095,9 @@ export function initMockFetch() {
           saveDbData('custom_categories', catList);
           return makeResponse({ success: true, id: newId, name }, 201);
         }
-        return makeResponse(catList);
+        // Return custom categories sorted so newly created categories appear first
+        const sortedCats = [...catList].sort((a: any, b: any) => (Number(b.id) || 0) - (Number(a.id) || 0) || (b.created_at || '').localeCompare(a.created_at || ''));
+        return makeResponse(sortedCats);
       }
 
       if (path.startsWith('/api/categories/')) {

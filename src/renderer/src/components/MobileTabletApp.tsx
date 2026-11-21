@@ -143,15 +143,23 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         fetch(apiUrl('/api/network-info')).catch(() => null)
       ]);
 
+      let loadedProds: any[] = [];
+      let customCatNames: string[] = [];
+
       if (prodRes && prodRes.ok) {
         const prodData = await prodRes.json();
-        setProducts(Array.isArray(prodData) ? prodData : []);
+        loadedProds = Array.isArray(prodData) ? prodData : [];
+        setProducts(loadedProds);
       }
       if (catRes && catRes.ok) {
         const catData = await catRes.json();
-        const catNames = Array.isArray(catData) ? catData.map((c: any) => typeof c === 'string' ? c : c.name) : [];
-        setCategories(['All', ...catNames]);
+        customCatNames = Array.isArray(catData) ? catData.map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean) : [];
       }
+
+      // Ensure newly created medicine categories appear FIRST right after 'All'
+      const prodCats = Array.from(new Set(loadedProds.map((p: any) => p.category).filter(Boolean)));
+      const remainingProdCats = prodCats.filter((c: string) => !customCatNames.includes(c));
+      setCategories(['All', ...customCatNames, ...remainingProdCats]);
       if (patRes && patRes.ok) {
         const patData = await patRes.json();
         setPatients(Array.isArray(patData) ? patData : []);

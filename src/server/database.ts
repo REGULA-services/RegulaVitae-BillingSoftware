@@ -775,7 +775,9 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     }
 
     if (q.includes("FROM CATEGORIES")) {
-      return [...(this.data.categories || [])] as any[];
+      const cats = [...(this.data.categories || [])];
+      cats.sort((a, b) => (Number(b.id || 0) - Number(a.id || 0)) || (b.created_at || '').localeCompare(a.created_at || ''));
+      return cats as any[];
     }
 
 

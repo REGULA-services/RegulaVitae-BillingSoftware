@@ -30,13 +30,18 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     currentStockValuationCost: 0,
     currentStockValuationMrp: 0
   };
-  const gst = reportData.gstReport || {
-    taxableAmount: 0, cgst: 0, sgst: 0, totalTax: 0,
+  const rawGst = reportData.gstReport || {};
+  const rawSlabs = rawGst.slabs || {};
+  const gst = {
+    taxableAmount: Number(rawGst.taxableAmount || 0),
+    cgst: Number(rawGst.cgst || 0),
+    sgst: Number(rawGst.sgst || 0),
+    totalTax: Number(rawGst.totalTax || 0),
     slabs: {
-      slab0: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
-      slab5: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
-      slab12: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
-      slab18: { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 }
+      slab0: rawSlabs.slab0 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      slab5: rawSlabs.slab5 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      slab12: rawSlabs.slab12 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 },
+      slab18: rawSlabs.slab18 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 }
     }
   };
   const pay = reportData.paymentBreakdown || { Cash: 0, GooglePay: 0, BankCard: 0, Complimentary: 0 };
@@ -470,11 +475,16 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     type: "pattern", pattern: "solid", fgColor: { argb: "7C3AED" }
   };
 
-  gstSheet.addRow(["0% Exempt / Life-Saving Drugs", gst.slabs.slab0.taxable, gst.slabs.slab0.cgst, gst.slabs.slab0.sgst, gst.slabs.slab0.totalTax]);
-  gstSheet.addRow(["5% GST Slab (2.5% CGST + 2.5% SGST)", gst.slabs.slab5.taxable, gst.slabs.slab5.cgst, gst.slabs.slab5.sgst, gst.slabs.slab5.totalTax]);
-  gstSheet.addRow(["12% GST Slab (6% CGST + 6% SGST)", gst.slabs.slab12.taxable, gst.slabs.slab12.cgst, gst.slabs.slab12.sgst, gst.slabs.slab12.totalTax]);
-  gstSheet.addRow(["18% GST Slab (9% CGST + 9% SGST)", gst.slabs.slab18.taxable, gst.slabs.slab18.cgst, gst.slabs.slab18.sgst, gst.slabs.slab18.totalTax]);
-  gstSheet.addRow(["Total Period GST Collection", gst.taxableAmount, gst.cgst, gst.sgst, gst.totalTax]);
+  const s0 = gst.slabs.slab0 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 };
+  const s5 = gst.slabs.slab5 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 };
+  const s12 = gst.slabs.slab12 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 };
+  const s18 = gst.slabs.slab18 || { taxable: 0, cgst: 0, sgst: 0, totalTax: 0 };
+
+  gstSheet.addRow(["0% Exempt / Life-Saving Drugs", s0.taxable || 0, s0.cgst || 0, s0.sgst || 0, s0.totalTax || 0]);
+  gstSheet.addRow(["5% GST Slab (2.5% CGST + 2.5% SGST)", s5.taxable || 0, s5.cgst || 0, s5.sgst || 0, s5.totalTax || 0]);
+  gstSheet.addRow(["12% GST Slab (6% CGST + 6% SGST)", s12.taxable || 0, s12.cgst || 0, s12.sgst || 0, s12.totalTax || 0]);
+  gstSheet.addRow(["18% GST Slab (9% CGST + 9% SGST)", s18.taxable || 0, s18.cgst || 0, s18.sgst || 0, s18.totalTax || 0]);
+  gstSheet.addRow(["Total Period GST Collection", gst.taxableAmount || 0, gst.cgst || 0, gst.sgst || 0, gst.totalTax || 0]);
 
   for (let r = 4; r <= 8; r++) {
     const row = gstSheet.getRow(r);

@@ -20,6 +20,8 @@ export interface BatchRecord {
   status?: 'Active' | 'Quarantined' | 'Recalled';
   quarantine_reason?: string;
   quarantined_at?: string;
+  is_example?: number;
+  is_manual_opening_stock?: number;
   created_at?: string;
 }
 
@@ -236,7 +238,11 @@ export class JSONDatabaseEngine implements DatabaseEngine {
   private load() {
     if (fs.existsSync(jsonDbPath)) {
       try {
-        const raw = fs.readFileSync(jsonDbPath, 'utf8');
+        let raw = fs.readFileSync(jsonDbPath, 'utf8');
+        if (raw.charCodeAt(0) === 0xFEFF) {
+          raw = raw.slice(1);
+        }
+        raw = raw.trim();
         const parsed = JSON.parse(raw);
         this.data = {
           products: parsed.products || [],
@@ -294,7 +300,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
           }
         }
 
-        // Automatic Stock Detection & Audit: Pre-existing medicines must be 0 stock until inward stock is added
+        // Automatic Stock Detection & Audit: Pre-existing medicines must be 0 stock until inward stock or manual stock is added
         const inwardBatchMap = new Map<string, number>();
         const inwardProdTotalMap = new Map<number, number>();
         (this.data.inward_stock || []).forEach(inw => {
@@ -325,7 +331,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
                 b.available_stock = realStock;
                 needsSave = true;
               }
-            } else if (b.available_stock > 0) {
+            } else if (b.available_stock > 0 && b.is_example === 1 && !b.is_manual_opening_stock) {
               // Pre-existing seeded catalog items have 0 stock until inward stock is recorded
               b.available_stock = 0;
               needsSave = true;
@@ -335,9 +341,8 @@ export class JSONDatabaseEngine implements DatabaseEngine {
 
         // Update product statuses automatically: 0 = Out of Stock, > 0 = Available
         for (const p of this.data.products) {
-          const totalInward = inwardProdTotalMap.get(p.id) || 0;
-          const totalSold = soldProdTotalMap.get(p.id) || 0;
-          const currentStock = Math.max(0, totalInward - totalSold);
+          const prodBatches = (this.data.batches || []).filter(b => b.product_id === p.id);
+          const currentStock = prodBatches.reduce((sum, b) => sum + Math.max(0, Number(b.available_stock || 0)), 0);
           const expectedStatus = currentStock > 0 ? 'Available' : 'Out of Stock';
           if (p.status !== expectedStatus) {
             p.status = expectedStatus;
@@ -348,7 +353,66 @@ export class JSONDatabaseEngine implements DatabaseEngine {
           this.save();
         }
       } catch (err) {
-        console.error("Failed to parse JSON DB, starting fresh", err);
+        console.error("[DATABASE] Failed to parse JSON DB. Attempting recovery from backup...", err);
+        const bakPath = `${jsonDbPath}.bak`;
+        let recovered = false;
+        if (fs.existsSync(bakPath)) {
+          try {
+            let bakRaw = fs.readFileSync(bakPath, 'utf8');
+            if (bakRaw.charCodeAt(0) === 0xFEFF) bakRaw = bakRaw.slice(1);
+            const bakParsed = JSON.parse(bakRaw.trim());
+            this.data = {
+              products: bakParsed.products || [],
+              batches: bakParsed.batches || [],
+              bills: bakParsed.bills || [],
+              bill_items: bakParsed.bill_items || [],
+              deleted_items_history: bakParsed.deleted_items_history || [],
+              employees: bakParsed.employees || [],
+              users: bakParsed.users || [],
+              schedule_h1_register: bakParsed.schedule_h1_register || [],
+              ndps_register: bakParsed.ndps_register || [],
+              cold_chain_logs: bakParsed.cold_chain_logs || [],
+              audit_logs: bakParsed.audit_logs || [],
+              prescriptions: bakParsed.prescriptions || [],
+              pharmacy_licences: bakParsed.pharmacy_licences || [],
+              adr_reports: bakParsed.adr_reports || [],
+              patients: bakParsed.patients || [],
+              inward_stock: bakParsed.inward_stock || [],
+              categories: bakParsed.categories || []
+            };
+            recovered = true;
+            console.log("[DATABASE] Successfully recovered database from .bak backup.");
+            this.save();
+          } catch (bakErr) {
+            console.error("[DATABASE] Backup recovery failed:", bakErr);
+          }
+        }
+        if (!recovered) {
+          try {
+            const corruptPath = `${jsonDbPath}.corrupt.${Date.now()}`;
+            fs.copyFileSync(jsonDbPath, corruptPath);
+            console.warn(`[DATABASE] Preserved corrupt database to ${corruptPath}`);
+          } catch {}
+          this.data = {
+            products: [],
+            batches: [],
+            bills: [],
+            bill_items: [],
+            deleted_items_history: [],
+            employees: [],
+            users: [],
+            schedule_h1_register: [],
+            ndps_register: [],
+            cold_chain_logs: [],
+            audit_logs: [],
+            prescriptions: [],
+            pharmacy_licences: [],
+            adr_reports: [],
+            patients: [],
+            inward_stock: [],
+            categories: []
+          };
+        }
       }
     } else {
       this.save();
@@ -356,7 +420,23 @@ export class JSONDatabaseEngine implements DatabaseEngine {
   }
 
   public save() {
-    fs.writeFileSync(jsonDbPath, JSON.stringify(this.data, null, 2), 'utf8');
+    const tmpPath = `${jsonDbPath}.${Date.now()}.${Math.random().toString(36).substring(2, 8)}.tmp`;
+    const bakPath = `${jsonDbPath}.bak`;
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(this.data, null, 2), 'utf8');
+      fs.renameSync(tmpPath, jsonDbPath);
+      // Maintain verified backup for fail-safe disaster recovery
+      try {
+        fs.copyFileSync(jsonDbPath, bakPath);
+      } catch {}
+    } catch (err) {
+      try {
+        fs.writeFileSync(jsonDbPath, JSON.stringify(this.data, null, 2), 'utf8');
+      } catch (fallbackErr) {
+        console.error("[DATABASE] Atomic save fallback failed:", err, fallbackErr);
+      }
+      try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
+    }
   }
 
   private seedIfNeeded() {
@@ -856,9 +936,15 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     if (q.includes("FROM INWARD_STOCK")) {
       let list = [...(this.data.inward_stock || [])];
       if (params.length === 2 && q.includes("BETWEEN ? AND ?")) {
-        list = list.filter(r => (r.received_date >= params[0] && r.received_date <= params[1]));
+        const start = String(params[0]).substring(0, 10);
+        const end = String(params[1]).substring(0, 10);
+        list = list.filter(r => {
+          const d = (r.received_date || '').substring(0, 10);
+          return d >= start && d <= end;
+        });
       } else if (params.length === 1 && q.includes("RECEIVED_DATE = ?")) {
-        list = list.filter(r => r.received_date === params[0]);
+        const target = String(params[0]).substring(0, 10);
+        list = list.filter(r => (r.received_date || '').substring(0, 10) === target);
       }
       list.sort((a, b) => (b.received_date || '').localeCompare(a.received_date || '') || (b.id - a.id));
       return list as any[];
@@ -899,9 +985,15 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       let bills = [...this.data.bills];
 
       if (params.length === 1) {
-        bills = bills.filter(b => b.date === params[0]);
+        const d1 = String(params[0]).substring(0, 10);
+        bills = bills.filter(b => (b.date || '').substring(0, 10) === d1);
       } else if (params.length === 2) {
-        bills = bills.filter(b => b.date >= params[0] && b.date <= params[1]);
+        const start = String(params[0]).substring(0, 10);
+        const end = String(params[1]).substring(0, 10);
+        bills = bills.filter(b => {
+          const d = (b.date || '').substring(0, 10);
+          return d >= start && d <= end;
+        });
       } else if (params.length > 2) {
         const yearStr = String(params[0]);
         bills = bills.filter(b => (b.date || '').startsWith(yearStr));
@@ -917,24 +1009,27 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     if ((q.includes("FROM BILL_ITEMS BI") || q.includes("FROM BILL_ITEMS")) && q.includes("JOIN BILLS")) {
       // Date range query e.g. for reports
       if (q.includes("BETWEEN ? AND ?") && params.length >= 2) {
-        const start = String(params[0]);
-        const end = String(params[1]);
-        const matchingBills = new Map<number, any>();
+        const start = String(params[0]).substring(0, 10);
+        const end = String(params[1]).substring(0, 10);
+        const matchingBills = new Map<any, any>();
         this.data.bills.forEach(b => {
-          if (b.date >= start && b.date <= end) {
+          const d = (b.date || '').substring(0, 10);
+          if (d >= start && d <= end) {
             matchingBills.set(b.id, b);
+            matchingBills.set(String(b.id), b);
+            matchingBills.set(Number(b.id), b);
           }
         });
         const results: any[] = [];
         this.data.bill_items.forEach(it => {
-          const b = matchingBills.get(it.bill_id);
+          const b = matchingBills.get(it.bill_id) ?? matchingBills.get(Number(it.bill_id)) ?? matchingBills.get(String(it.bill_id));
           if (b) {
             results.push({
               ...it,
-              date: b.date,
-              time: b.time,
-              payment_method: b.payment_method,
-              status: b.status,
+              date: (b.date || '').substring(0, 10),
+              time: b.time || '10:00:00',
+              payment_method: b.payment_method || 'Cash',
+              status: b.status || 'Active',
               is_complimentary: b.is_complimentary || (b.payment_method === 'Complimentary' ? 1 : 0),
               operating_mode: (b as any).operating_mode || 'RETAIL_PHARMACY'
             });
@@ -944,23 +1039,26 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       }
 
       if (q.includes("B.DATE = ?") && params.length >= 1) {
-        const targetDate = String(params[0]);
-        const matchingBills = new Map<number, any>();
+        const targetDate = String(params[0]).substring(0, 10);
+        const matchingBills = new Map<any, any>();
         this.data.bills.forEach(b => {
-          if (b.date === targetDate) {
+          const d = (b.date || '').substring(0, 10);
+          if (d === targetDate) {
             matchingBills.set(b.id, b);
+            matchingBills.set(String(b.id), b);
+            matchingBills.set(Number(b.id), b);
           }
         });
         const results: any[] = [];
         this.data.bill_items.forEach(it => {
-          const b = matchingBills.get(it.bill_id);
+          const b = matchingBills.get(it.bill_id) ?? matchingBills.get(Number(it.bill_id)) ?? matchingBills.get(String(it.bill_id));
           if (b) {
             results.push({
               ...it,
-              date: b.date,
-              time: b.time,
-              payment_method: b.payment_method,
-              status: b.status,
+              date: (b.date || '').substring(0, 10),
+              time: b.time || '10:00:00',
+              payment_method: b.payment_method || 'Cash',
+              status: b.status || 'Active',
               is_complimentary: b.is_complimentary || (b.payment_method === 'Complimentary' ? 1 : 0),
               operating_mode: (b as any).operating_mode || 'RETAIL_PHARMACY'
             });
@@ -1398,8 +1496,13 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       const id = this.data.bill_items.length > 0 ? Math.max(...this.data.bill_items.map(bi => bi.id)) + 1 : 1;
       const [
         bill_id, product_id, product_name, quantity, rate, total,
-        batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule
+        batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule,
+        mrp, purchase_price
       ] = params;
+
+      const itemRate = Number(rate || 0);
+      const itemMrp = mrp !== undefined && mrp !== null && !isNaN(Number(mrp)) ? Number(mrp) : itemRate;
+      const itemCost = purchase_price !== undefined && purchase_price !== null && !isNaN(Number(purchase_price)) ? Number(purchase_price) : +(itemRate * 0.72).toFixed(2);
 
       const newItem = {
         id,
@@ -1407,7 +1510,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         product_id: Number(product_id),
         product_name,
         quantity: Number(quantity),
-        rate: Number(rate),
+        rate: itemRate,
         total: Number(total),
         batch_number: batch_number || 'B-STD',
         expiry_date: expiry_date || '2028-12-31',
@@ -1416,7 +1519,9 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         cgst: Number(cgst || 0),
         sgst: Number(sgst || 0),
         dosage_instructions: dosage_instructions || null,
-        schedule: schedule || 'Schedule H'
+        schedule: schedule || 'Schedule H',
+        mrp: itemMrp,
+        purchase_price: itemCost
       };
       this.data.bill_items.push(newItem);
       this.save();
@@ -1768,6 +1873,13 @@ export class JSONDatabaseEngine implements DatabaseEngine {
         if (b.mrp !== undefined) b.mrp = Number(b.mrp);
         if (b.purchase_price !== undefined) b.purchase_price = Number(b.purchase_price);
         if (b.selling_price !== undefined) b.selling_price = Number(b.selling_price);
+
+        // Automatic Stock Detection: mark product Available if stock > 0
+        const prod = this.data.products.find(p => p.id === b.product_id);
+        if (prod && b.available_stock > 0) {
+          prod.status = 'Available';
+        }
+
         this.save();
         return { changes: 1 };
       }
@@ -1788,6 +1900,16 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       }
       if (b) {
         b.available_stock = Math.max(0, b.available_stock - qty);
+
+        // Automatic Stock Detection: recalculate remaining total stock across all batches of this product
+        const remainingProdStock = this.data.batches
+          .filter(bat => bat.product_id === b.product_id)
+          .reduce((sum, bat) => sum + Math.max(0, Number(bat.available_stock || 0)), 0);
+        const prod = this.data.products.find(p => p.id === b.product_id);
+        if (prod) {
+          prod.status = remainingProdStock > 0 ? 'Available' : 'Out of Stock';
+        }
+
         this.save();
         return { changes: 1 };
       }

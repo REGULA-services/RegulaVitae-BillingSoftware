@@ -460,11 +460,19 @@ export default function App() {
   const [changePasswordModal, setChangePasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ username: 'admin', currentPassword: '', newPassword: '', confirmPassword: '' });
 
+  // Ensure login state is completely clean whenever user is logged out
+  useEffect(() => {
+    if (!currentUser) {
+      setIsLoggingIn(false);
+    }
+  }, [currentUser]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    if (!loginForm.password) {
+    if (!loginForm.password || !loginForm.password.trim()) {
       setLoginError('Password is required.');
+      setIsLoggingIn(false);
       return;
     }
     setIsLoggingIn(true);
@@ -3050,7 +3058,11 @@ export default function App() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setLoginForm(prev => ({ ...prev, username: 'admin' }))}
+                  onClick={() => {
+                    setLoginForm({ username: 'admin', password: '' });
+                    setIsLoggingIn(false);
+                    setLoginError('');
+                  }}
                   className={`flex items-center justify-center px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${loginForm.username === 'admin'
                     ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-md shadow-amber-500/10'
                     : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
@@ -3061,7 +3073,11 @@ export default function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLoginForm(prev => ({ ...prev, username: 'employee' }))}
+                  onClick={() => {
+                    setLoginForm({ username: 'employee', password: '' });
+                    setIsLoggingIn(false);
+                    setLoginError('');
+                  }}
                   className={`flex items-center justify-center px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${loginForm.username === 'employee'
                     ? 'bg-blue-500/20 border-blue-500 text-blue-400 shadow-md shadow-blue-500/10'
                     : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
@@ -3079,7 +3095,10 @@ export default function App() {
                 <input
                   type="password"
                   value={loginForm.password}
-                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                  onChange={(e) => {
+                    setLoginForm(prev => ({ ...prev, password: e.target.value }));
+                    if (isLoggingIn) setIsLoggingIn(false);
+                  }}
                   placeholder={`Enter password for ${loginForm.username}...`}
                   className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                   autoFocus
@@ -3090,10 +3109,10 @@ export default function App() {
 
             <button
               type="submit"
-              disabled={isLoggingIn}
-              className="w-full py-3.5 bg-gradient-to-r from-sky-600 to-cyan-500 hover:from-sky-700 hover:to-cyan-600 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-sky-500/20 active:scale-98 disabled:opacity-50"
+              disabled={isLoggingIn || !loginForm.password.trim()}
+              className="w-full py-3.5 bg-gradient-to-r from-sky-600 to-cyan-500 hover:from-sky-700 hover:to-cyan-600 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-sky-500/20 active:scale-98 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
-              {isLoggingIn ? "Authenticating..." : `Login as ${loginForm.username.toUpperCase()}`}
+              {isLoggingIn && loginForm.password.trim().length > 0 ? "Authenticating..." : `Login as ${loginForm.username.toUpperCase()}`}
             </button>
 
             {isFirstTimeEver && (

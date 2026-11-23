@@ -16218,7 +16218,6 @@ export function initMockFetch() {
           let totalCogs = 0;
           let totalUnitsSold = 0;
           let totalComplimentaryUnits = 0;
-          let complimentaryAbsorbedCost = 0;
           let complimentaryMrpValue = 0;
           const productsMap: { [key: string]: { name: string; quantity: number; total: number; cogs: number; profit: number } } = {};
 
@@ -16239,7 +16238,6 @@ export function initMockFetch() {
 
                 if (b.is_complimentary || b.payment_method === 'Complimentary') {
                   totalComplimentaryUnits += qty;
-                  complimentaryAbsorbedCost += itemCogs;
                   complimentaryMrpValue += (qty * rate);
                 } else {
                   totalUnitsSold += qty;
@@ -16323,24 +16321,31 @@ export function initMockFetch() {
               unitsSold: totalUnitsSold,
               unitsSoldCost: Number(totalCogs.toFixed(2)),
               complimentaryUnits: totalComplimentaryUnits,
-              complimentaryAbsorbedCost: Number(complimentaryAbsorbedCost.toFixed(2)),
+              complimentaryAbsorbedCost: 0,
+              complimentaryCostAbsorbed: 0,
               netStockDifferenceUnits: totalInwardUnits - (totalUnitsSold + totalComplimentaryUnits),
-              netStockValuationDifference: Number((totalInwardCost - (totalCogs + complimentaryAbsorbedCost)).toFixed(2)),
+              netStockValuationDifference: Number((totalInwardCost - totalCogs).toFixed(2)),
               currentAvailableStockUnits: closingStockUnits,
               currentStockValuationCost: Number(closingStockCost.toFixed(2)),
               currentStockValuationMrp: Number(closingStockMrp.toFixed(2))
             },
             gstReport: {
               taxableAmount: Number((netSales - totalTax).toFixed(2)),
+              taxableValue: Number((netSales - totalTax).toFixed(2)),
               cgst: Number((totalTax / 2).toFixed(2)),
               sgst: Number((totalTax / 2).toFixed(2)),
               totalTax: Number(totalTax.toFixed(2)),
+              totalGst: Number(totalTax.toFixed(2)),
               slabs: gstSlabs
             },
             complimentarySummary: {
               billsCount: complimentaryBills.length,
+              dispenseCount: complimentaryBills.length,
               unitsDispensed: totalComplimentaryUnits,
-              absorbedCost: Number(complimentaryAbsorbedCost.toFixed(2)),
+              totalUnits: totalComplimentaryUnits,
+              absorbedCost: 0, // Statutory requirement: Complimentary stock cost is 0 rs
+              totalCostAbsorbed: 0,
+              complimentaryAbsorbedCost: 0,
               mrpValue: Number(complimentaryMrpValue.toFixed(2))
             },
             paymentBreakdown,

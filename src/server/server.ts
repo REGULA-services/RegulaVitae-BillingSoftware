@@ -2971,6 +2971,11 @@ const server = app.listen(Number(PORT), HOST, () => {
   }
 });
 
+// Configure resilient connection & keep-alive timeouts for mobile / LAN clients
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+server.requestTimeout = 30000;
+
 server.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`[SERVER] Port ${PORT} is already in use. The API server could not start. Close any other instances and restart.`);

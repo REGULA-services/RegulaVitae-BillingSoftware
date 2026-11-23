@@ -68,3 +68,26 @@ export const apiUrl = (endpoint: string): string => {
   return `${base}${cleanEndpoint}`;
 };
 
+/**
+ * Resilient fetch wrapper with exponential backoff retry.
+ * Handles transient network dropouts when mobile/tablet devices move across clinic Wi-Fi zones.
+ */
+export const fetchWithRetry = async (
+  endpoint: string,
+  options?: RequestInit,
+  retries: number = 2,
+  backoffMs: number = 500
+): Promise<Response> => {
+  const url = apiUrl(endpoint);
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(r => setTimeout(r, backoffMs * (attempt + 1)));
+    }
+  }
+  return fetch(url, options);
+};
+

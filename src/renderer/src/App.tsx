@@ -444,6 +444,7 @@ export default function App() {
   const [isComplimentaryCheckout, setIsComplimentaryCheckout] = useState(false);
   const [complimentaryRecipient, setComplimentaryRecipient] = useState('');
   const [complimentaryReason, setComplimentaryReason] = useState('Doctor / Staff Health Dispense');
+  const [hasOpeningStock, setHasOpeningStock] = useState(false);
 
   // Authentication & Role State
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: 'admin' | 'employee' | string; name: string; doctor_reg_no?: string; pharmacist_reg_no?: string } | null>(() => {
@@ -2125,14 +2126,18 @@ export default function App() {
     const finalMrp = Number(editingProduct.mrp !== undefined && editingProduct.mrp !== null && !isNaN(Number(editingProduct.mrp)) ? editingProduct.mrp : finalPrice);
     const finalPurchasePrice = Number(editingProduct.purchase_price !== undefined && editingProduct.purchase_price !== null && !isNaN(Number(editingProduct.purchase_price)) ? editingProduct.purchase_price : +(finalPrice * 0.72).toFixed(2));
 
+    const finalStock = Number(editingProduct.available_stock || 0);
+    const finalStatus = finalStock > 0 ? 'Available' : 'Out of Stock';
+
     const payload = {
       ...editingProduct,
       price: finalPrice,
       mrp: finalMrp,
       purchase_price: finalPurchasePrice,
       tax_percent: finalTaxPercent,
+      available_stock: finalStock,
       quantity_type: editingProduct.quantity_type || 'strip',
-      status: editingProduct.status || 'Available'
+      status: finalStatus
     };
 
     try {
@@ -2152,6 +2157,212 @@ export default function App() {
       loadProducts();
     } catch (err: any) {
       showToast(err.message, "error");
+    }
+  };
+
+  const updateProductCategory = async (id: number, newCategory: string) => {
+    if (currentUser?.role !== 'admin') {
+      showToast("Access Denied: Admin privileges required to update category.", "error");
+      return;
+    }
+    const targetProd = products.find(p => p.id === id);
+    if (!targetProd) return;
+    try {
+      const res = await fetch(apiUrl(`/api/products/${id}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...targetProd, category: newCategory })
+      });
+      if (res.ok) {
+        showToast(`Category updated to "${newCategory}"`, "success");
+        loadProducts();
+      } else {
+        const err = await res.json();
+        showToast(err.error || "Failed to update category.", "error");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
+
+  const downloadInwardReceiptPDF = (record: any) => {
+    try {
+      const printWindow = window.open('', '_blank', 'width=800,height=900');
+      if (!printWindow) {
+        showToast("Pop-up blocked. Please allow pop-ups to print or download PDF.", "error");
+        return;
+      }
+      const invoiceNo = record.invoice_number || 'INV-MONTHLY';
+      const recDate = record.received_date || new Date().toISOString().split('T')[0];
+      const supplier = record.supplier_name || 'Direct Wholesale';
+      const recBy = record.received_by || 'Admin';
+      const notes = record.notes || 'Routine Clinic Restock';
+      const items = record.items && Array.isArray(record.items) && record.items.length > 0 ? record.items : [
+        {
+          product_name: record.product_name,
+          batch_number: record.batch_number,
+          expiry_date: record.expiry_date,
+          quantity: record.quantity || record.quantity_received || 0,
+          purchase_price: record.purchase_price || 0,
+          mrp: record.mrp || 0,
+          selling_price: record.selling_price || record.mrp || 0
+        }
+      ];
+
+      const totalPurchaseVal = items.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.purchase_price || 0)), 0);
+      const totalMrpVal = items.reduce((sum: number, it: any) => sum + (Number(it.quantity || 0) * Number(it.mrp || 0)), 0);
+      const totalUnits = items.reduce((sum: number, it: any) => sum + Number(it.quantity || 0), 0);
+
+      const grnHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Inward Stock Receipt / GRN #${invoiceNo}</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; font-size: 12px; line-height: 1.4; }
+            .header { border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+            .clinic-name { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 2px; }
+            .clinic-sub { font-size: 11px; color: #64748b; font-weight: 600; }
+            .grn-badge { background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 6px 12px; border-radius: 8px; font-weight: 800; text-align: right; }
+            .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 11px; }
+            .info-item { display: flex; flex-direction: column; }
+            .info-label { font-size: 9.5px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 2px; }
+            .info-val { font-weight: 600; color: #0f172a; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
+            th { background: #0f172a; color: #ffffff; text-align: left; padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+            td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+            tr:nth-child(even) { background: #f8fafc; }
+            .text-right { text-align: right; }
+            .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+            .summary-box { display: flex; justify-content: flex-end; margin-top: 10px; margin-bottom: 24px; }
+            .summary-table { width: 320px; border-collapse: collapse; }
+            .summary-table td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+            .signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }
+            .sig-line { border-top: 1px solid #0f172a; margin-top: 50px; text-align: center; font-size: 10px; color: #64748b; font-weight: 700; padding-top: 4px; }
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="clinic-name">MADRAS ORTHO CLINIC</div>
+              <div class="clinic-sub">Center for Orthopaedic Surgery & Speciality Clinic Pharmacy</div>
+              <div class="clinic-sub">Chennai, Tamil Nadu • Ph: +91 98400 12345 • DL: 20B/TN/CHE/00482</div>
+            </div>
+            <div class="grn-badge">
+              <div style="font-size: 14px; color: #0284c7;">GOODS RECEIVED NOTE (GRN)</div>
+              <div style="font-size: 10px; color: #64748b;">Statutory Drug Intake Voucher</div>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Supplier / Wholesaler:</span>
+              <span class="info-val">${supplier}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Invoice / DC Reference:</span>
+              <span class="info-val font-mono">${invoiceNo}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Date Received:</span>
+              <span class="info-val font-mono">${recDate}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Verified & Received By:</span>
+              <span class="info-val">${recBy}</span>
+            </div>
+            <div class="info-item" style="grid-column: span 2;">
+              <span class="info-label">Consignment Notes / Storage Location:</span>
+              <span class="info-val">${notes}</span>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">#</th>
+                <th>Medicine / Drug Formulation</th>
+                <th>Batch Number</th>
+                <th>Expiry Date</th>
+                <th class="text-right">Qty Received</th>
+                <th class="text-right">Cost (₹)</th>
+                <th class="text-right">Total Cost (₹)</th>
+                <th class="text-right">MRP (₹)</th>
+                <th class="text-right">Selling Rate (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((it: any, idx: number) => {
+                const lineTot = Number(it.quantity || 0) * Number(it.purchase_price || 0);
+                return `
+                  <tr>
+                    <td style="color:#64748b; font-size:10px;">${idx + 1}</td>
+                    <td style="font-weight:700;">${it.product_name || `Medicine #${it.product_id}`}</td>
+                    <td class="font-mono" style="color:#0369a1;">${it.batch_number}</td>
+                    <td class="font-mono">${it.expiry_date}</td>
+                    <td class="text-right font-mono" style="font-weight:700;">${it.quantity}</td>
+                    <td class="text-right font-mono">₹${Number(it.purchase_price || 0).toFixed(2)}</td>
+                    <td class="text-right font-mono" style="font-weight:700; color:#0f172a;">₹${lineTot.toFixed(2)}</td>
+                    <td class="text-right font-mono">₹${Number(it.mrp || 0).toFixed(2)}</td>
+                    <td class="text-right font-mono" style="color:#16a34a; font-weight:700;">₹${Number(it.selling_price || it.mrp || 0).toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+
+          <div class="summary-box">
+            <table class="summary-table">
+              <tr>
+                <td><strong>Total Medicines in Voucher:</strong></td>
+                <td class="text-right font-mono"><strong>${items.length} Medicines</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total Units Received:</strong></td>
+                <td class="text-right font-mono" style="color:#0284c7;"><strong>${totalUnits} Units</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total Stock Purchase Valuation:</strong></td>
+                <td class="text-right font-mono" style="font-size:13px; font-weight:800; color:#b45309;">₹${totalPurchaseVal.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>Total Printed MRP Valuation:</td>
+                <td class="text-right font-mono">₹${totalMrpVal.toFixed(2)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="signatures">
+            <div>
+              <div class="sig-line">Pharmacist In-Charge (Verification & Physical Audit)</div>
+            </div>
+            <div>
+              <div class="sig-line">Authorized Signatory / Clinic Admin</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 30px; text-align: center; font-size: 9px; color: #94a3b8;">
+            This is a computerized official Goods Received Note (GRN) generated under Rule 65 of Drugs and Cosmetics Rules, 1945.
+          </div>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(grnHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    } catch (err: any) {
+      console.error("Inward PDF print error:", err);
+      showToast("Failed to print/download Inward Stock PDF receipt.", "error");
     }
   };
 
@@ -5062,34 +5273,41 @@ export default function App() {
 
               {/* Segmented Tab Controls */}
               <div className="flex items-center bg-slate-950 p-1 border border-slate-800 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setProductModalTab('manual')}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    productModalTab === 'manual'
-                      ? 'bg-sky-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Manual Entry</span>
-                </button>
+                {currentUser?.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setProductModalTab('manual')}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      productModalTab === 'manual'
+                        ? 'bg-sky-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                    <span>Manual Entry</span>
+                    <span className={`text-[9px] font-black uppercase px-1 rounded ${
+                      productModalTab === 'manual' ? 'bg-slate-950 text-sky-300' : 'bg-sky-500/20 text-sky-400'
+                    }`}>Admin</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setProductModalTab('excel')}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    productModalTab === 'excel'
-                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Upload Excel</span>
-                  <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${
-                    productModalTab === 'excel' ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-500/20 text-emerald-400'
-                  }`}>Smart</span>
-                </button>
+                {currentUser?.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setProductModalTab('excel')}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      productModalTab === 'excel'
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Upload Excel</span>
+                    <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${
+                      productModalTab === 'excel' ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-500/20 text-emerald-400'
+                    }`}>Admin</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -5104,24 +5322,26 @@ export default function App() {
                   <span>Browse ({products.length})</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProductModalTab('inward');
-                    fetchInwardRecords();
-                  }}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    productModalTab === 'inward'
-                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5" />
-                  <span>Inward Stock</span>
-                  <span className={`text-[9px] font-black uppercase px-1 rounded ${
-                    productModalTab === 'inward' ? 'bg-slate-950 text-amber-300' : 'bg-amber-500/20 text-amber-400'
-                  }`}>Admin</span>
-                </button>
+                {currentUser?.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductModalTab('inward');
+                      fetchInwardRecords();
+                    }}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      productModalTab === 'inward'
+                        ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    <span>Inward Stock</span>
+                    <span className={`text-[9px] font-black uppercase px-1 rounded ${
+                      productModalTab === 'inward' ? 'bg-slate-950 text-amber-300' : 'bg-amber-500/20 text-amber-400'
+                    }`}>Admin</span>
+                  </button>
+                )}
               </div>
 
               <button
@@ -5285,43 +5505,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Stock Quantity (Units)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          disabled={currentUser?.role !== 'admin'}
-                          placeholder="e.g. 50"
-                          value={editingProduct?.available_stock !== undefined ? editingProduct.available_stock : ''}
-                          onChange={(e) => setEditingProduct(prev => ({ ...prev, available_stock: Number(e.target.value) }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Batch Number</label>
-                        <input
-                          type="text"
-                          disabled={currentUser?.role !== 'admin'}
-                          placeholder="e.g. BTH-2026-099"
-                          value={editingProduct?.batch_number || ''}
-                          onChange={(e) => setEditingProduct(prev => ({ ...prev, batch_number: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Expiry Date</label>
-                        <input
-                          type="date"
-                          disabled={currentUser?.role !== 'admin'}
-                          value={editingProduct?.expiry_date ? String(editingProduct.expiry_date).substring(0, 10) : ''}
-                          onChange={(e) => setEditingProduct(prev => ({ ...prev, expiry_date: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
-                        />
-                      </div>
-
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">GST Tax Rate *</label>
                         <select
@@ -5337,9 +5521,7 @@ export default function App() {
                           <option value={28}>28% (Specialized Goods)</option>
                         </select>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Barcode (Optional)</label>
                         <input
@@ -5363,18 +5545,81 @@ export default function App() {
                           className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50 font-mono"
                         />
                       </div>
+                    </div>
 
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Stock Status</label>
-                        <select
-                          disabled={currentUser?.role !== 'admin'}
-                          value={editingProduct?.status || 'Available'}
-                          onChange={(e: any) => setEditingProduct(prev => ({ ...prev, status: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
-                        >
-                          <option value="Available">Available</option>
-                          <option value="Out of Stock">Out of Stock</option>
-                        </select>
+                    {/* Initial Opening Stock Setup Toggle (Optional for clinic onboarding) */}
+                    <div className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={hasOpeningStock || (editingProduct?.available_stock !== undefined && editingProduct.available_stock > 0)}
+                          onChange={(e) => {
+                            setHasOpeningStock(e.target.checked);
+                            if (!e.target.checked) {
+                              setEditingProduct(prev => ({ ...prev, available_stock: 0, batch_number: '', expiry_date: '' }));
+                            }
+                          }}
+                          className="rounded text-sky-500 focus:ring-sky-500 w-4 h-4 bg-slate-950 border-slate-700"
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-slate-200 block">
+                            Add Initial Opening Stock (Optional for Initial Clinic Setup)
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">
+                            Leave unchecked if incoming stock will be recorded later via Inward Stock applications.
+                          </span>
+                        </div>
+                      </label>
+
+                      {(hasOpeningStock || (editingProduct?.available_stock !== undefined && editingProduct.available_stock > 0)) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-800">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Opening Quantity (Units)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="e.g. 50"
+                              value={editingProduct?.available_stock !== undefined ? editingProduct.available_stock : ''}
+                              onChange={(e) => setEditingProduct(prev => ({ ...prev, available_stock: Number(e.target.value) }))}
+                              className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Batch Number</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. BTH-2026-099"
+                              value={editingProduct?.batch_number || ''}
+                              onChange={(e) => setEditingProduct(prev => ({ ...prev, batch_number: e.target.value }))}
+                              className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Expiry Date</label>
+                            <input
+                              type="date"
+                              value={editingProduct?.expiry_date ? String(editingProduct.expiry_date).substring(0, 10) : ''}
+                              onChange={(e) => setEditingProduct(prev => ({ ...prev, expiry_date: e.target.value }))}
+                              className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stock Status - Fully Automatic Detection */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Stock Status (Automatic Detection)</label>
+                      <div className="px-3.5 py-2.5 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                        <span className={`font-bold flex items-center gap-2 ${Number(editingProduct?.available_stock || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <span className={`w-2 h-2 rounded-full ${Number(editingProduct?.available_stock || 0) > 0 ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+                          {Number(editingProduct?.available_stock || 0) > 0 ? `Available (${editingProduct?.available_stock} Units in Stock)` : 'Out of Stock (0 Units Available)'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Auto: 0 = Out of stock, &gt;0 = Available
+                        </span>
                       </div>
                     </div>
 
@@ -5606,17 +5851,19 @@ export default function App() {
                       <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-xl whitespace-nowrap">
                         {products.filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase())).length} of {products.length} Items
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingProduct(null);
-                          setProductModalTab('manual');
-                        }}
-                        className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center space-x-1"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                        <span>Add New</span>
-                      </button>
+                      {currentUser?.role === 'admin' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProduct(null);
+                            setProductModalTab('manual');
+                          }}
+                          className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center space-x-1"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                          <span>Add New</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -5651,7 +5898,35 @@ export default function App() {
                                 <div className={isExp ? 'line-through text-rose-400' : ''}>{p.name}</div>
                                 {p.barcode && <div className="text-[9px] text-slate-500 font-mono">{p.barcode}</div>}
                               </td>
-                              <td className="py-2 px-3 text-slate-400">{p.category}</td>
+                              <td className="py-2 px-3">
+                                {currentUser?.role === 'admin' ? (
+                                  <select
+                                    value={p.category}
+                                    onChange={(e) => updateProductCategory(p.id, e.target.value)}
+                                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-sky-300 font-medium focus:outline-none focus:border-sky-500 max-w-[155px] truncate cursor-pointer hover:border-sky-500/50"
+                                    title="Click to change medicine category"
+                                  >
+                                    {Array.from(new Set([
+                                      p.category,
+                                      'Orthopaedic',
+                                      'Analgesics & NSAIDs',
+                                      'Antibiotics',
+                                      'Muscle Relaxants',
+                                      'Joint Supplements & Calcium',
+                                      'Gastro-Protective',
+                                      'Topical Sprays & Ointments',
+                                      'Antacids & PPI',
+                                      'Neuropathic Pain',
+                                      'Post-Op Care & Dressings',
+                                      ...categories.filter(c => c !== 'All')
+                                    ])).filter(Boolean).map(c => (
+                                      <option key={c} value={c}>{c}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="text-slate-400">{p.category}</span>
+                                )}
+                              </td>
                               <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
                               <td className="py-2 px-3 text-right font-mono text-slate-400">₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)}</td>
                               <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{Number(p.price || 0).toFixed(2)}</td>
@@ -5855,123 +6130,148 @@ export default function App() {
                           </span>
                         </div>
 
-                        <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs border-collapse">
-                              <thead className="bg-slate-900 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800">
-                                <tr>
-                                  <th className="p-2 w-8 text-center">#</th>
-                                  <th className="p-2 min-w-[200px]">Medicine Name (Type or Select) *</th>
-                                  <th className="p-2 min-w-[120px]">Batch # *</th>
-                                  <th className="p-2 min-w-[120px]">Expiry *</th>
-                                  <th className="p-2 w-20 text-right">Qty *</th>
-                                  <th className="p-2 w-24 text-right">Cost (₹) *</th>
-                                  <th className="p-2 w-24 text-right">Total Cost (₹)</th>
-                                  <th className="p-2 w-24 text-right">MRP (₹) *</th>
-                                  <th className="p-2 w-24 text-right">Selling Rate (₹) *</th>
-                                  <th className="p-2 w-10 text-center"></th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-800/40">
-                                {inwardConsignment.items.map((it, idx) => {
-                                  const lineTotal = Number(it.quantity || 0) * Number(it.purchase_price || 0);
-                                  return (
-                                    <tr key={it.id} className="hover:bg-slate-800/30 transition-colors">
-                                      <td className="p-2 text-center text-slate-500 font-mono text-[11px]">{idx + 1}</td>
-                                      <td className="p-2">
-                                        <input
-                                          type="text"
-                                          required
-                                          list="inward-med-suggestions"
-                                          placeholder="Type medicine name..."
-                                          value={it.product_name}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'product_name', e.target.value)}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-amber-400 font-medium"
-                                        />
-                                      </td>
-                                      <td className="p-2">
-                                        <input
-                                          type="text"
-                                          required
-                                          placeholder="e.g. B-2026-01"
-                                          value={it.batch_number}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'batch_number', e.target.value)}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-sky-400 font-mono focus:outline-none focus:border-amber-400"
-                                        />
-                                      </td>
-                                      <td className="p-2">
-                                        <input
-                                          type="date"
-                                          required
-                                          value={it.expiry_date}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'expiry_date', e.target.value)}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
-                                        />
-                                      </td>
-                                      <td className="p-2 text-right">
-                                        <input
-                                          type="number"
-                                          required
-                                          min="1"
-                                          placeholder="0"
-                                          value={it.quantity || ''}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'quantity', Number(e.target.value))}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white text-right font-mono focus:outline-none focus:border-amber-400 font-bold"
-                                        />
-                                      </td>
-                                      <td className="p-2 text-right">
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          required
-                                          placeholder="0.00"
-                                          value={it.purchase_price || ''}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'purchase_price', Number(e.target.value))}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 text-right font-mono focus:outline-none focus:border-amber-400"
-                                        />
-                                      </td>
-                                      <td className="p-2 text-right font-mono font-bold text-amber-300">
-                                        ₹{lineTotal.toFixed(2)}
-                                      </td>
-                                      <td className="p-2 text-right">
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          required
-                                          placeholder="0.00"
-                                          value={it.mrp || ''}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'mrp', Number(e.target.value))}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-300 text-right font-mono focus:outline-none focus:border-amber-400"
-                                        />
-                                      </td>
-                                      <td className="p-2 text-right">
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          required
-                                          placeholder="0.00"
-                                          value={it.selling_price || ''}
-                                          onChange={(e) => handleUpdateInwardRow(it.id, 'selling_price', Number(e.target.value))}
-                                          className="w-full px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-emerald-400 text-right font-mono font-bold focus:outline-none focus:border-amber-400"
-                                        />
-                                      </td>
-                                      <td className="p-2 text-center">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveInwardRow(it.id)}
-                                          disabled={inwardConsignment.items.length <= 1}
-                                          className="p-1 hover:bg-slate-800 text-slate-500 hover:text-rose-400 disabled:opacity-20 rounded transition-colors"
-                                          title="Remove medicine row"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
+                        {/* Multi-Medicine Spacious Inward Stock Cards */}
+                        <div className="space-y-4">
+                          {inwardConsignment.items.map((it, idx) => {
+                            const lineTotal = Number(it.quantity || 0) * Number(it.purchase_price || 0);
+                            return (
+                              <div key={it.id} className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3.5 hover:border-amber-500/40 transition-all shadow-md">
+                                {/* Card Header Row: Item Number, Medicine Name (wide autocomplete), Batch Number, Expiry, and Remove */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-amber-500/30">
+                                      #{idx + 1}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex-1 min-w-[240px]">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                      Medicine Name (Type or Select from Catalog) *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      required
+                                      list="inward-med-suggestions"
+                                      placeholder="e.g. Paracetamol 650mg, Aceclofenac..."
+                                      value={it.product_name}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'product_name', e.target.value)}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 font-semibold"
+                                    />
+                                  </div>
+
+                                  <div className="w-full sm:w-44">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                      Batch Number *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      required
+                                      placeholder="e.g. B-2026-001"
+                                      value={it.batch_number}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'batch_number', e.target.value)}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-sky-400 font-mono focus:outline-none focus:border-amber-400"
+                                    />
+                                  </div>
+
+                                  <div className="w-full sm:w-44">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                      Expiry Date *
+                                    </label>
+                                    <input
+                                      type="date"
+                                      required
+                                      value={it.expiry_date}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'expiry_date', e.target.value)}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
+                                    />
+                                  </div>
+
+                                  {inwardConsignment.items.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveInwardRow(it.id)}
+                                      className="self-end sm:self-center p-2 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 rounded-xl transition-colors border border-transparent hover:border-rose-500/20"
+                                      title="Remove medicine from this inward receipt"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Card Body Grid: 5 spacious columns for Qty, Cost, Line Total, MRP, Selling Rate */}
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2.5 border-t border-slate-800/60">
+                                  <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                      Quantity (Units) *
+                                    </label>
+                                    <input
+                                      type="number"
+                                      required
+                                      min="1"
+                                      placeholder="e.g. 50"
+                                      value={it.quantity || ''}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'quantity', Number(e.target.value))}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-white font-mono font-bold focus:outline-none focus:border-amber-400 text-right"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                      Purchase Cost (₹) *
+                                    </label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      required
+                                      placeholder="0.00"
+                                      value={it.purchase_price || ''}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'purchase_price', Number(e.target.value))}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400 text-right"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[10px] font-bold text-amber-400/90 uppercase tracking-wider block mb-1">
+                                      Line Total Cost (₹)
+                                    </label>
+                                    <div className="w-full px-3 py-2 bg-slate-950/60 border border-amber-500/20 rounded-xl text-xs text-amber-300 font-mono font-bold text-right">
+                                      ₹{lineTotal.toFixed(2)}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                      MRP Printed (₹) *
+                                    </label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      required
+                                      placeholder="0.00"
+                                      value={it.mrp || ''}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'mrp', Number(e.target.value))}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-slate-300 font-mono focus:outline-none focus:border-amber-400 text-right"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[10px] font-bold text-emerald-400/90 uppercase tracking-wider block mb-1">
+                                      Selling Rate (₹) *
+                                    </label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      required
+                                      placeholder="0.00"
+                                      value={it.selling_price || ''}
+                                      onChange={(e) => handleUpdateInwardRow(it.id, 'selling_price', Number(e.target.value))}
+                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-400 text-right"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
 
                         {/* Add Another Medicine Row Button */}
@@ -6070,6 +6370,7 @@ export default function App() {
                                 <th className="p-2.5 text-right">Total Purchase (₹)</th>
                                 <th className="p-2.5 text-right">MRP (₹)</th>
                                 <th className="p-2.5 text-right">Rate (₹)</th>
+                                <th className="p-2.5 text-center">Receipt</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40">
@@ -6100,6 +6401,17 @@ export default function App() {
                                       <td className="p-2.5 text-right font-mono font-bold text-amber-400">₹{totalPurchase.toFixed(2)}</td>
                                       <td className="p-2.5 text-right font-mono text-slate-400">₹{Number(r.mrp || 0).toFixed(2)}</td>
                                       <td className="p-2.5 text-right font-mono text-emerald-400">₹{Number(r.selling_price || r.mrp || 0).toFixed(2)}</td>
+                                      <td className="p-2.5 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => downloadInwardReceiptPDF(r)}
+                                          className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 transition-all whitespace-nowrap"
+                                          title="Download / Print Inward Stock Receipt (GRN PDF)"
+                                        >
+                                          <FileText className="w-3 h-3" />
+                                          <span>GRN PDF</span>
+                                        </button>
+                                      </td>
                                     </tr>
                                   );
                                 })}
@@ -6495,7 +6807,7 @@ export default function App() {
                               -{analyticsData.stockMovement?.complimentaryUnits ?? 0}
                             </span>
                             <span className="text-[9px] text-slate-500 block font-mono">
-                              (₹{(analyticsData.stockMovement?.complimentaryCostAbsorbed ?? 0).toFixed(0)})
+                              (₹{(analyticsData.stockMovement?.complimentaryCostAbsorbed ?? analyticsData.stockMovement?.complimentaryAbsorbedCost ?? 0).toFixed(0)})
                             </span>
                           </div>
 
@@ -6616,15 +6928,15 @@ export default function App() {
                         <div className="space-y-1.5 text-xs pt-3 border-t border-slate-800/80">
                           <div className="flex justify-between">
                             <span className="text-slate-400">Dispense Count:</span>
-                            <span className="font-bold text-white font-mono">{analyticsData.complimentarySummary?.dispenseCount ?? 0}</span>
+                            <span className="font-bold text-white font-mono">{analyticsData.complimentarySummary?.dispenseCount ?? analyticsData.complimentarySummary?.billsCount ?? 0}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-slate-400">Free Medicine Units:</span>
-                            <span className="font-bold text-amber-300 font-mono">{analyticsData.complimentarySummary?.totalUnits ?? 0} units</span>
+                            <span className="font-bold text-amber-300 font-mono">{analyticsData.complimentarySummary?.totalUnits ?? analyticsData.complimentarySummary?.unitsDispensed ?? 0} units</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-slate-400">Clinic Cost Absorbed:</span>
-                            <span className="font-bold text-amber-400 font-mono">₹{(analyticsData.complimentarySummary?.totalCostAbsorbed ?? 0).toFixed(2)}</span>
+                            <span className="font-bold text-amber-400 font-mono">₹{(analyticsData.complimentarySummary?.totalCostAbsorbed ?? analyticsData.complimentarySummary?.absorbedCost ?? 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>

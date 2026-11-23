@@ -293,6 +293,57 @@ export class JSONDatabaseEngine implements DatabaseEngine {
             needsSave = true;
           }
         }
+
+        // Automatic Stock Detection & Audit: Pre-existing medicines must be 0 stock until inward stock is added
+        const inwardBatchMap = new Map<string, number>();
+        const inwardProdTotalMap = new Map<number, number>();
+        (this.data.inward_stock || []).forEach(inw => {
+          const key = `${inw.product_id}_${inw.batch_number}`;
+          inwardBatchMap.set(key, (inwardBatchMap.get(key) || 0) + Number(inw.quantity || 0));
+          inwardProdTotalMap.set(Number(inw.product_id), (inwardProdTotalMap.get(Number(inw.product_id)) || 0) + Number(inw.quantity || 0));
+        });
+
+        const soldBatchMap = new Map<string, number>();
+        const soldProdTotalMap = new Map<number, number>();
+        (this.data.bill_items || []).forEach(bi => {
+          if (bi.status !== 'Cancelled') {
+            const key = `${bi.product_id}_${bi.batch_number}`;
+            soldBatchMap.set(key, (soldBatchMap.get(key) || 0) + Number(bi.quantity || 0));
+            soldProdTotalMap.set(Number(bi.product_id), (soldProdTotalMap.get(Number(bi.product_id)) || 0) + Number(bi.quantity || 0));
+          }
+        });
+
+        if (this.data.batches) {
+          for (const b of this.data.batches) {
+            const key = `${b.product_id}_${b.batch_number}`;
+            const inwQty = inwardBatchMap.get(key) || 0;
+            const soldQty = soldBatchMap.get(key) || 0;
+            if (inwQty > 0) {
+              // Exact remaining stock = Inward received minus sold
+              const realStock = Math.max(0, inwQty - soldQty);
+              if (b.available_stock !== realStock) {
+                b.available_stock = realStock;
+                needsSave = true;
+              }
+            } else if (b.available_stock > 0) {
+              // Pre-existing seeded catalog items have 0 stock until inward stock is recorded
+              b.available_stock = 0;
+              needsSave = true;
+            }
+          }
+        }
+
+        // Update product statuses automatically: 0 = Out of Stock, > 0 = Available
+        for (const p of this.data.products) {
+          const totalInward = inwardProdTotalMap.get(p.id) || 0;
+          const totalSold = soldProdTotalMap.get(p.id) || 0;
+          const currentStock = Math.max(0, totalInward - totalSold);
+          const expectedStatus = currentStock > 0 ? 'Available' : 'Out of Stock';
+          if (p.status !== expectedStatus) {
+            p.status = expectedStatus;
+            needsSave = true;
+          }
+        }
         if (needsSave) {
           this.save();
         }
@@ -373,7 +424,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
             expiry_date: futureDate(18 + (p.id % 12)), // 18 to 30 months validity
             mrp: Number(p.mrp || (p.price * 1.15).toFixed(2)),
             purchase_price: Number((p.price * 0.75).toFixed(2)),
-            available_stock: 100,
+            available_stock: 0,
             rack_location: p.is_cold_chain ? 'REFRIGERATOR-01 (Shelf A)' : `RACK-${String.fromCharCode(65 + (p.id % 6))}-${(p.id % 10) + 1}`,
             created_at: new Date().toISOString()
           });
@@ -1636,40 +1687,13 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       };
       this.data.inward_stock.push(record);
 
-      // Automatically sync and add batch inventory in FEFO batches table
-      if (!this.data.batches) this.data.batches = [];
-      const existingBatch = this.data.batches.find(b => b.product_id === Number(product_id) && b.batch_number === String(batch_number));
-      if (existingBatch) {
-        existingBatch.available_stock += Number(quantity);
-        existingBatch.expiry_date = String(expiry_date);
-        existingBatch.purchase_price = Number(purchase_price);
-        existingBatch.mrp = Number(mrp);
-        existingBatch.selling_price = sp;
-        existingBatch.status = 'Active';
-      } else {
-        const nextBatchId = this.data.batches.length > 0 ? Math.max(...this.data.batches.map(b => b.id)) + 1 : 1;
-        this.data.batches.push({
-          id: nextBatchId,
-          product_id: Number(product_id),
-          batch_number: String(batch_number),
-          mfg_date: mfg_date || '2026-01-01',
-          expiry_date: String(expiry_date),
-          mrp: Number(mrp),
-          purchase_price: Number(purchase_price),
-          selling_price: sp,
-          available_stock: Number(quantity),
-          rack_location: 'MAIN-PHARMACY-DISPENSARY',
-          status: 'Active',
-          created_at: new Date().toISOString()
-        });
-      }
-
-      // Update active prices in product record
+      // Update active prices and status in product record
       const prod = this.data.products.find(p => p.id === Number(product_id));
       if (prod) {
         if (mrp) prod.mrp = Number(mrp);
         if (sp) prod.price = sp;
         if (purchase_price) prod.purchase_price = Number(purchase_price);
+        if (Number(quantity) > 0) prod.status = 'Available';
       }
 
       this.save();
@@ -1869,7 +1893,7 @@ export async function getDatabase(): Promise<DatabaseEngine> {
         expiry_date TEXT,
         mrp REAL,
         purchase_price REAL,
-        available_stock REAL DEFAULT 100,
+        available_stock REAL DEFAULT 0,
         rack_location TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE

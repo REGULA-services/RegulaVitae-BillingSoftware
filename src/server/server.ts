@@ -1727,16 +1727,18 @@ async function compileComprehensiveStats(options: {
   const modeB = { revenue: 0, count: 0, tax: 0 };
 
   activeBills.forEach(b => {
-    const pm = b.payment_method;
+    const pm = String(b.payment_method || '').toLowerCase();
     const tot = Number(b.grand_total || 0);
-    if (b.is_complimentary || pm === "Complimentary") {
+    if (b.is_complimentary || pm.includes("complimentary")) {
       paymentBreakdown.Complimentary += 1;
-    } else if (pm === "Cash") {
+    } else if (pm.includes("cash")) {
       paymentBreakdown.Cash += tot;
-    } else if (pm === "Google Pay" || pm === "GooglePay" || pm === "UPI") {
-      paymentBreakdown.GooglePay += tot;
-    } else if (pm === "Bank Card" || pm === "BankCard" || pm === "Card") {
+    } else if (pm.includes("card") || pm.includes("pos") || pm.includes("debit") || pm.includes("credit")) {
       paymentBreakdown.BankCard += tot;
+    } else if (pm.includes("google") || pm.includes("upi") || pm.includes("gpay") || pm.includes("phonepe") || pm.includes("paytm")) {
+      paymentBreakdown.GooglePay += tot;
+    } else {
+      paymentBreakdown.Cash += tot;
     }
 
     if (b.operating_mode === 'RETAIL_PHARMACY') {
@@ -1867,6 +1869,7 @@ async function compileComprehensiveStats(options: {
       unitsSoldMrp: Number(totalUnitsSoldMrp.toFixed(2)),
       complimentaryUnits: totalComplimentaryUnits,
       complimentaryAbsorbedCost: 0, // Requirement: The cost for stocks as compliments must be 0 rs.
+      complimentaryCostAbsorbed: 0,
       netStockDifferenceUnits: netStockUnitsDifference,
       netStockValuationDifference: Number(netStockValuationDifference.toFixed(2)),
       currentAvailableStockUnits: currentClosingStockUnits,
@@ -1877,17 +1880,23 @@ async function compileComprehensiveStats(options: {
     // GST Breakdown
     gstReport: {
       taxableAmount: Number((netSales - totalTax).toFixed(2)),
+      taxableValue: Number((netSales - totalTax).toFixed(2)),
       cgst: Number((totalTax / 2).toFixed(2)),
       sgst: Number((totalTax / 2).toFixed(2)),
       totalTax: Number(totalTax.toFixed(2)),
+      totalGst: Number(totalTax.toFixed(2)),
       slabs: gstSlabs
     },
 
     // Complimentary / Doctor Health Dispense
     complimentarySummary: {
       billsCount: complimentaryBills.length,
+      dispenseCount: complimentaryBills.length,
       unitsDispensed: totalComplimentaryUnits,
-      absorbedCost: Number(complimentaryAbsorbedCost.toFixed(2)),
+      totalUnits: totalComplimentaryUnits,
+      absorbedCost: 0, // Requirement: Complimentary stock cost is 0 rs
+      totalCostAbsorbed: 0,
+      complimentaryAbsorbedCost: 0,
       mrpValue: Number(complimentaryMrpValue.toFixed(2))
     },
 

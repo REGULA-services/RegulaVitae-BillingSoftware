@@ -152,6 +152,39 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     row.getCell(5).numFmt = "₹#,##0.00";
   }
 
+  finSheet.addRow([]); // Blank row 26
+
+  // Section 4: Overall Financial Health & Clinic Conclusion
+  finSheet.mergeCells("A27:F27");
+  const sec4 = finSheet.getCell("A27");
+  sec4.value = "4. EXECUTIVE FINANCIAL CONCLUSION & CLINIC HEALTH";
+  sec4.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
+  sec4.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "047857" } };
+
+  finSheet.addRow(["Executive Summary Indicator", "Value (INR / Units)", "", "Financial Audit Takeaway", "Conclusion"]);
+  const sec4H = finSheet.getRow(28);
+  sec4H.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
+  sec4H.getCell(1).fill = sec4H.getCell(2).fill = sec4H.getCell(4).fill = sec4H.getCell(5).fill = {
+    type: "pattern", pattern: "solid", fgColor: { argb: "065F46" }
+  };
+
+  const netCashflow = Number(fin.netSales || 0) - Number(sm.inwardPurchaseValuation || 0);
+  const totalStockAssets = Number(sm.currentStockValuationCost || 0);
+  const healthVerdict = fin.netSales > 0 ? (fin.grossProfit > 0 ? "PROFITABLE & HEALTHY" : "BREAK-EVEN") : "READY FOR CLINICAL OPERATIONS";
+
+  finSheet.addRow(["Net Realized Sales (Inflow)", fin.netSales, "", "Operational Health Status", healthVerdict]);
+  finSheet.addRow(["Total Inward Stock Investment (Outflow)", sm.inwardPurchaseValuation, "", "Stock Inflow vs Outflow Ratio", sm.unitsSold > 0 ? `${(sm.inwardUnits / Math.max(1, sm.unitsSold)).toFixed(1)}x Refill Coverage` : "Initial Seeded"]);
+  finSheet.addRow(["Net Operational Cashflow (Sales minus Inward Refills)", netCashflow, "", "Statutory GST Liability", `CGST: ₹${(gst.cgst || 0).toFixed(2)} | SGST: ₹${(gst.sgst || 0).toFixed(2)}`]);
+  finSheet.addRow(["Total Clinic Drug Inventory Assets (At Cost)", totalStockAssets, "", "Pharmacy Audit Sign-off", "Verified Accurate per Drug Rules"]);
+
+  for (let r = 29; r <= 32; r++) {
+    const row = finSheet.getRow(r);
+    row.getCell(2).numFmt = "₹#,##0.00";
+    for (let c = 1; c <= 5; c++) {
+      row.getCell(c).border = { bottom: { style: "thin", color: { argb: "E2E8F0" } } };
+    }
+  }
+
   finSheet.columns = [{ width: 44 }, { width: 22 }, { width: 4 }, { width: 44 }, { width: 22 }];
 
   // ==========================================

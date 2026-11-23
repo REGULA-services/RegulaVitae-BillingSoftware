@@ -4,7 +4,7 @@ import {
   BarChart2, Wifi, CheckCircle2, AlertTriangle,
   AlertCircle, X, ChevronRight, Download, RefreshCw, LogOut,
   Package, Monitor, Edit2, ShieldAlert, Printer, Eye,
-  Settings, UserCheck, Tag
+  Settings, UserCheck, Tag, Sparkles
 } from 'lucide-react';
 import { apiUrl, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
 
@@ -323,6 +323,18 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   });
   const [discountPercent, setDiscountPercent] = useState<number>(persistentDiscount);
 
+  // Complimentary / Doctor Health Dispense state (Admin only)
+  const [isComplimentaryCheckout, setIsComplimentaryCheckout] = useState<boolean>(false);
+  const [complimentaryRecipient, setComplimentaryRecipient] = useState<string>('');
+  const [complimentaryReason, setComplimentaryReason] = useState<string>('Doctor / Staff Health Dispense');
+
+  // Enforce staff mode: employees can ONLY access billing
+  useEffect(() => {
+    if (currentUser?.role && currentUser.role !== 'admin' && activeTab !== 'billing') {
+      setActiveTab('billing');
+    }
+  }, [currentUser, activeTab]);
+
   // Inward Stock Consignment Modal (Admin Multi-Medicine Intake)
   const [isInwardModalOpen, setIsInwardModalOpen] = useState<boolean>(false);
   const [inwardConsignment, setInwardConsignment] = useState({
@@ -484,6 +496,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     cgst: 0,
     sgst: 0,
     cashAmount: 0,
+    cardAmount: 0,
     upiAmount: 0,
     itemsSold: 0
   });
@@ -542,6 +555,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           let sales = 0;
           let mrpTotal = 0;
           let cash = 0;
+          let card = 0;
           let upi = 0;
           let items = 0;
 
@@ -552,6 +566,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               mrpTotal += Number(b.total_mrp || b.total || 0);
               const pm = (b.payment_method || '').toLowerCase();
               if (pm.includes('cash')) cash += Number(b.total || 0);
+              else if (pm.includes('card') || pm.includes('pos') || pm.includes('debit') || pm.includes('credit')) card += Number(b.total || 0);
               else upi += Number(b.total || 0);
 
               let lineItems: any[] = [];
@@ -575,6 +590,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             cgst: gst / 2,
             sgst: gst / 2,
             cashAmount: cash,
+            cardAmount: card,
             upiAmount: upi,
             itemsSold: items
           });
@@ -649,12 +665,19 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     });
   }, [products, selectedCategory, searchQuery]);
 
-  // Cart calculations with persistent discount
+  // Cart calculations with persistent discount and GST
   const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const totalMrp = useMemo(() => cart.reduce((sum, item) => sum + (item.mrp * item.quantity), 0), [cart]);
   const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.rate * item.quantity), 0), [cart]);
   const discountAmount = useMemo(() => Number(((cartSubtotal * discountPercent) / 100).toFixed(2)), [cartSubtotal, discountPercent]);
-  const totalAmount = useMemo(() => Math.max(0, cartSubtotal - discountAmount), [cartSubtotal, discountAmount]);
+
+  // GST Calculation (per-item tax percent with proportional discount reduction)
+  const cartGstTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.rate * item.quantity * ((item.tax_percent ?? 5) / 100)), 0), [cart]);
+  const discountRatio = useMemo(() => cartSubtotal > 0 ? discountAmount / cartSubtotal : 0, [cartSubtotal, discountAmount]);
+  const cartTax = useMemo(() => Number((cartGstTotal * (1 - discountRatio)).toFixed(2)), [cartGstTotal, discountRatio]);
+  const cartCgst = useMemo(() => Number((cartTax / 2).toFixed(2)), [cartTax]);
+  const cartSgst = useMemo(() => Number((cartTax / 2).toFixed(2)), [cartTax]);
+  const totalAmount = useMemo(() => Math.max(0, Number((cartSubtotal - discountAmount + cartTax).toFixed(2))), [cartSubtotal, discountAmount, cartTax]);
   const totalSavings = useMemo(() => Math.max(0, totalMrp - totalAmount), [totalMrp, totalAmount]);
 
   const handleSetDiscount = (percent: number) => {
@@ -816,13 +839,17 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         nextBillNumber = `MOC-${dateStr}-${Math.floor(1000 + Math.random() * 9000)}`;
       }
 
+      const isFree = isComplimentaryCheckout && currentUser?.role === 'admin';
+      const finalPaymentMethod = isFree ? 'Complimentary' : paymentMethod;
+      const finalGrandTotal = isFree ? 0 : totalAmount;
+
       const billPayload = {
         bill_number: nextBillNumber,
         patient_id: selectedPatient?.id || null,
-        patient_name: isWalkIn ? 'Walk-in Patient' : (selectedPatient?.name || 'Walk-in Patient'),
+        patient_name: isFree ? (complimentaryRecipient.trim() || 'Clinic Doctor / Staff') : (isWalkIn ? 'Walk-in Patient' : (selectedPatient?.name || 'Walk-in Patient')),
         patient_phone: selectedPatient?.phone || '',
         doctor: selectedDoctor,
-        payment_method: paymentMethod,
+        payment_method: finalPaymentMethod,
         items: cart.map((i) => ({
           product_id: i.id,
           product_name: i.name,
@@ -837,14 +864,19 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           tax_percent: i.tax_percent,
           total: Number((i.rate * i.quantity).toFixed(2))
         })),
-        grand_total: totalAmount,
-        total_amount: totalAmount,
-        total: totalAmount,
+        grand_total: finalGrandTotal,
+        total_amount: finalGrandTotal,
+        total: finalGrandTotal,
         subtotal: cartSubtotal,
-        discount: discountAmount,
-        tax: 0,
-        cash_tendered: paymentMethod === 'Cash' ? cashNum : totalAmount,
-        change_returned: paymentMethod === 'Cash' ? changeToReturn : 0
+        discount: isFree ? 0 : discountAmount,
+        tax: isFree ? 0 : cartTax,
+        cgst: isFree ? 0 : cartCgst,
+        sgst: isFree ? 0 : cartSgst,
+        is_complimentary: isFree ? 1 : 0,
+        complimentary_recipient: isFree ? (complimentaryRecipient.trim() || 'Clinic Doctor / Staff') : undefined,
+        complimentary_reason: isFree ? (complimentaryReason.trim() || 'Doctor / Staff Health Dispense') : undefined,
+        cash_tendered: finalPaymentMethod === 'Cash' ? cashNum : finalGrandTotal,
+        change_returned: finalPaymentMethod === 'Cash' ? changeToReturn : 0
       };
 
       const res = await fetch(apiUrl('/api/bills'), {
@@ -857,11 +889,16 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         const result = await res.json();
         setBillSuccessModal({
           billNumber: result.bill_number || nextBillNumber,
-          totalAmount,
+          totalAmount: finalGrandTotal,
           totalMrp,
-          totalSavings,
-          paymentMethod,
-          patientName: isWalkIn ? 'Walk-in Patient' : (selectedPatient?.name || 'Walk-in Patient'),
+          totalSavings: isFree ? totalMrp : totalSavings,
+          subtotal: cartSubtotal,
+          discount: isFree ? 0 : discountAmount,
+          tax: isFree ? 0 : cartTax,
+          cgst: isFree ? 0 : cartCgst,
+          sgst: isFree ? 0 : cartSgst,
+          paymentMethod: finalPaymentMethod,
+          patientName: isFree ? (complimentaryRecipient.trim() || 'Clinic Doctor / Staff') : (isWalkIn ? 'Walk-in Patient' : (selectedPatient?.name || 'Walk-in Patient')),
           doctor: selectedDoctor,
           items: [...cart],
           date: new Date().toLocaleString()
@@ -871,6 +908,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         setCart([]);
         setIsCartOpen(false);
         setCashTendered('');
+        setIsComplimentaryCheckout(false);
+        setComplimentaryRecipient('');
         loadData();
         loadPeriodStats(reportPeriod);
       } else {
@@ -1259,6 +1298,18 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <Monitor className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Desktop</span>
             </button>
+
+            {/* Logout Button */}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg text-xs font-bold border border-rose-500/30 flex items-center gap-1 transition-all"
+                title="Log out of software"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            )}
 
             {/* Cart Button */}
             <button
@@ -1673,7 +1724,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-100">
                       <div className="text-[10px] font-bold text-blue-600 uppercase">Gross Sales Collected</div>
                       <div className="text-lg font-black text-blue-900 mt-0.5">₹{todayStats.grossSales.toFixed(2)}</div>
@@ -1689,6 +1740,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
                       <div className="text-[10px] font-semibold text-slate-500">Digital / UPI</div>
                       <div className="text-sm font-bold text-slate-800">₹{todayStats.upiAmount.toFixed(2)}</div>
+                    </div>
+                    <div className="bg-purple-50/70 p-2.5 rounded-xl border border-purple-200 col-span-2 sm:col-span-1">
+                      <div className="text-[10px] font-bold text-purple-700 uppercase">Money by Card</div>
+                      <div className="text-sm font-black text-purple-900">₹{todayStats.cardAmount.toFixed(2)}</div>
                     </div>
                   </div>
 
@@ -2193,6 +2248,65 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               </div>
             </div>
 
+            {/* Danger Zone: Clinic Data Maintenance (Admin Only) */}
+            {currentUser?.role === 'admin' && (
+              <div className="bg-white p-4 rounded-2xl border border-rose-200 shadow-xs space-y-3">
+                <div className="text-sm font-bold text-rose-700 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Clinic Data Maintenance (Admin)</span>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Clean example/demo records to start fresh for clinic operations, or perform a complete device data reset.
+                </p>
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Are you sure you want to delete all example/demo records (demo patients, demo bills)? Real clinic records will be kept.")) return;
+                      try {
+                        const res = await fetch(apiUrl('/api/system/clear-example-records'), { method: 'POST' });
+                        if (res.ok) {
+                          alert("All example placeholder records have been deleted successfully.");
+                          loadData();
+                          loadPeriodStats(reportPeriod);
+                        } else {
+                          const err = await res.json();
+                          alert(err.error || "Failed to purge example records.");
+                        }
+                      } catch (e: any) {
+                        alert(e.message || "Failed to clear example records.");
+                      }
+                    }}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete All Example Data Records</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!confirm("CAUTION: This will permanently wipe ALL clinic data, medicines, and records from this device. Are you completely sure?")) return;
+                      try {
+                        const res = await fetch(apiUrl('/api/system/wipe-all-data'), { method: 'POST' });
+                        if (res.ok) {
+                          alert("All data on this device has been completely wiped. Reloading...");
+                          window.location.reload();
+                        } else {
+                          const err = await res.json();
+                          alert(err.error || "Failed to wipe data.");
+                        }
+                      } catch (e: any) {
+                        alert(e.message || "Failed to wipe data.");
+                      }
+                    }}
+                    className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-rose-200"
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Factory Reset / Wipe All Data</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* System Controls */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
               <button
@@ -2243,56 +2357,64 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       )}
 
       {/* ─── BOTTOM NAVIGATION BAR ──────────────────────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 grid grid-cols-5 py-2 px-1 pb-[max(8px,env(safe-area-inset-bottom))] shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+      <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-1 pb-[max(8px,env(safe-area-inset-bottom))] shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] ${
+        currentUser?.role === 'admin' ? 'grid grid-cols-5' : 'flex justify-around items-center'
+      }`}>
         <button
           onClick={() => setActiveTab('billing')}
           className={`flex flex-col items-center justify-center gap-0.5 ${
+            currentUser?.role === 'admin' ? '' : 'px-8 py-1 rounded-xl bg-blue-50'
+          } ${
             activeTab === 'billing' ? 'text-blue-600 font-bold' : 'text-slate-500'
           }`}
         >
           <ShoppingBag className="h-5 w-5" />
-          <span className="text-[10px]">Billing</span>
+          <span className="text-[10px] font-bold">Billing {currentUser?.role !== 'admin' && '(Staff Mode)'}</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('medicines')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Package className="h-5 w-5" />
-          <span className="text-[10px]">Medicines</span>
-        </button>
+        {currentUser?.role === 'admin' && (
+          <>
+            <button
+              onClick={() => setActiveTab('medicines')}
+              className={`flex flex-col items-center justify-center gap-0.5 ${
+                activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <Package className="h-5 w-5" />
+              <span className="text-[10px]">Medicines</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <BarChart2 className="h-5 w-5" />
-          <span className="text-[10px]">Reports</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`flex flex-col items-center justify-center gap-0.5 ${
+                activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <BarChart2 className="h-5 w-5" />
+              <span className="text-[10px]">Reports</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('patients')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Users className="h-5 w-5" />
-          <span className="text-[10px]">Patients</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('patients')}
+              className={`flex flex-col items-center justify-center gap-0.5 ${
+                activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <Users className="h-5 w-5" />
+              <span className="text-[10px]">Patients</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('more')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Settings className="h-5 w-5" />
-          <span className="text-[10px]">More</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('more')}
+              className={`flex flex-col items-center justify-center gap-0.5 ${
+                activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="text-[10px]">More</span>
+            </button>
+          </>
+        )}
       </nav>
 
       {/* ─── CHECKOUT SHEET DRAWER ──────────────────────────────────── */}
@@ -2499,7 +2621,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 {/* Subtotal & Net Payable */}
                 <div className="pt-2 border-t border-slate-200 space-y-1">
                   <div className="flex justify-between text-slate-600">
-                    <span>Subtotal:</span>
+                    <span>Subtotal (excl. GST):</span>
                     <span className="font-medium font-mono">₹{cartSubtotal.toFixed(2)}</span>
                   </div>
                   {discountAmount > 0 && (
@@ -2508,12 +2630,71 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       <span className="font-mono">-₹{discountAmount.toFixed(2)}</span>
                     </div>
                   )}
+                  {cartTax > 0 && (
+                    <>
+                      <div className="flex justify-between text-slate-600 text-xs">
+                        <span>CGST (Central Tax):</span>
+                        <span className="font-mono">+₹{cartCgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 text-xs">
+                        <span>SGST (State Tax):</span>
+                        <span className="font-mono">+₹{cartSgst.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-amber-600 text-xs font-bold">
+                        <span>Total GST Added:</span>
+                        <span className="font-mono">+₹{cartTax.toFixed(2)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-base font-black text-slate-900 pt-1 border-t border-slate-200">
-                    <span>Net Payable:</span>
-                    <span className="text-blue-700 font-mono">₹{totalAmount.toFixed(2)}</span>
+                    <span>{isComplimentaryCheckout ? 'Complimentary Dispense:' : 'Grand Total (incl. GST):'}</span>
+                    <span className="text-blue-700 font-mono">₹{isComplimentaryCheckout ? '0.00' : totalAmount.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
+
+              {/* Admin Only: Complimentary / Doctor Free Health Dispense */}
+              {currentUser?.role === 'admin' && (
+                <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-2">
+                  <label className="flex items-center justify-between cursor-pointer select-none">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block">Free Health Dispense (₹0 Cost)</span>
+                        <span className="text-[10px] text-amber-800 block">Admin: Dispense complimentary to doctor/staff</span>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isComplimentaryCheckout}
+                      onChange={(e) => {
+                        setIsComplimentaryCheckout(e.target.checked);
+                        if (e.target.checked) setPaymentMethod('Cash');
+                      }}
+                      className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4"
+                    />
+                  </label>
+
+                  {isComplimentaryCheckout && (
+                    <div className="space-y-1.5 pt-1.5 border-t border-amber-200/80">
+                      <input
+                        type="text"
+                        placeholder="Recipient Name (e.g. Dr. Ramesh / Staff Priya)"
+                        value={complimentaryRecipient}
+                        onChange={(e) => setComplimentaryRecipient(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold focus:outline-none focus:border-amber-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Reason / Notes (e.g. Health Dispense)"
+                        value={complimentaryReason}
+                        onChange={(e) => setComplimentaryReason(e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Payment Section */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">

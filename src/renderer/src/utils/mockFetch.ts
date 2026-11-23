@@ -16173,6 +16173,107 @@ export function initMockFetch() {
       }
 
       // ----------------------------------------------------
+      // NOTIFICATIONS / REAL-TIME EXPIRY & STOCK ALERTS (MOCK)
+      // ----------------------------------------------------
+      if (path === '/api/notifications') {
+        const today = new Date().toISOString().split('T')[0];
+        const products = getDbData('products', ORTHO_PHARMACY_PRODUCTS);
+        const batches = getDbData('batches', []);
+        const prodMap = new Map<number, any>();
+        products.forEach((p: any) => prodMap.set(p.id, p));
+
+        const expired: any[] = [];
+        const expiringSoon: any[] = [];
+        batches.forEach((b: any) => {
+          const p = prodMap.get(b.product_id);
+          const prodName = p ? p.name : 'Unknown Medicine';
+          const avail = Number(b.available_stock || 0);
+          const expDate = String(b.expiry_date || '').substring(0, 10);
+          if (!expDate) return;
+          const diffDays = Math.ceil((new Date(expDate).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 0 && (avail > 0 || b.status === 'Quarantined')) {
+            expired.push({
+              id: `exp-${b.id}`,
+              batch_id: b.id,
+              product_id: b.product_id,
+              product_name: prodName,
+              batch_number: b.batch_number,
+              expiry_date: expDate,
+              available_stock: avail,
+              rack_location: b.rack_location || 'Dispensing Shelf',
+              days_overdue: Math.abs(diffDays),
+              severity: 'CRITICAL',
+              type: 'EXPIRED',
+              title: `EXPIRED: ${prodName}`,
+              message: `Batch ${b.batch_number} expired on ${expDate} (${Math.abs(diffDays)} days ago). Remaining: ${avail} units. Must be isolated under Rule 65.`
+            });
+          } else if (diffDays <= 60 && avail > 0) {
+            expiringSoon.push({
+              id: `soon-${b.id}`,
+              batch_id: b.id,
+              product_id: b.product_id,
+              product_name: prodName,
+              batch_number: b.batch_number,
+              expiry_date: expDate,
+              available_stock: avail,
+              rack_location: b.rack_location || 'Dispensing Shelf',
+              days_left: diffDays,
+              severity: diffDays <= 30 ? 'HIGH' : 'MEDIUM',
+              type: 'EXPIRING_SOON',
+              title: `Expiring in ${diffDays} days: ${prodName}`,
+              message: `Batch ${b.batch_number} expires on ${expDate}. Available: ${avail} units. Eligible for priority dispensing or wholesaler return.`
+            });
+          }
+        });
+
+        const outOfStock: any[] = [];
+        const lowStock: any[] = [];
+        products.forEach((p: any) => {
+          const avail = Number(p.available_stock || 0);
+          if (avail <= 0 || p.status === 'Out of Stock') {
+            outOfStock.push({
+              id: `oos-${p.id}`,
+              product_id: p.id,
+              product_name: p.name,
+              category: p.category,
+              mrp: p.mrp || p.price,
+              severity: 'HIGH',
+              type: 'OUT_OF_STOCK',
+              title: `Out of Stock: ${p.name}`,
+              message: `Zero available units remaining. Create inward stock intake to restore inventory.`
+            });
+          } else if (avail <= 15) {
+            lowStock.push({
+              id: `low-${p.id}`,
+              product_id: p.id,
+              product_name: p.name,
+              category: p.category,
+              available_stock: avail,
+              severity: 'LOW',
+              type: 'LOW_STOCK',
+              title: `Low Stock (${avail} units left): ${p.name}`,
+              message: `Only ${avail} units remaining in active clinic dispensary inventory.`
+            });
+          }
+        });
+
+        return makeResponse({
+          summary: {
+            totalAlerts: expired.length + expiringSoon.length + outOfStock.length,
+            expiredCount: expired.length,
+            expiringSoonCount: expiringSoon.length,
+            outOfStockCount: outOfStock.length,
+            lowStockCount: lowStock.length,
+            updatedAt: new Date().toISOString()
+          },
+          expired,
+          expiringSoon,
+          outOfStock,
+          lowStock
+        });
+      }
+
+      // ----------------------------------------------------
       // REPORTS / SALES ANALYTICS
       // ----------------------------------------------------
       if (path.startsWith('/api/reports/')) {

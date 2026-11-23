@@ -5,10 +5,11 @@ import {
   Users, Lock, LogOut, Shield, KeyRound, Wifi, Bluetooth, Printer,
   FileSpreadsheet, UploadCloud, Download, Menu, CheckCircle, CheckCircle2,
   Database, PlusCircle, ChevronRight, ChevronDown, Building2, Store, Package,
-  Sparkles, Stethoscope
+  Sparkles, Stethoscope, Bell
 } from 'lucide-react';
 import { PatientsModal } from './components/PatientsModal';
 import { MobileTabletApp } from './components/MobileTabletApp';
+import { NotificationsModal, NotificationsData } from './components/NotificationsModal';
 import { apiUrl } from './utils/apiConfig';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
@@ -825,6 +826,28 @@ export default function App() {
   const [selectedPatientObj, setSelectedPatientObj] = useState<any | null>(null);
   const [patientAllergyAlert, setPatientAllergyAlert] = useState<string | null>(null);
 
+  // Real-Time Inventory & Expiration Notifications
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [notificationsData, setNotificationsData] = useState<NotificationsData>({
+    summary: { totalAlerts: 0, expiredCount: 0, expiringSoonCount: 0, outOfStockCount: 0, lowStockCount: 0, updatedAt: '' },
+    expired: [],
+    expiringSoon: [],
+    outOfStock: [],
+    lowStock: []
+  });
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(apiUrl('/api/notifications'));
+      if (res.ok) {
+        const data = await res.json();
+        setNotificationsData(data);
+      }
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Fetch error:', err);
+    }
+  };
+
   // Prescribing Doctor Database & Dropdown States
   const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false);
   const [doctorSearchQuery, setDoctorSearchQuery] = useState('');
@@ -1302,6 +1325,74 @@ export default function App() {
     };
 
     restoreSessions();
+  }, []);
+
+  // Real-Time SSE Listener & Multi-Device Inventory Sync
+  useEffect(() => {
+    fetchNotifications();
+
+    let eventSource: EventSource | null = null;
+    let reconnectTimer: any = null;
+
+    const connectSSE = () => {
+      try {
+        const eventsUrl = apiUrl('/api/events');
+        eventSource = new EventSource(eventsUrl);
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'HEARTBEAT') return;
+
+            console.log('[REALTIME EVENT RECEIVED]', data);
+
+            if (data.type === 'INVENTORY_CHANGED' || data.type === 'STOCK_OUT' || data.type === 'CATALOGUE_CHANGED') {
+              loadProducts();
+              fetchNotifications();
+            }
+
+            if (data.type === 'STOCK_OUT') {
+              showToast(data.message || '⚠️ Medicine reached 0 stock!', 'info');
+            }
+          } catch (e) {
+            console.error('Failed to parse realtime event:', e);
+          }
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (!reconnectTimer) {
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null;
+              connectSSE();
+            }, 5000);
+          }
+        };
+      } catch (err) {
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connectSSE();
+          }, 5000);
+        }
+      }
+    };
+
+    connectSSE();
+
+    // Fallback periodic poll every 60s
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 60000);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Sync sessions with localStorage
@@ -3271,6 +3362,22 @@ export default function App() {
             <span>Mobile View</span>
           </button>
 
+          {/* Real-Time Expiry & Inventory Alerts Bell */}
+          <button
+            onClick={() => {
+              fetchNotifications();
+              setShowNotificationsModal(true);
+            }}
+            className="relative p-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-lg border border-slate-700 text-slate-300 hover:text-white transition-colors"
+            title="Real-Time Expiry & Inventory Alerts"
+          >
+            <Bell className="w-4 h-4 text-amber-400" />
+            {notificationsData?.summary?.totalAlerts > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg animate-pulse">
+                {notificationsData.summary.totalAlerts > 99 ? '99+' : notificationsData.summary.totalAlerts}
+              </span>
+            )}
+          </button>
           
           <button
             onClick={() => setShowSettingsModal(true)}
@@ -3307,6 +3414,23 @@ export default function App() {
           >
             <Plus className="w-3.5 h-3.5 mr-1 stroke-[3]" />
             <span>New Rx</span>
+          </button>
+
+          {/* Real-time Alerts Bell (Mobile) */}
+          <button
+            onClick={() => {
+              fetchNotifications();
+              setShowNotificationsModal(true);
+            }}
+            className="relative p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 rounded-xl text-xs transition-all"
+            title="Real-Time Alerts"
+          >
+            <Bell className="w-4 h-4 text-amber-400" />
+            {notificationsData?.summary?.totalAlerts > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg animate-pulse">
+                {notificationsData.summary.totalAlerts > 99 ? '99+' : notificationsData.summary.totalAlerts}
+              </span>
+            )}
           </button>
 
           <button
@@ -8897,6 +9021,23 @@ export default function App() {
         onSelectPatient={(patient: any) => {
           selectPatientInCheckout(patient);
           setShowPatientsModal(false);
+        }}
+      />
+
+      {/* ----------------- REAL-TIME NOTIFICATIONS & EXPIRY MODAL ----------------- */}
+      <NotificationsModal
+        isOpen={showNotificationsModal}
+        onClose={() => setShowNotificationsModal(false)}
+        data={notificationsData}
+        onRefresh={fetchNotifications}
+        onNavigateToInward={() => {
+          setShowNotificationsModal(false);
+          setProductModalTab('inward');
+          setShowProductCrudModal(true);
+        }}
+        onSelectProductForBilling={(productName) => {
+          setShowNotificationsModal(false);
+          setSearchQuery(productName);
         }}
       />
 

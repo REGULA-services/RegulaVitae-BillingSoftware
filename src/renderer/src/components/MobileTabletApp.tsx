@@ -4,9 +4,10 @@ import {
   BarChart2, Wifi, CheckCircle2, AlertTriangle,
   AlertCircle, X, ChevronRight, Download, RefreshCw, LogOut,
   Package, Monitor, Edit2, ShieldAlert, Printer, Eye,
-  Settings, UserCheck, Tag, Sparkles
+  Settings, UserCheck, Tag, Sparkles, Bell
 } from 'lucide-react';
 import { apiUrl, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
+import { NotificationsModal, NotificationsData } from './NotificationsModal';
 
 interface Product {
   id: number;
@@ -328,6 +329,28 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   const [complimentaryRecipient, setComplimentaryRecipient] = useState<string>('');
   const [complimentaryReason, setComplimentaryReason] = useState<string>('Doctor / Staff Health Dispense');
 
+  // Real-Time Inventory & Expiry Notifications State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const [notificationsData, setNotificationsData] = useState<NotificationsData>({
+    summary: { totalAlerts: 0, expiredCount: 0, expiringSoonCount: 0, outOfStockCount: 0, lowStockCount: 0, updatedAt: '' },
+    expired: [],
+    expiringSoon: [],
+    outOfStock: [],
+    lowStock: []
+  });
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch(apiUrl('/api/notifications'));
+      if (res && res.ok) {
+        const data = await res.json();
+        setNotificationsData(data);
+      }
+    } catch (err) {
+      console.error('[MOBILE NOTIFICATIONS] Fetch error:', err);
+    }
+  };
+
   // Enforce staff mode: employees can ONLY access billing
   useEffect(() => {
     if (currentUser?.role && currentUser.role !== 'admin' && activeTab !== 'billing') {
@@ -639,6 +662,61 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   useEffect(() => {
     loadData();
     loadPeriodStats('today');
+    fetchNotifications();
+
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: any = null;
+
+    const connectSSE = () => {
+      try {
+        const eventsUrl = apiUrl('/api/events');
+        eventSource = new EventSource(eventsUrl);
+
+        eventSource.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.type === 'HEARTBEAT') return;
+
+            console.log('[MOBILE REALTIME SSE RECEIVED]', data);
+            if (data.type === 'INVENTORY_CHANGED' || data.type === 'STOCK_OUT' || data.type === 'CATALOGUE_CHANGED') {
+              loadData();
+              loadPeriodStats('today');
+              fetchNotifications();
+            }
+          } catch (err) {}
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (!reconnectTimeout) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectTimeout = null;
+              connectSSE();
+            }, 5000);
+          }
+        };
+      } catch (e) {
+        if (!reconnectTimeout) {
+          reconnectTimeout = setTimeout(() => {
+            reconnectTimeout = null;
+            connectSSE();
+          }, 5000);
+        }
+      }
+    };
+
+    connectSSE();
+
+    const notifTimer = setInterval(fetchNotifications, 60000);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(notifTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -1310,6 +1388,23 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 <span className="hidden sm:inline">Logout</span>
               </button>
             )}
+
+            {/* Real-Time Expiry & Inventory Alerts Bell */}
+            <button
+              onClick={() => {
+                fetchNotifications();
+                setIsNotificationsOpen(true);
+              }}
+              className="relative p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 shadow-xs active:scale-95 transition-all"
+              title="Real-Time Alerts"
+            >
+              <Bell className="h-4 w-4 text-amber-400" />
+              {notificationsData?.summary?.totalAlerts > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center animate-pulse shadow-md">
+                  {notificationsData.summary.totalAlerts > 99 ? '99+' : notificationsData.summary.totalAlerts}
+                </span>
+              )}
+            </button>
 
             {/* Cart Button */}
             <button
@@ -3579,6 +3674,23 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           </div>
         </div>
       )}
+
+      {/* ─── REAL-TIME EXPIRATION & INVENTORY ALERTS MODAL ─────────── */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        data={notificationsData}
+        onRefresh={fetchNotifications}
+        onNavigateToInward={() => {
+          setIsNotificationsOpen(false);
+          setIsInwardModalOpen(true);
+        }}
+        onSelectProductForBilling={(productName) => {
+          setIsNotificationsOpen(false);
+          setActiveTab('billing');
+          setSearchQuery(productName);
+        }}
+      />
     </div>
   );
 };

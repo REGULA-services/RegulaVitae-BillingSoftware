@@ -85,6 +85,191 @@ app.use((req, res, next) => {
   next();
 });
 
+// ----------------------------------------------------
+// REAL-TIME MULTI-DEVICE EVENT BROADCASTER (SSE)
+// ----------------------------------------------------
+export interface RealtimeEvent {
+  type: 'INVENTORY_CHANGED' | 'BILL_CREATED' | 'STOCK_OUT' | 'EXPIRY_ALERT' | 'CATALOGUE_CHANGED' | 'SYNC_ALL';
+  message?: string;
+  data?: any;
+  timestamp?: string;
+}
+
+const sseClients = new Set<express.Response>();
+
+export function broadcastRealtimeEvent(event: RealtimeEvent) {
+  const payload = JSON.stringify({
+    ...event,
+    timestamp: event.timestamp || new Date().toISOString()
+  });
+  sseClients.forEach(res => {
+    try {
+      res.write(`data: ${payload}\n\n`);
+    } catch {
+      sseClients.delete(res);
+    }
+  });
+}
+
+// Server-Sent Events stream: multi-device real-time sync on port 4848
+app.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (typeof (res as any).flushHeaders === 'function') {
+    (res as any).flushHeaders();
+  }
+
+  // Initial handshake message
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', message: 'Real-time clinic synchronization active', timestamp: new Date().toISOString() })}\n\n`);
+  sseClients.add(res);
+
+  const pingInterval = setInterval(() => {
+    try {
+      res.write(`: ping\n\n`);
+    } catch {
+      clearInterval(pingInterval);
+      sseClients.delete(res);
+    }
+  }, 20000);
+
+  req.on('close', () => {
+    clearInterval(pingInterval);
+    sseClients.delete(res);
+  });
+});
+
+// Diagnostic broadcast trigger
+app.post('/api/events/broadcast', (req, res) => {
+  const { type = 'SYNC_ALL', message = 'Manual synchronisation trigger', data } = req.body || {};
+  broadcastRealtimeEvent({ type, message, data });
+  res.json({ success: true, clientCount: sseClients.size });
+});
+
+// ----------------------------------------------------
+// REAL-TIME CLINIC NOTIFICATIONS & EXPIRY / STOCK ALERTS
+// ----------------------------------------------------
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const today = new Date().toISOString().split('T')[0];
+
+    const products = await db.all<any>("SELECT * FROM products");
+    const batches = await db.all<any>("SELECT * FROM batches");
+    const prodMap = new Map<number, any>();
+    products.forEach(p => prodMap.set(p.id, p));
+
+    // 1. Expired batches
+    const expired: any[] = [];
+    // 2. Expiring soon (<60 days)
+    const expiringSoon: any[] = [];
+
+    batches.forEach(b => {
+      const p = prodMap.get(b.product_id);
+      const prodName = p ? p.name : 'Unknown Medicine';
+      const avail = Number(b.available_stock || 0);
+      const expDate = String(b.expiry_date || '').substring(0, 10);
+      if (!expDate) return;
+
+      const diffDays = Math.ceil((new Date(expDate).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 0) {
+        if (avail > 0 || b.status === 'Quarantined') {
+          expired.push({
+            id: `exp-${b.id}`,
+            batch_id: b.id,
+            product_id: b.product_id,
+            product_name: prodName,
+            batch_number: b.batch_number,
+            expiry_date: expDate,
+            available_stock: avail,
+            rack_location: b.rack_location || 'Dispensing Shelf',
+            days_overdue: Math.abs(diffDays),
+            severity: 'CRITICAL',
+            type: 'EXPIRED',
+            title: `EXPIRED: ${prodName}`,
+            message: `Batch ${b.batch_number} expired on ${expDate} (${Math.abs(diffDays)} days ago). Remaining: ${avail} units. Must be isolated under Rule 65.`
+          });
+        }
+      } else if (diffDays <= 60 && avail > 0) {
+        expiringSoon.push({
+          id: `soon-${b.id}`,
+          batch_id: b.id,
+          product_id: b.product_id,
+          product_name: prodName,
+          batch_number: b.batch_number,
+          expiry_date: expDate,
+          available_stock: avail,
+          rack_location: b.rack_location || 'Dispensing Shelf',
+          days_left: diffDays,
+          severity: diffDays <= 30 ? 'HIGH' : 'MEDIUM',
+          type: 'EXPIRING_SOON',
+          title: `Expiring in ${diffDays} days: ${prodName}`,
+          message: `Batch ${b.batch_number} expires on ${expDate}. Available: ${avail} units. Eligible for priority dispensing or wholesaler return.`
+        });
+      }
+    });
+
+    // 3. Out of stock & low stock products
+    const outOfStock: any[] = [];
+    const lowStock: any[] = [];
+
+    products.forEach(p => {
+      const avail = Number(p.available_stock || 0);
+      if (avail <= 0 || p.status === 'Out of Stock') {
+        outOfStock.push({
+          id: `oos-${p.id}`,
+          product_id: p.id,
+          product_name: p.name,
+          category: p.category,
+          mrp: p.mrp || p.price,
+          severity: 'HIGH',
+          type: 'OUT_OF_STOCK',
+          title: `Out of Stock: ${p.name}`,
+          message: `Zero available units remaining. Create inward stock intake to restore inventory.`
+        });
+      } else if (avail <= 15) {
+        lowStock.push({
+          id: `low-${p.id}`,
+          product_id: p.id,
+          product_name: p.name,
+          category: p.category,
+          available_stock: avail,
+          severity: 'LOW',
+          type: 'LOW_STOCK',
+          title: `Low Stock (${avail} units left): ${p.name}`,
+          message: `Only ${avail} units remaining in active clinic dispensary inventory.`
+        });
+      }
+    });
+
+    // Sort by clinical urgency
+    expired.sort((a, b) => b.days_overdue - a.days_overdue);
+    expiringSoon.sort((a, b) => a.days_left - b.days_left);
+    outOfStock.sort((a, b) => a.product_name.localeCompare(b.product_name));
+
+    const totalAlerts = expired.length + expiringSoon.length + outOfStock.length;
+
+    res.json({
+      summary: {
+        totalAlerts,
+        expiredCount: expired.length,
+        expiringSoonCount: expiringSoon.length,
+        outOfStockCount: outOfStock.length,
+        lowStockCount: lowStock.length,
+        updatedAt: new Date().toISOString()
+      },
+      expired,
+      expiringSoon,
+      outOfStock,
+      lowStock
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Helper to get monday and sunday of a given date
 function getMondayAndSunday(dStr: string) {
   const d = new Date(dStr);
@@ -422,6 +607,12 @@ app.post('/api/products', async (req, res) => {
       );
     }
 
+    broadcastRealtimeEvent({
+      type: 'CATALOGUE_CHANGED',
+      message: `Medicine registered: ${name}`,
+      data: { productId, name }
+    });
+
     res.status(201).json({
       id: productId,
       name,
@@ -692,6 +883,7 @@ app.post('/api/employees', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [name, role, phone || null, email || null, salary !== undefined && salary !== null ? Number(salary) : null, status || 'Active', joined_date || null, qualification || null, reg_no || null]
     );
+
     res.status(201).json({ id: result.lastID, name, role, phone, email, salary, status, joined_date, qualification, reg_no });
   } catch (err: any) {
     if (err.message.includes("UNIQUE")) {
@@ -1027,6 +1219,32 @@ app.post('/api/bills', async (req, res) => {
         req.ip || '127.0.0.1'
       ]
     );
+
+    // Real-time stock audit: detect if any medicine just reached 0 units
+    try {
+      const allBatchesAfter = await db.all<any>("SELECT * FROM batches");
+      for (const it of items) {
+        if (it.product_id) {
+          const remainingStock = allBatchesAfter
+            .filter((b: any) => b.product_id === it.product_id)
+            .reduce((sum: number, b: any) => sum + Math.max(0, Number(b.available_stock || 0)), 0);
+          if (remainingStock <= 0) {
+            broadcastRealtimeEvent({
+              type: 'STOCK_OUT',
+              message: `⚠️ [OUT OF STOCK ALERT] '${it.product_name}' has reached 0 units remaining!`,
+              data: { productId: it.product_id, productName: it.product_name }
+            });
+          }
+        }
+      }
+    } catch {}
+
+    // Live broadcast to all connected clinic devices
+    broadcastRealtimeEvent({
+      type: 'INVENTORY_CHANGED',
+      message: `Invoice #${finalBillNumber} dispensed (${items.length} medicines). Live stock updated.`,
+      data: { billId, billNumber: finalBillNumber, total: finalGrandTotal }
+    });
 
     res.status(201).json({
       id: billId,
@@ -1517,6 +1735,12 @@ app.post('/api/bills/:id/cancel', async (req, res) => {
       ]
     );
 
+    broadcastRealtimeEvent({
+      type: 'INVENTORY_CHANGED',
+      message: `Invoice #${id} cancelled. Stock restored to active inventory.`,
+      data: { billId: id }
+    });
+
     const updated = await db.get<any>("SELECT * FROM bills WHERE id = ?", [id]);
     res.json({
       success: true,
@@ -1537,6 +1761,7 @@ app.post('/api/deleted-items', async (req, res) => {
       `INSERT INTO deleted_items_history (bill_id, product_name, quantity) VALUES (?, ?, ?)`,
       [bill_id ? Number(bill_id) : null, product_name, Number(quantity)]
     );
+
     res.status(201).json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -2208,6 +2433,12 @@ app.post('/api/inventory/inward', async (req, res) => {
         [1, received_by, 'INWARD_STOCK_CONSIGNMENT', 'inward_stock', null, null, JSON.stringify({ invoice_number, supplier_name, total_items: insertedRecords.length, totalConsignmentUnits, totalConsignmentCost }), req.ip || '127.0.0.1']
       );
 
+      broadcastRealtimeEvent({
+        type: 'INVENTORY_CHANGED',
+        message: `Inward consignment received: ${totalConsignmentUnits} units added across ${insertedRecords.length} medicines.`,
+        data: { invoice: invoice_number, itemsCount: insertedRecords.length, totalUnits: totalConsignmentUnits }
+      });
+
       return res.status(201).json({
         success: true,
         count: insertedRecords.length,
@@ -2294,6 +2525,12 @@ app.post('/api/inventory/inward', async (req, res) => {
       [1, received_by, 'INWARD_STOCK_ENTRY', 'inward_stock', result.lastID, null, JSON.stringify({ product_id: pid, batch_number, quantity }), req.ip || '127.0.0.1']
     );
 
+    broadcastRealtimeEvent({
+      type: 'INVENTORY_CHANGED',
+      message: `Inward stock received for '${pName}' (${quantity} units).`,
+      data: { productId: pid, quantity }
+    });
+
     res.status(201).json({
       success: true,
       id: result.lastID,
@@ -2334,6 +2571,12 @@ app.post('/api/categories', async (req, res) => {
       "INSERT INTO categories (name, description, created_by) VALUES (?, ?, ?)",
       [catName, description || '', created_by]
     );
+    broadcastRealtimeEvent({
+      type: 'CATALOGUE_CHANGED',
+      message: `New category created: ${catName}`,
+      data: { category: catName }
+    });
+
     res.status(201).json({ success: true, id: result.lastID, name: catName });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

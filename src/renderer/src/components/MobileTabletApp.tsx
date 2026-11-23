@@ -179,6 +179,16 @@ export const printMobileThermalReceipt = (bill: any, pharmacyDetails: any = null
           <td><span class="bold">Time:</span> ${time}</td>
           <td class="right"><span class="bold">Status:</span> Issued</td>
         </tr>
+        ${(bill.patient_name || bill.patientName) ? `
+          <tr>
+            <td colspan="2"><span class="bold">Patient:</span> ${bill.patient_name || bill.patientName}</td>
+          </tr>
+        ` : ''}
+        ${(bill.doctor_name || bill.doctorName) ? `
+          <tr>
+            <td colspan="2"><span class="bold">Doctor:</span> ${bill.doctor_name || bill.doctorName}</td>
+          </tr>
+        ` : ''}
       </table>
       <div class="separator"></div>
       <table class="items-table">
@@ -194,8 +204,12 @@ export const printMobileThermalReceipt = (bill: any, pharmacyDetails: any = null
           ${items.map((item: any) => `
             <tr>
               <td>
-                ${item.product_name || item.name}
-                ${item.mrp ? `<br/><span style="font-size:8px;color:#555;">MRP: ₹${Number(item.mrp).toFixed(2)}</span>` : ''}
+                <span class="bold">${item.product_name || item.name}</span>
+                <div style="font-size:8.5px;color:#475569;">
+                  ${item.batch_number ? `Batch: ${item.batch_number} ` : ''}
+                  ${item.expiry_date ? `Exp: ${String(item.expiry_date).substring(0, 10)}` : ''}
+                  ${item.mrp ? ` | MRP: ₹${Number(item.mrp).toFixed(2)}` : ''}
+                </div>
               </td>
               <td class="right">${item.quantity}</td>
               <td class="right">₹${Number(item.rate || item.price || 0).toFixed(2)}</td>

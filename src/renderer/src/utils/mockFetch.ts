@@ -15898,12 +15898,25 @@ export function initMockFetch() {
           bills.push(newBill);
           saveDbData('bills', bills);
 
-          // Decrement stock in local batches
+          // Decrement stock in local batches with FEFO multi-batch allocation
           try {
             items.forEach((it: any) => {
-              const match = batches.find((bat: any) => bat.batch_number === it.batch_number || bat.product_id === it.product_id);
-              if (match) {
-                match.available_stock = Math.max(0, Number(match.available_stock || 0) - Number(it.quantity || 1));
+              let req = Number(it.quantity || 1);
+              const prodBatches = batches
+                .filter((bat: any) => bat.product_id === it.product_id && Number(bat.available_stock || 0) > 0)
+                .sort((a: any, b: any) => String(a.expiry_date || '').localeCompare(String(b.expiry_date || '')));
+              if (prodBatches.length > 0) {
+                for (const b of prodBatches) {
+                  if (req <= 0) break;
+                  const ded = Math.min(req, Number(b.available_stock || 0));
+                  b.available_stock = Math.max(0, Number(b.available_stock || 0) - ded);
+                  req -= ded;
+                }
+              } else {
+                const match = batches.find((bat: any) => bat.batch_number === it.batch_number || bat.product_id === it.product_id);
+                if (match) {
+                  match.available_stock = Math.max(0, Number(match.available_stock || 0) - req);
+                }
               }
             });
             saveDbData('batches', batches);

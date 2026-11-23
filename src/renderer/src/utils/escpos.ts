@@ -89,6 +89,12 @@ export function encodeReceiptToEscPos(receiptData: any): Uint8Array {
   // Bill Meta
   pushLine(formatTwoCol(`Bill No: #${billNumber}`, `Date: ${date}`));
   pushLine(formatTwoCol(`Time: ${time}`, `Status: Issued`));
+  if (receiptData.patientName) {
+    pushLine(formatTwoCol(`Patient:`, `${receiptData.patientName}`));
+  }
+  if (receiptData.doctorName) {
+    pushLine(formatTwoCol(`Doctor:`, `${receiptData.doctorName}`));
+  }
   pushLine(divider);
 
   // Table Headers
@@ -114,6 +120,9 @@ export function encodeReceiptToEscPos(receiptData: any): Uint8Array {
     if (is58mm) {
       // 58mm: First line name, second line details
       pushLine(itemName.length > 30 ? itemName.substring(0, 30) : itemName);
+      if (item.batch_number) {
+        pushLine(`  Bth:${item.batch_number} Exp:${String(item.expiry_date || '').substring(0, 10)}`);
+      }
       pushLine(formatTwoCol(`  ${qty} x Rs.${rate}`, `Rs.${total}`));
     } else {
       // 80mm: Single row or wrapped
@@ -126,6 +135,9 @@ export function encodeReceiptToEscPos(receiptData: any): Uint8Array {
       const c3 = (`Rs.${rate}`).padStart(8);
       const c4 = (`Rs.${total}`).padStart(10);
       pushLine(`${c1}${c2}${c3}${c4}`);
+      if (item.batch_number) {
+        pushLine(`   Batch: ${item.batch_number}  Exp: ${String(item.expiry_date || '').substring(0, 10)}`);
+      }
     }
   }
 

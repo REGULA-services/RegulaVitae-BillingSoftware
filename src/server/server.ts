@@ -114,9 +114,10 @@ export function broadcastRealtimeEvent(event: RealtimeEvent) {
 // Server-Sent Events stream: multi-device real-time sync on port 4848
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('X-Accel-Buffering', 'no');
   if (typeof (res as any).flushHeaders === 'function') {
     (res as any).flushHeaders();
   }
@@ -127,7 +128,7 @@ app.get('/api/events', (req, res) => {
 
   const pingInterval = setInterval(() => {
     try {
-      res.write(`: ping\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'HEARTBEAT', timestamp: new Date().toISOString() })}\n\n`);
     } catch {
       clearInterval(pingInterval);
       sseClients.delete(res);
@@ -1015,13 +1016,13 @@ app.post('/api/bills', async (req, res) => {
       }
     }
 
-    // Intelligent Stock & Expiry Guardrails System:
-    // Only stocks that are not out-of-stock and are not expired should be available for billing.
-    // Prohibit out-of-stock medicines or expired medicines or both from billing.
+    // Statutory Check 1: Multi-Batch FEFO Allocation & Expiry Validation
+    const finalizedItems: any[] = [];
+
     for (const it of items) {
       if (it.expiry_date) {
-        const expDate = String(it.expiry_date).substring(0, 10);
-        if (expDate <= dateStr) {
+        const itemExp = String(it.expiry_date).substring(0, 10);
+        if (itemExp && itemExp <= dateStr) {
           return res.status(400).json({
             error: `CRITICAL STATUTORY VIOLATION: Cannot dispense EXPIRED medicine '${it.product_name}' (Expiry: ${it.expiry_date}). Dispensing expired drugs is illegal under Rule 65 of Drugs and Cosmetics Rules, 1945.`
           });
@@ -1039,66 +1040,66 @@ app.post('/api/bills', async (req, res) => {
         (b: any) => String(b.expiry_date).substring(0, 10) > dateStr && b.status !== 'Quarantined' && b.status !== 'Recalled'
       );
 
+      const totalNonExpiredStock = nonExpiredBatches.reduce((sum: number, b: any) => sum + Math.max(0, Number(b.available_stock || 0)), 0);
+      const reqQty = Number(it.quantity || 1);
+
+      if (totalNonExpiredStock <= 0) {
+        return res.status(400).json({
+          error: `DISPENSING BLOCKED: '${it.product_name}' is OUT OF STOCK or all batches have expired. Cannot be billed.`
+        });
+      }
+      if (reqQty > totalNonExpiredStock) {
+        return res.status(400).json({
+          error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}'. Requested: ${reqQty}, Total Available: ${totalNonExpiredStock}.`
+        });
+      }
+
+      // If a specific batch was requested and has sufficient stock:
+      let allocated = false;
       if (it.batch_number) {
-        let matchingBatch = productBatches.find((b: any) => b.batch_number === it.batch_number);
-        if (!matchingBatch) {
-          const allBatches = await db.all<any>("SELECT * FROM batches");
-          matchingBatch = allBatches.find((b: any) => b.batch_number === it.batch_number);
-        }
-
-        if (matchingBatch) {
-          const bExp = String(matchingBatch.expiry_date || '').substring(0, 10);
-          if (bExp && bExp <= dateStr) {
-            return res.status(400).json({
-              error: `CRITICAL DISPENSING BLOCKED: Batch '${it.batch_number}' of '${it.product_name}' has EXPIRED on ${matchingBatch.expiry_date}. Billing is prohibited.`
-            });
-          }
-          if (matchingBatch.status === 'Quarantined' || matchingBatch.status === 'Recalled') {
-            return res.status(400).json({
-              error: `DISPENSING BLOCKED: Batch '${it.batch_number}' of '${it.product_name}' is QUARANTINED (${matchingBatch.quarantine_reason || 'Drug Recall Alert'}). Dispensing prohibited under Section 18 of Drugs & Cosmetics Act, 1940.`
-            });
-          }
-          const avail = Number(matchingBatch.available_stock || 0);
-          if (avail <= 0) {
-            return res.status(400).json({
-              error: `DISPENSING BLOCKED: '${it.product_name}' (Batch: ${it.batch_number}) is OUT OF STOCK. Cannot be billed.`
-            });
-          }
-          if (Number(it.quantity) > avail) {
-            return res.status(400).json({
-              error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}' (Batch: ${it.batch_number}). Requested: ${it.quantity}, Available: ${avail}.`
-            });
-          }
-
-          // Attach MRP and purchase price from batch if not set
-          if (!it.mrp && matchingBatch.mrp) it.mrp = matchingBatch.mrp;
-          if (!it.purchase_price && matchingBatch.purchase_price) it.purchase_price = matchingBatch.purchase_price;
-        }
-      } else {
-        // No batch specified: check total non-expired stock across product batches
-        const totalNonExpiredStock = nonExpiredBatches.reduce((sum: number, b: any) => sum + Math.max(0, Number(b.available_stock || 0)), 0);
-        if (totalNonExpiredStock <= 0) {
-          return res.status(400).json({
-            error: `DISPENSING BLOCKED: '${it.product_name}' is OUT OF STOCK or all batches have expired. Cannot be billed.`
+        const specificBatch = nonExpiredBatches.find((b: any) => b.batch_number === it.batch_number);
+        if (specificBatch && Number(specificBatch.available_stock || 0) >= reqQty) {
+          finalizedItems.push({
+            ...it,
+            quantity: reqQty,
+            batch_number: specificBatch.batch_number,
+            expiry_date: specificBatch.expiry_date,
+            mrp: it.mrp || specificBatch.mrp || it.rate,
+            purchase_price: it.purchase_price || specificBatch.purchase_price || 0
           });
+          allocated = true;
         }
-        if (Number(it.quantity) > totalNonExpiredStock) {
-          return res.status(400).json({
-            error: `DISPENSING BLOCKED: Insufficient stock for '${it.product_name}'. Requested: ${it.quantity}, Total Available: ${totalNonExpiredStock}.`
-          });
-        }
-        // Auto-assign earliest expiring non-expired batch (FEFO)
+      }
+
+      // Strict FEFO Multi-Batch Allocation (earliest expiry first)
+      if (!allocated) {
         const sortedBatches = nonExpiredBatches
           .filter((b: any) => Number(b.available_stock || 0) > 0)
           .sort((a: any, b: any) => String(a.expiry_date).localeCompare(String(b.expiry_date)));
-        if (sortedBatches.length > 0) {
-          it.batch_number = sortedBatches[0].batch_number;
-          it.expiry_date = sortedBatches[0].expiry_date;
-          if (!it.mrp && sortedBatches[0].mrp) it.mrp = sortedBatches[0].mrp;
-          if (!it.purchase_price && sortedBatches[0].purchase_price) it.purchase_price = sortedBatches[0].purchase_price;
+
+        let remainingToAllocate = reqQty;
+        for (const batch of sortedBatches) {
+          if (remainingToAllocate <= 0) break;
+          const batchAvail = Number(batch.available_stock || 0);
+          const alloc = Math.min(remainingToAllocate, batchAvail);
+          if (alloc > 0) {
+            const itemRate = Number(it.rate || 0);
+            finalizedItems.push({
+              ...it,
+              quantity: alloc,
+              total: Number((alloc * itemRate).toFixed(2)),
+              batch_number: batch.batch_number,
+              expiry_date: batch.expiry_date,
+              mrp: it.mrp || batch.mrp || itemRate,
+              purchase_price: it.purchase_price || batch.purchase_price || 0
+            });
+            remainingToAllocate -= alloc;
+          }
         }
       }
     }
+
+    const itemsToProcess = finalizedItems.length > 0 ? finalizedItems : items;
 
     // Statutory Check 2: Dual Operating Mode Validation & Patient / Prescriber Normalization
     // Patient name and details are completely optional for patient checkout / bill printing.
@@ -1115,7 +1116,7 @@ app.post('/api/bills', async (req, res) => {
     const finalPharmReg = (pharmacist_reg_no || '').trim() || 'TNSPC/2018/48912';
 
     // Clinical Decision Support Audit (Patient Safety Review under PPR 2015 Reg 9)
-    const cdsResult = checkClinicalInteractions(items, { age: patient_age });
+    const cdsResult = checkClinicalInteractions(itemsToProcess, { age: patient_age });
     if (cdsResult.hasCritical) {
       await db.run(
         `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
@@ -1153,7 +1154,7 @@ app.post('/api/bills', async (req, res) => {
     const billId = billResult.lastID;
 
     // Insert items & statutory register records & decrement batch available_stock
-    for (const item of items) {
+    for (const item of itemsToProcess) {
       const taxRate = Number(item.tax_percent || 0);
       const totalAmt = isComplimentary ? 0 : Number(item.total || 0);
       const baseAmt = totalAmt / (1 + (taxRate / 100));
@@ -1215,7 +1216,7 @@ app.post('/api/bills', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         1, cashier_name || 'pharmacist', 'DISPENSE_INVOICE', 'bills', billId,
-        null, JSON.stringify({ bill_number: finalBillNumber, grand_total, items_count: items.length }),
+        null, JSON.stringify({ bill_number: finalBillNumber, grand_total, items_count: itemsToProcess.length }),
         req.ip || '127.0.0.1'
       ]
     );
@@ -1223,7 +1224,7 @@ app.post('/api/bills', async (req, res) => {
     // Real-time stock audit: detect if any medicine just reached 0 units
     try {
       const allBatchesAfter = await db.all<any>("SELECT * FROM batches");
-      for (const it of items) {
+      for (const it of itemsToProcess) {
         if (it.product_id) {
           const remainingStock = allBatchesAfter
             .filter((b: any) => b.product_id === it.product_id)
@@ -1242,7 +1243,7 @@ app.post('/api/bills', async (req, res) => {
     // Live broadcast to all connected clinic devices
     broadcastRealtimeEvent({
       type: 'INVENTORY_CHANGED',
-      message: `Invoice #${finalBillNumber} dispensed (${items.length} medicines). Live stock updated.`,
+      message: `Invoice #${finalBillNumber} dispensed (${itemsToProcess.length} medicines). Live stock updated.`,
       data: { billId, billNumber: finalBillNumber, total: finalGrandTotal }
     });
 
@@ -1261,7 +1262,7 @@ app.post('/api/bills', async (req, res) => {
       doctor_name,
       doctor_reg_no,
       status: 'Active',
-      items
+      items: itemsToProcess
     });
   } catch (err: any) {
     if (err.message && err.message.includes("UNIQUE")) {

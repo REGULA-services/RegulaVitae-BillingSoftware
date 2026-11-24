@@ -323,6 +323,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState<boolean>(false);
   const [isWalkIn, setIsWalkIn] = useState<boolean>(true);
   const [selectedDoctor, setSelectedDoctor] = useState<string>(CLINIC_DOCTORS[0].name);
+  const [clinicDetails, setClinicDetails] = useState<any>(null);
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('Cash');
@@ -546,15 +547,21 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   const loadData = async () => {
     setIsLoadingProducts(true);
     try {
-      const [prodRes, catRes, patRes, netRes] = await Promise.all([
+      const [prodRes, catRes, patRes, netRes, clinicRes] = await Promise.all([
         fetch(apiUrl('/api/products')),
         fetch(apiUrl('/api/categories')),
         fetch(apiUrl('/api/patients')),
-        fetch(apiUrl('/api/network-info')).catch(() => null)
+        fetch(apiUrl('/api/network-info')).catch(() => null),
+        fetch(apiUrl('/api/clinic/details')).catch(() => null)
       ]);
 
       let loadedProds: Product[] = [];
       let customCatNames: string[] = [];
+
+      if (clinicRes && clinicRes.ok) {
+        const clinicData = await clinicRes.json();
+        setClinicDetails(clinicData);
+      }
 
       if (prodRes && prodRes.ok) {
         const prodData = await prodRes.json();
@@ -714,6 +721,13 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               loadData();
               loadPeriodStats('today');
               fetchNotifications();
+            }
+            if (data.type === 'CLINIC_DETAILS_UPDATED') {
+              if (data.data) {
+                setClinicDetails(data.data);
+              } else {
+                fetch(apiUrl('/api/clinic/details')).then(r => r.json()).then(d => setClinicDetails(d)).catch(() => {});
+              }
             }
           } catch (err) {}
         };
@@ -1434,9 +1448,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             />
             <div className="min-w-0">
               <h1 className="text-sm font-black tracking-tight leading-tight truncate">
-                MADRAS ORTHO CLINIC
+                {clinicDetails?.name || 'MADRAS ORTHO CLINIC'}
               </h1>
-              <p className="text-[10px] text-slate-400 font-medium">Pharmacy Dispensary</p>
+              <p className="text-[10px] text-slate-400 font-medium truncate">{clinicDetails?.description || 'Pharmacy Dispensary'}</p>
             </div>
           </div>
 
@@ -1886,7 +1900,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       <h2 className="text-base font-bold text-slate-900">
                         {reportPeriod === 'today' ? "Today's" : reportPeriod === 'monthly' ? "Monthly" : "Yearly"} Sales & Tax Summary
                       </h2>
-                      <p className="text-xs text-slate-500">Live collection & statutory GST snapshot</p>
+                      <p className="text-xs text-slate-500 font-medium">
+                        {clinicDetails?.name || 'Madras Ortho Clinic'} • Live collection & statutory GST snapshot
+                      </p>
                     </div>
                     <button
                       onClick={async () => {
@@ -2045,7 +2061,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                                 <Eye className="h-3 w-3" /> View
                               </button>
                               <button
-                                onClick={() => printMobileThermalReceipt(b)}
+                                onClick={() => printMobileThermalReceipt(b, clinicDetails)}
                                 className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg flex items-center gap-1"
                               >
                                 <Printer className="h-3 w-3" /> Reprint
@@ -3018,7 +3034,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             <div className="space-y-1.5 pt-1">
               <button
-                onClick={() => printMobileThermalReceipt(billSuccessModal)}
+                onClick={() => printMobileThermalReceipt(billSuccessModal, clinicDetails)}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs"
               >
                 🖨️ Print Receipt
@@ -3625,7 +3641,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             <div className="flex gap-2">
               <button
-                onClick={() => printMobileThermalReceipt(viewingBillModal)}
+                onClick={() => printMobileThermalReceipt(viewingBillModal, clinicDetails)}
                 className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1"
               >
                 <Printer className="h-3.5 w-3.5" /> Print

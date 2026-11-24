@@ -5,7 +5,8 @@ import ExcelJS from 'exceljs';
 // ----------------------------------------------------
 export async function buildDetailedFinancialWorkbook(reportData: any, reportTitle: string): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
+  const clinicName = String(reportData.clinicName || reportData.clinicDetails?.name || "MADRAS ORTHO CLINIC").toUpperCase();
+  workbook.creator = `${clinicName} SOFTWARE`;
 
   const periodLabel = reportData.periodLabel || reportData.dateRange || reportData.month || reportData.date || reportData.year || new Date().toISOString().split('T')[0];
   const fin = reportData.financials || {
@@ -60,7 +61,7 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   // Banner
   finSheet.mergeCells("A1:F2");
   const tCell = finSheet.getCell("A1");
-  tCell.value = `MADRAS ORTHO CLINIC - ${reportTitle.toUpperCase()} (${periodLabel})`;
+  tCell.value = `${clinicName} - ${reportTitle.toUpperCase()} (${periodLabel})`;
   tCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
   tCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0F172A" } };
   tCell.alignment = { vertical: "middle", horizontal: "center" };
@@ -597,9 +598,10 @@ export async function generateColdChainExcel(records: any[]): Promise<Buffer> {
 // ----------------------------------------------------
 // REVISED MEDICINE IMPORT EXCEL TEMPLATE & PARSER
 // ----------------------------------------------------
-export async function generateMedicineImportTemplate(): Promise<Buffer> {
+export async function generateMedicineImportTemplate(clinicName: string = "MADRAS ORTHO CLINIC"): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "MADRAS ORTHO CLINIC SOFTWARE";
+  const safeName = String(clinicName || "MADRAS ORTHO CLINIC").toUpperCase();
+  workbook.creator = `${safeName} SOFTWARE`;
 
   const sheet = workbook.addWorksheet("Medicines Template");
   sheet.views = [{ showGridLines: true }];
@@ -607,7 +609,7 @@ export async function generateMedicineImportTemplate(): Promise<Buffer> {
   // Title Banner
   sheet.mergeCells("A1:M1");
   const titleCell = sheet.getCell("A1");
-  titleCell.value = "MADRAS ORTHO CLINIC - MEDICINE IMPORT & INVENTORY TEMPLATE";
+  titleCell.value = `${safeName} - MEDICINE IMPORT & INVENTORY TEMPLATE`;
   titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };

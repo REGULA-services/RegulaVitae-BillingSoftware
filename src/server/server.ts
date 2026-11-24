@@ -90,7 +90,7 @@ app.use((req, res, next) => {
 // ----------------------------------------------------
 export interface RealtimeEvent {
   id?: string | number;
-  type: 'INVENTORY_CHANGED' | 'BILL_CREATED' | 'STOCK_OUT' | 'EXPIRY_ALERT' | 'CATALOGUE_CHANGED' | 'EMPLOYEE_DELETED' | 'PATIENT_DELETED' | 'SYNC_ALL' | string;
+  type: 'INVENTORY_CHANGED' | 'BILL_CREATED' | 'STOCK_OUT' | 'EXPIRY_ALERT' | 'CATALOGUE_CHANGED' | 'EMPLOYEE_DELETED' | 'PATIENT_DELETED' | 'CLINIC_DETAILS_UPDATED' | 'SYNC_ALL' | string;
   message?: string;
   data?: any;
   timestamp?: string;
@@ -420,45 +420,50 @@ app.put('/api/auth/change-password', async (req, res) => {
   }
 });
 
+// Shared Helper to Retrieve Active Clinic Details & Licensure
+export async function getStoredClinicDetails(): Promise<any> {
+  const db = await getDatabase();
+  const adminUser = await db.get<any>("SELECT * FROM users WHERE role = 'admin' OR username = 'admin' LIMIT 1");
+  let details: any = {
+    name: "MADRAS ORTHO CLINIC & PHARMACY",
+    description: "Center for Orthopaedic Surgery & Trauma Care",
+    address: "42 Anna Salai, Thousand Lights, Chennai - 600002, Tamil Nadu",
+    city: "Chennai",
+    state: "Tamil Nadu",
+    pincode: "600002",
+    phone: "+91 44 2855 0123 / +91 98401 22334",
+    email: "contact@madrasortho.com",
+    gstin: "33AAAAA0000A1Z5",
+    dlNo: "20B/TN/CHE/00482",
+    dlNo21: "21B/TN/CHE/00482",
+    ceaNo: "TN/CEA/2018/CHE-0482",
+    doctorName: adminUser?.name || "Dr. Arjun Sharma, MS (Ortho)",
+    doctorDegrees: "MBBS, MS (Orthopaedics), MCh (Orth)",
+    doctorRegNo: adminUser?.doctor_reg_no || "TNMC/2012/94821",
+    doctorCouncil: "Tamil Nadu Medical Council",
+    doctorSpecialty: "Chief Orthopaedic Surgeon & Joint Replacement Specialist",
+    doctorPhone: adminUser?.phone || "+91 98402 33445",
+    doctorEmail: "arjun@madrasortho.com",
+    pharmacistName: "Priya Nair, B.Pharm",
+    pharmacistRegNo: "TNSPC/2018/48912",
+    stateCouncil: "Tamil Nadu State Pharmacy Council",
+    adminUsername: adminUser?.username || "admin"
+  };
+
+  try {
+    const row = await db.get<any>("SELECT value FROM clinic_settings WHERE key = ?", ['clinic_details']);
+    if (row && row.value) {
+      const parsed = JSON.parse(row.value);
+      details = { ...details, ...parsed };
+    }
+  } catch (e) {}
+  return details;
+}
+
 // Get Clinic Branding & Doctor Admin Details
 app.get('/api/clinic/details', async (req, res) => {
   try {
-    const db = await getDatabase();
-    const adminUser = await db.get<any>("SELECT * FROM users WHERE role = 'admin' OR username = 'admin' LIMIT 1");
-    let details: any = {
-      name: "MADRAS ORTHO CLINIC & PHARMACY",
-      description: "Center for Orthopaedic Surgery & Trauma Care",
-      address: "42 Anna Salai, Thousand Lights, Chennai - 600002, Tamil Nadu",
-      city: "Chennai",
-      state: "Tamil Nadu",
-      pincode: "600002",
-      phone: "+91 44 2855 0123 / +91 98401 22334",
-      email: "contact@madrasortho.com",
-      gstin: "33AAAAA0000A1Z5",
-      dlNo: "20B/TN/CHE/00482",
-      dlNo21: "21B/TN/CHE/00482",
-      ceaNo: "TN/CEA/2018/CHE-0482",
-      doctorName: adminUser?.name || "Dr. Arjun Sharma, MS (Ortho)",
-      doctorDegrees: "MBBS, MS (Orthopaedics), MCh (Orth)",
-      doctorRegNo: adminUser?.doctor_reg_no || "TNMC/2012/94821",
-      doctorCouncil: "Tamil Nadu Medical Council",
-      doctorSpecialty: "Chief Orthopaedic Surgeon & Joint Replacement Specialist",
-      doctorPhone: adminUser?.phone || "+91 98402 33445",
-      doctorEmail: "arjun@madrasortho.com",
-      pharmacistName: "Priya Nair, B.Pharm",
-      pharmacistRegNo: "TNSPC/2018/48912",
-      stateCouncil: "Tamil Nadu State Pharmacy Council",
-      adminUsername: adminUser?.username || "admin"
-    };
-
-    try {
-      const row = await db.get<any>("SELECT value FROM clinic_settings WHERE key = ?", ['clinic_details']);
-      if (row && row.value) {
-        const parsed = JSON.parse(row.value);
-        details = { ...details, ...parsed };
-      }
-    } catch (e) {}
-
+    const details = await getStoredClinicDetails();
     res.json(details);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -489,6 +494,14 @@ app.put('/api/clinic/details', async (req, res) => {
       `INSERT INTO audit_logs (username, action, entity_type, entity_id, new_state, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
       ["admin", "UPDATE_CLINIC_DETAILS", "clinic_details", 1, JSON.stringify(body), req.ip || "127.0.0.1"]
     );
+
+    // Broadcast Real-time Event Across All Connected Devices
+    broadcastRealtimeEvent({
+      type: 'CLINIC_DETAILS_UPDATED',
+      message: `Clinic profile and licensure updated: ${body.name || 'Clinic'}`,
+      data: body
+    });
+
     res.json({ success: true, message: "Clinic & Doctor Admin details saved successfully.", details: body });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -712,7 +725,8 @@ app.get('/api/products/barcode/:barcode', async (req, res) => {
 // Download sample Excel template for medicine uploads
 app.get('/api/products/template-excel', async (req, res) => {
   try {
-    const buffer = await generateMedicineImportTemplate();
+    const clinic = await getStoredClinicDetails();
+    const buffer = await generateMedicineImportTemplate(clinic.name);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="Ortho_Medicines_Import_Template.xlsx"');
     res.send(buffer);
@@ -2143,7 +2157,9 @@ async function compileComprehensiveStats(options: {
     allBills: bills,
     inwardRecords: inwardRows,
     inventoryLedger,
-    detailedSalesItems
+    detailedSalesItems,
+    clinicDetails: await getStoredClinicDetails(),
+    clinicName: (await getStoredClinicDetails()).name || 'MADRAS ORTHO CLINIC & PHARMACY'
   };
 }
 

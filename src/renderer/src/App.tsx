@@ -651,6 +651,18 @@ export default function App() {
     setShowAdminProfileModal(false);
   };
 
+  const syncClinicDetailsToServer = async (details: ClinicBranding) => {
+    try {
+      await fetch(apiUrl("/api/clinic/details"), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(details)
+      });
+    } catch (err) {
+      console.warn("Failed to sync clinic details to server:", err);
+    }
+  };
+
   // Custom confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -1350,6 +1362,19 @@ export default function App() {
             if (data.type === 'INVENTORY_CHANGED' || data.type === 'STOCK_OUT' || data.type === 'CATALOGUE_CHANGED') {
               loadProducts();
               fetchNotifications();
+            }
+
+            if (data.type === 'CLINIC_DETAILS_UPDATED') {
+              if (data.data) {
+                setBakeryDetails(prev => ({ ...prev, ...data.data }));
+                localStorage.setItem("madrasortho_clinic_branding", JSON.stringify(data.data));
+              } else {
+                fetch(apiUrl("/api/clinic/details")).then(r => r.json()).then(d => {
+                  setBakeryDetails(prev => ({ ...prev, ...d }));
+                  localStorage.setItem("madrasortho_clinic_branding", JSON.stringify(d));
+                }).catch(() => {});
+              }
+              showToast("Clinic settings & licensure updated in real time across devices.", "info");
             }
 
             if (data.type === 'STOCK_OUT') {
@@ -2355,9 +2380,17 @@ export default function App() {
         <body>
           <div class="header">
             <div>
-              <div class="clinic-name">MADRAS ORTHO CLINIC</div>
-              <div class="clinic-sub">Center for Orthopaedic Surgery & Speciality Clinic Pharmacy</div>
-              <div class="clinic-sub">Chennai, Tamil Nadu • Ph: +91 98400 12345 • DL: 20B/TN/CHE/00482</div>
+              <div class="clinic-name">${(bakeryDetails.name || 'MADRAS ORTHO CLINIC').toUpperCase()}</div>
+              <div class="clinic-sub">${bakeryDetails.description || (bakeryDetails as any).doctorSpecialty || 'Center for Orthopaedic Surgery & Speciality Clinic Pharmacy'}</div>
+              <div class="clinic-sub">${[
+                bakeryDetails.address,
+                bakeryDetails.city && bakeryDetails.state ? `${bakeryDetails.city}, ${bakeryDetails.state}` : (bakeryDetails.city || bakeryDetails.state),
+                bakeryDetails.pincode ? `PIN: ${bakeryDetails.pincode}` : '',
+                bakeryDetails.phone ? `Ph: ${bakeryDetails.phone}` : '',
+                (bakeryDetails as any).dlNo ? `DL Form 20B: ${(bakeryDetails as any).dlNo}` : '',
+                (bakeryDetails as any).dlNo21 ? `DL Form 21B: ${(bakeryDetails as any).dlNo21}` : '',
+                (bakeryDetails as any).gstin ? `GSTIN: ${(bakeryDetails as any).gstin}` : ''
+              ].filter(Boolean).join(' • ')}</div>
             </div>
             <div class="grn-badge">
               <div style="font-size: 14px; color: #0284c7;">GOODS RECEIVED NOTE (GRN)</div>
@@ -2445,10 +2478,10 @@ export default function App() {
 
           <div class="signatures">
             <div>
-              <div class="sig-line">Pharmacist In-Charge (Verification & Physical Audit)</div>
+              <div class="sig-line">${bakeryDetails.pharmacistName ? `${bakeryDetails.pharmacistName} (Supervising Pharmacist)` : 'Pharmacist In-Charge (Verification & Physical Audit)'}</div>
             </div>
             <div>
-              <div class="sig-line">Authorized Signatory / Clinic Admin</div>
+              <div class="sig-line">${bakeryDetails.doctorName ? `${bakeryDetails.doctorName} (Chief Medical Officer / Authorized Signatory)` : 'Authorized Signatory / Clinic Admin'}</div>
             </div>
           </div>
 
@@ -2961,7 +2994,12 @@ export default function App() {
       const res = await fetch(url);
       const data = await res.json();
 
+      const activeClinicName = (bakeryDetails.name || 'MADRAS ORTHO CLINIC').toUpperCase();
       let csvContent = "\ufeff"; // UTF-8 BOM
+      csvContent += `${activeClinicName}\n`;
+      if (bakeryDetails.address || bakeryDetails.phone) {
+        csvContent += `"${[bakeryDetails.address, bakeryDetails.phone, (bakeryDetails as any).gstin ? `GSTIN: ${(bakeryDetails as any).gstin}` : ''].filter(Boolean).join(' • ')}"\n\n`;
+      }
       let filename = "";
 
       if (type === 'daily') {
@@ -3245,51 +3283,51 @@ export default function App() {
 
       {/* ----------------- TOP NAVBAR PANEL ----------------- */}
       <header className="flex items-center justify-between px-4 lg:px-6 py-2.5 lg:py-3 bg-slate-900 border-b border-slate-800 shadow-md">
-        <div className="flex items-center space-x-2 lg:space-x-3">
+        <div className="flex items-center space-x-3 lg:space-x-4">
           <div className="flex-shrink-0">
             <img
               src="./icon.png"
-              alt="MADRAS ORTHO CLINIC"
-              className="w-9 h-9 lg:w-11 lg:h-11 rounded-xl object-cover shadow-md shadow-sky-900/30"
+              alt="Clinic Logo"
+              className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl object-cover shadow-md shadow-sky-900/30"
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
-        </div>
 
-        {/* Operating Mode Toggle (Mode A vs Mode B) */}
-        <div className="hidden md:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-          <button
-            onClick={() => {
-              setOperatingMode('CLINIC_DISPENSING');
-              localStorage.setItem("madrasortho_operating_mode", 'CLINIC_DISPENSING');
-              showToast("Operating in Mode A: Clinic Dispensing (TNCEA 1997 / Schedule K)", "info");
-            }}
-            className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-              operatingMode === 'CLINIC_DISPENSING'
-                ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Clinic Outpatient Dispensing under Tamil Nadu Clinical Establishments Act, 1997"
-          >
-            <span className={`w-2 h-2 rounded-full ${operatingMode === 'CLINIC_DISPENSING' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
-            Mode A: Clinic Dispensing
-          </button>
-          <button
-            onClick={() => {
-              setOperatingMode('RETAIL_PHARMACY');
-              localStorage.setItem("madrasortho_operating_mode", 'RETAIL_PHARMACY');
-              showToast("Operating in Mode B: Retail Pharmacy Sales (D&C Form 20B/21B)", "info");
-            }}
-            className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-              operatingMode === 'RETAIL_PHARMACY'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Retail Sale under Drugs and Cosmetics Rules Form 20B/21B and Section 42 of Pharmacy Act"
-          >
-            <span className={`w-2 h-2 rounded-full ${operatingMode === 'RETAIL_PHARMACY' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
-            Mode B: Retail Pharmacy
-          </button>
+          {/* Operating Mode Toggle (Mode A vs Mode B) */}
+          <div className="hidden md:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              onClick={() => {
+                setOperatingMode('CLINIC_DISPENSING');
+                localStorage.setItem("madrasortho_operating_mode", 'CLINIC_DISPENSING');
+                showToast("Operating in Mode A: Clinic Dispensing (TNCEA 1997 / Schedule K)", "info");
+              }}
+              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                operatingMode === 'CLINIC_DISPENSING'
+                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Clinic Outpatient Dispensing under Tamil Nadu Clinical Establishments Act, 1997"
+            >
+              <span className={`w-2 h-2 rounded-full ${operatingMode === 'CLINIC_DISPENSING' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
+              Mode A: Clinic Dispensing
+            </button>
+            <button
+              onClick={() => {
+                setOperatingMode('RETAIL_PHARMACY');
+                localStorage.setItem("madrasortho_operating_mode", 'RETAIL_PHARMACY');
+                showToast("Operating in Mode B: Retail Pharmacy Sales (D&C Form 20B/21B)", "info");
+              }}
+              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                operatingMode === 'RETAIL_PHARMACY'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Retail Sale under Drugs and Cosmetics Rules Form 20B/21B and Section 42 of Pharmacy Act"
+            >
+              <span className={`w-2 h-2 rounded-full ${operatingMode === 'RETAIL_PHARMACY' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
+              Mode B: Retail Pharmacy
+            </button>
+          </div>
         </div>
 
         {/* Desktop Action Controls */}
@@ -6737,7 +6775,9 @@ export default function App() {
             <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
               <span className="text-sm font-bold text-white flex items-center">
                 <BarChart2 className="w-4 h-4 mr-2 text-emerald-400" />
-                Financial Reports, Margins & Stock Analytics
+                <span className="text-sky-300 font-extrabold uppercase mr-2 tracking-wide">{(bakeryDetails.name || 'MADRAS ORTHO CLINIC').toUpperCase()}</span>
+                <span className="text-slate-500 mr-2">•</span>
+                <span>Financial Reports, Margins & Stock Analytics</span>
                 {currentUser?.role !== 'admin' && (
                   <span className="ml-3 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-bold uppercase tracking-wider">
                     Employee View-Only Mode
@@ -7482,7 +7522,10 @@ export default function App() {
                 POS Settings & Printer Alignment
               </span>
               <button
-                onClick={() => setShowSettingsModal(false)}
+                onClick={() => {
+                  syncClinicDetailsToServer(bakeryDetails);
+                  setShowSettingsModal(false);
+                }}
                 className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
               >
                 <X className="w-4 h-4" />
@@ -8024,8 +8067,19 @@ export default function App() {
               </div>
             </div>
 
-            <div className="p-3 bg-slate-950 text-[10px] text-slate-500 font-mono text-center border-t border-slate-800">
-              Settings save automatically. Press ESC to close.
+            <div className="p-3 bg-slate-950 text-xs flex items-center justify-between border-t border-slate-800">
+              <span className="text-[10px] text-slate-500 font-mono">Settings save automatically across devices.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  syncClinicDetailsToServer(bakeryDetails);
+                  setShowSettingsModal(false);
+                  showToast("Clinic settings saved and synced across all devices.", "success");
+                }}
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+              >
+                Save & Broadcast Changes
+              </button>
             </div>
           </div>
         </div>

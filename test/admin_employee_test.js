@@ -1,4 +1,8 @@
 const http = require('http');
+const { spawn } = require('child_process');
+const path = require('path');
+
+let serverProcess = null;
 
 function request(method, path, data = null) {
   return new Promise((resolve, reject) => {
@@ -33,7 +37,36 @@ function request(method, path, data = null) {
   });
 }
 
+async function ensureServerRunning() {
+  try {
+    const res = await request('GET', '/api/notifications');
+    if (res && res.status === 200) {
+      return; // Server is already running
+    }
+  } catch (e) {
+    // Need to start server
+  }
+
+  const serverPath = path.join(__dirname, '..', 'dist-electron', 'src', 'server', 'server.js');
+  serverProcess = spawn(process.execPath, [serverPath], {
+    stdio: 'ignore',
+    detached: false
+  });
+
+  // Wait up to 5 seconds for server to be ready
+  for (let i = 0; i < 25; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    try {
+      const res = await request('GET', '/api/notifications');
+      if (res && res.status === 200) {
+        return;
+      }
+    } catch {}
+  }
+}
+
 async function runTests() {
+  await ensureServerRunning();
   console.log("=================================================================");
   console.log("   MADRAS ORTHO CLINIC - ADMIN & EMPLOYEE VERIFICATION SUITE   ");
   console.log("=================================================================\n");
@@ -164,19 +197,35 @@ async function runTests() {
     assert(false, `Employee CRUD error: ${e.message}`);
   }
 
-  // 6. Test Protection of Genuine Staff Records from Arbitrary Deletion
-  console.log("\nTest 6: Statutory Protection of Genuine Clinic Staff Deletion");
+  // 6. Test Staff Deletion and Primary Admin Protection
+  console.log("\nTest 6: Staff Record Deletion and Primary Administrator Account Protection");
   try {
+    // Staff deletion allowed (per user requirement)
     const deleteRes = await request('DELETE', `/api/employees/${testEmpId}`);
-    assert(deleteRes.status === 403, `Genuine staff deletion blocked with 403 (Got ${deleteRes.status})`);
-    assert(deleteRes.data.error.includes("Statutory Protection"), `Reason: ${deleteRes.data.error}`);
+    assert(deleteRes.status === 200, `Staff record deletion successful (Got ${deleteRes.status})`);
+    assert(deleteRes.data.success === true, `Deletion message: ${deleteRes.data.message}`);
+
+    // Primary administrator protection (cannot be deleted)
+    const adminEmp = await request('GET', '/api/employees');
+    const adminUser = Array.isArray(adminEmp.data) ? adminEmp.data.find(e => e.username === 'admin') : null;
+    if (adminUser) {
+      const adminDelRes = await request('DELETE', `/api/employees/${adminUser.id}`);
+      assert(adminDelRes.status === 400, `Admin deletion blocked with 400 (Got ${adminDelRes.status})`);
+      assert(adminDelRes.data.error.includes("administrator account cannot be deleted"), `Admin protection reason: ${adminDelRes.data.error}`);
+    }
   } catch (e) {
-    assert(false, `Genuine staff deletion protection test error: ${e.message}`);
+    assert(false, `Staff deletion test error: ${e.message}`);
   }
 
   console.log("\n=================================================================");
   console.log(`   TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log("=================================================================\n");
+
+  if (serverProcess) {
+    try {
+      serverProcess.kill();
+    } catch {}
+  }
 
   if (failed > 0) {
     process.exit(1);
@@ -185,6 +234,5 @@ async function runTests() {
   }
 }
 
-// Wait 1.5 seconds and run
-setTimeout(runTests, 1500);
+runTests();
 

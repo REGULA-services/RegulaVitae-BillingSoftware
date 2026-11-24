@@ -354,7 +354,14 @@ async function createControllerWindow() {
 
   controllerWindow.on('close', () => {
     isQuitting = true;
+    if (tray) {
+      try { tray.destroy(); } catch {}
+      tray = null;
+    }
     app.quit();
+    setTimeout(() => {
+      process.exit(0);
+    }, 500);
   });
 }
 
@@ -405,7 +412,14 @@ function setupTray(iconPath: string) {
         label: 'Quit Server',
         click: () => {
           isQuitting = true;
+          if (tray) {
+            try { tray.destroy(); } catch {}
+            tray = null;
+          }
           app.quit();
+          setTimeout(() => {
+            process.exit(0);
+          }, 300);
         }
       }
     ]);
@@ -435,6 +449,13 @@ app.whenReady().then(createControllerWindow);
 
 app.on('before-quit', () => {
   isQuitting = true;
+  if (tray) {
+    try { tray.destroy(); } catch {}
+    tray = null;
+  }
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
 });
 
 app.on('will-quit', () => {
@@ -458,8 +479,13 @@ process.on('SIGTERM', () => {
 });
 
 app.on('window-all-closed', () => {
-  if (isQuitting) {
-    app.quit();
+  isQuitting = true;
+  if (tray) {
+    try { tray.destroy(); } catch {}
+    tray = null;
   }
-  // Otherwise stay alive in system tray so devices on Wi-Fi remain connected
+  app.quit();
+  setTimeout(() => {
+    process.exit(0);
+  }, 500);
 });

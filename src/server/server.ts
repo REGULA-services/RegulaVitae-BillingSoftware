@@ -1148,97 +1148,115 @@ app.post('/api/bills', async (req, res) => {
       );
     }
 
-    // Insert bill invoice
-    const billResult = await db.run(
-      `INSERT INTO bills (
-        bill_number, subtotal, discount, tax, grand_total, payment_method, date, time, cashier_name,
-        patient_name, patient_age, patient_gender, patient_phone, patient_address,
-        doctor_name, doctor_reg_no, doctor_clinic, pharmacist_name, pharmacist_reg_no,
-        prescription_id, prescription_date, operating_mode, clinic_patient_id, dispensing_mode,
-        is_complimentary, complimentary_recipient, complimentary_reason
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        Number(finalBillNumber), finalSubtotal, finalDiscount, finalTax, finalGrandTotal,
-        finalPaymentMethod, dateStr, timeStr, cashier_name || 'Pharmacist',
-        finalPatientName, patient_age ? Number(patient_age) : null, patient_gender || null,
-        patient_phone || null, patient_address || null,
-        finalDoctorName, finalDoctorReg, doctor_clinic || 'Madras Ortho Clinic',
-        finalPharmName, finalPharmReg,
-        prescription_id || null, prescription_date || dateStr,
-        operating_mode, clinic_patient_id || null, dispensing_mode,
-        isComplimentary ? 1 : 0, req.body.complimentary_recipient || null, req.body.complimentary_reason || null
-      ]
-    );
+    // Insert bill invoice with Immediate Transaction Lock for multi-device concurrency safety
+    await db.run("BEGIN IMMEDIATE TRANSACTION");
+    let billId: number = 0;
 
-    const billId = billResult.lastID;
-
-    // Insert items & statutory register records & decrement batch available_stock
-    for (const item of itemsToProcess) {
-      const taxRate = Number(item.tax_percent || 0);
-      const totalAmt = isComplimentary ? 0 : Number(item.total || 0);
-      const baseAmt = totalAmt / (1 + (taxRate / 100));
-      const totalTax = totalAmt - baseAmt;
-      const cgst = totalTax / 2;
-      const sgst = totalTax / 2;
-
-      await db.run(
-        `INSERT INTO bill_items (
-          bill_id, product_id, product_name, quantity, rate, total,
-          batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule,
-          mrp, purchase_price
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    try {
+      const billResult = await db.run(
+        `INSERT INTO bills (
+          bill_number, subtotal, discount, tax, grand_total, payment_method, date, time, cashier_name,
+          patient_name, patient_age, patient_gender, patient_phone, patient_address,
+          doctor_name, doctor_reg_no, doctor_clinic, pharmacist_name, pharmacist_reg_no,
+          prescription_id, prescription_date, operating_mode, clinic_patient_id, dispensing_mode,
+          is_complimentary, complimentary_recipient, complimentary_reason
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          billId, item.product_id, item.product_name, Number(item.quantity), Number(item.rate), totalAmt,
-          item.batch_number || 'B-STD', item.expiry_date || '2028-12-31', item.hsn_code || '30049099',
-          taxRate, cgst, sgst, item.dosage_instructions || null, item.schedule || 'Schedule H',
-          Number(item.mrp || item.rate || 0), Number(item.purchase_price || 0)
+          Number(finalBillNumber), finalSubtotal, finalDiscount, finalTax, finalGrandTotal,
+          finalPaymentMethod, dateStr, timeStr, cashier_name || 'Pharmacist',
+          finalPatientName, patient_age ? Number(patient_age) : null, patient_gender || null,
+          patient_phone || null, patient_address || null,
+          finalDoctorName, finalDoctorReg, doctor_clinic || 'Madras Ortho Clinic',
+          finalPharmName, finalPharmReg,
+          prescription_id || null, prescription_date || dateStr,
+          operating_mode, clinic_patient_id || null, dispensing_mode,
+          isComplimentary ? 1 : 0, req.body.complimentary_recipient || null, req.body.complimentary_reason || null
         ]
       );
 
-      // Decrement stock from available batch (Both regular dispensing and doctor/staff free health dispense)
-      if (item.batch_number) {
-        await db.run(
-          "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE batch_number = ?",
-          [Number(item.quantity), String(item.batch_number)]
-        );
-      } else if (item.product_id) {
-        await db.run(
-          "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE product_id = ? AND available_stock > 0",
-          [Number(item.quantity), Number(item.product_id)]
-        );
-      }
+      billId = Number(billResult.lastID || 0);
 
-      // Statutory Register: Rule 65(4)(4-A) Schedule H1 Register
-      const itemSch = String(item.schedule || '').toUpperCase();
-      if (itemSch.includes('SCHEDULE H1') || itemSch === 'H1') {
+      // Insert items & statutory register records & decrement batch available_stock
+      for (const item of itemsToProcess) {
+        const taxRate = Number(item.tax_percent || 0);
+        const totalAmt = isComplimentary ? 0 : Number(item.total || 0);
+        const baseAmt = totalAmt / (1 + (taxRate / 100));
+        const totalTax = totalAmt - baseAmt;
+        const cgst = totalTax / 2;
+        const sgst = totalTax / 2;
+
         await db.run(
-          `INSERT INTO schedule_h1_register (
-            bill_id, bill_number, supply_date, patient_name, patient_address, patient_phone,
-            doctor_name, doctor_address, doctor_reg_no, drug_name, generic_name,
-            batch_number, quantity, dispensing_pharmacist
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO bill_items (
+            bill_id, product_id, product_name, quantity, rate, total,
+            batch_number, expiry_date, hsn_code, tax_percent, cgst, sgst, dosage_instructions, schedule,
+            mrp, purchase_price
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            billId, Number(finalBillNumber), dateStr,
-            patient_name || 'Walk-in Patient', patient_address || 'Chennai, TN', patient_phone || 'N/A',
-            doctor_name || 'Dr. Arjun Sharma, MS (Ortho)', doctor_clinic || 'Madras Ortho Clinic', doctor_reg_no || 'TNMC/2012/94821',
-            item.product_name, item.generic_name || item.product_name,
-            item.batch_number || 'MOC-H1-STD', Number(item.quantity),
-            pharmacist_name || 'Priya Nair, B.Pharm'
+            billId, item.product_id, item.product_name, Number(item.quantity), Number(item.rate), totalAmt,
+            item.batch_number || 'B-STD', item.expiry_date || '2028-12-31', item.hsn_code || '30049099',
+            taxRate, cgst, sgst, item.dosage_instructions || null, item.schedule || 'Schedule H',
+            Number(item.mrp || item.rate || 0), Number(item.purchase_price || 0)
           ]
         );
-      }
-    }
 
-    // Tamper-evident Audit Log
-    await db.run(
-      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        1, cashier_name || 'pharmacist', 'DISPENSE_INVOICE', 'bills', billId,
-        null, JSON.stringify({ bill_number: finalBillNumber, grand_total, items_count: itemsToProcess.length }),
-        req.ip || '127.0.0.1'
-      ]
-    );
+        // Decrement stock from available batch (Both regular dispensing and doctor/staff free health dispense)
+        if (item.batch_number) {
+          await db.run(
+            "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE batch_number = ?",
+            [Number(item.quantity), String(item.batch_number)]
+          );
+        } else if (item.product_id) {
+          await db.run(
+            "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE product_id = ? AND available_stock > 0",
+            [Number(item.quantity), Number(item.product_id)]
+          );
+        }
+
+        // Synchronize product aggregate available_stock
+        if (item.product_id) {
+          await db.run(
+            "UPDATE products SET available_stock = MAX(0, available_stock - ?) WHERE id = ?",
+            [Number(item.quantity), Number(item.product_id)]
+          );
+        }
+
+        // Statutory Register: Rule 65(4)(4-A) Schedule H1 Register
+        const itemSch = String(item.schedule || '').toUpperCase();
+        if (itemSch.includes('SCHEDULE H1') || itemSch === 'H1') {
+          await db.run(
+            `INSERT INTO schedule_h1_register (
+              bill_id, bill_number, supply_date, patient_name, patient_address, patient_phone,
+              doctor_name, doctor_address, doctor_reg_no, drug_name, generic_name,
+              batch_number, quantity, dispensing_pharmacist
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              billId, Number(finalBillNumber), dateStr,
+              patient_name || 'Walk-in Patient', patient_address || 'Chennai, TN', patient_phone || 'N/A',
+              doctor_name || 'Dr. Arjun Sharma, MS (Ortho)', doctor_clinic || 'Madras Ortho Clinic', doctor_reg_no || 'TNMC/2012/94821',
+              item.product_name, item.generic_name || item.product_name,
+              item.batch_number || 'MOC-H1-STD', Number(item.quantity),
+              pharmacist_name || 'Priya Nair, B.Pharm'
+            ]
+          );
+        }
+      }
+
+      // Tamper-evident Audit Log
+      await db.run(
+        `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, previous_state, new_state, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          1, cashier_name || 'pharmacist', 'DISPENSE_INVOICE', 'bills', billId,
+          null, JSON.stringify({ bill_number: finalBillNumber, grand_total, items_count: itemsToProcess.length }),
+          req.ip || '127.0.0.1'
+        ]
+      );
+
+      await db.run("COMMIT");
+    } catch (txnError) {
+      await db.run("ROLLBACK").catch(() => {});
+      throw txnError;
+    }
 
     // Real-time stock audit: detect if any medicine just reached 0 units
     try {

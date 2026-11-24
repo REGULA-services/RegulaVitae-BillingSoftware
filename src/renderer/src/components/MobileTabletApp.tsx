@@ -574,7 +574,16 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       }
 
       // Ensure newly created medicine categories appear FIRST right after 'All'
-      const prodCats = Array.from(new Set(loadedProds.map((p: any) => p.category).filter(Boolean)));
+      const prodCatsSet = new Set<string>();
+      loadedProds.forEach((p: any) => {
+        if (p.category) {
+          p.category.split(',').forEach((c: string) => {
+            const trimmed = c.trim();
+            if (trimmed) prodCatsSet.add(trimmed);
+          });
+        }
+      });
+      const prodCats = Array.from(prodCatsSet);
       const remainingProdCats = prodCats.filter((c: string) => !customCatNames.includes(c));
       setCategories(['All', ...customCatNames, ...remainingProdCats]);
 
@@ -778,7 +787,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
-        const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+        const matchesCategory = selectedCategory === 'All' ||
+          Boolean(p.category && p.category.split(',').map((c: string) => c.trim().toLowerCase()).includes(selectedCategory.toLowerCase()));
         const q = searchQuery.toLowerCase().trim();
         if (!q) return matchesCategory;
         const matchesSearch =
@@ -1489,16 +1499,25 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               )}
             </button>
 
-            {/* Logout Button */}
+            {/* Logout Button & User Role Badge */}
             {onLogout && (
-              <button
-                onClick={onLogout}
-                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-bold border border-rose-500/30 flex items-center gap-1 transition-all active:scale-95"
-                title="Log out of software"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>Logout</span>
-              </button>
+              <div className="flex flex-col items-center gap-0.5">
+                <button
+                  onClick={onLogout}
+                  className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-bold border border-rose-500/30 flex items-center gap-1 transition-all active:scale-95"
+                  title="Log out of software"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Logout</span>
+                </button>
+                <span className={`text-[8px] font-black uppercase tracking-wider px-1 rounded leading-none ${
+                  currentUser?.role === 'admin'
+                    ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                    : 'text-slate-400 bg-slate-800 border border-slate-700'
+                }`}>
+                  {currentUser?.role === 'admin' ? 'admin' : 'employee'}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -1529,24 +1548,37 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               )}
             </div>
 
-            {/* Quick Category Filter Pills */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
-              {categories.map((cat) => {
-                const isSelected = selectedCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      isSelected
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
+            {/* Quick Category Filter Pills with fixed Add Category button */}
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              {currentUser?.role === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddCategoryOpen(true)}
+                  className="shrink-0 px-2.5 py-1.5 bg-sky-500 hover:bg-sky-400 active:scale-95 text-slate-950 font-black text-xs rounded-lg shadow-xs flex items-center gap-1"
+                  title="Create custom category (Always Visible)"
+                >
+                  <Plus className="h-3.5 w-3.5 stroke-[3]" />
+                  <span>+ Add</span>
+                </button>
+              )}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1 flex-1 min-w-0">
+                {categories.map((cat) => {
+                  const isSelected = selectedCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        isSelected
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Medicines List Grid */}
@@ -2514,13 +2546,22 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             {/* System Controls */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
               {onLogout && (
-                <button
-                  onClick={onLogout}
-                  className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Log Out
-                </button>
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={onLogout}
+                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Log Out
+                  </button>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded leading-none ${
+                    currentUser?.role === 'admin'
+                      ? 'text-amber-600 bg-amber-50 border border-amber-200'
+                      : 'text-slate-600 bg-slate-100 border border-slate-200'
+                  }`}>
+                    {currentUser?.role === 'admin' ? 'admin' : 'employee'}
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -3087,16 +3128,18 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">Category *</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Category * (Select multiple or enter comma-separated)
+                  </label>
                   <input
                     type="text"
                     list="mobile-cats"
                     value={productForm.category}
                     onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
-                    placeholder="Category"
-                    className="w-full p-2 bg-slate-50 border rounded-lg"
+                    placeholder="e.g. Analgesic, Anti-inflammatory"
+                    className="w-full p-2 bg-slate-50 border rounded-lg text-xs"
                     required
                   />
                   <datalist id="mobile-cats">
@@ -3104,7 +3147,39 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       <option key={c} value={c} />
                     ))}
                   </datalist>
+
+                  {/* Interactive Category Chips for Multi-Category Assignment */}
+                  <div className="flex flex-wrap gap-1 mt-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-100 rounded-lg border border-slate-200">
+                    {categories.filter((c) => c !== 'All').map((cat) => {
+                      const activeCats = (productForm.category || '').split(',').map(s => s.trim()).filter(Boolean);
+                      const isSelected = activeCats.some(c => c.toLowerCase() === cat.toLowerCase());
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            let updated: string[];
+                            if (isSelected) {
+                              updated = activeCats.filter(c => c.toLowerCase() !== cat.toLowerCase());
+                            } else {
+                              updated = [...activeCats, cat];
+                            }
+                            setProductForm(prev => ({ ...prev, category: updated.join(', ') }));
+                          }}
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border ${
+                            isSelected
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                          }`}
+                          title={isSelected ? `Click to remove "${cat}"` : `Click to add "${cat}"`}
+                        >
+                          {isSelected ? '✓ ' : '+ '}{cat}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Packaging Type</label>
                   <select

@@ -1159,7 +1159,16 @@ export default function App() {
         // Unique non-empty categories including custom clinic categories
         // New custom categories appear FIRST so admin can easily select them
         const customCatNames: string[] = (customCats || []).map((c: any) => typeof c === 'string' ? c : c.name).filter(Boolean);
-        const prodCats: string[] = Array.from(new Set(data.map((p: Product) => p.category).filter(Boolean)));
+        const prodCatsSet = new Set<string>();
+        data.forEach((p: Product) => {
+          if (p.category) {
+            p.category.split(',').forEach(c => {
+              const trimmed = c.trim();
+              if (trimmed) prodCatsSet.add(trimmed);
+            });
+          }
+        });
+        const prodCats: string[] = Array.from(prodCatsSet);
         const remainingProdCats = prodCats.filter((c: string) => !customCatNames.includes(c));
         const mergedCats: string[] = [...customCatNames, ...remainingProdCats];
         setCategories(mergedCats);
@@ -3151,7 +3160,8 @@ export default function App() {
   // Grid products after category and instant catalogue search filtering (In-stock first priority)
   const visibleGridProducts = useMemo(() => {
     return products.filter(p => {
-      const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
+      const matchCat = selectedCategory === 'All' ||
+        Boolean(p.category && p.category.split(',').map(c => c.trim().toLowerCase()).includes(selectedCategory.toLowerCase()));
       const q = catalogueSearch.trim().toLowerCase();
       const matchSearch = !q ||
         (p.name && p.name.toLowerCase().includes(q)) ||
@@ -3431,15 +3441,22 @@ export default function App() {
           </button>
 
           {/* Logout Button */}
-          <div className="flex items-center pl-2 border-l border-slate-800">
+          <div className="flex flex-col items-center justify-center pl-2.5 border-l border-slate-800 gap-0.5">
             <button
               onClick={handleLogout}
               title="Logout / Switch User"
-              className="flex items-center px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors active:scale-95"
+              className="flex items-center px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors active:scale-95"
             >
               <LogOut className="w-3.5 h-3.5 mr-1" />
               <span>Logout</span>
             </button>
+            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none ${
+              currentUser?.role === 'admin'
+                ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                : 'text-slate-400 bg-slate-800 border border-slate-700'
+            }`}>
+              {currentUser?.role === 'admin' ? 'admin' : 'employee'}
+            </span>
           </div>
         </div>
 
@@ -3517,40 +3534,44 @@ export default function App() {
             </span>
           </div>
 
-          {/* Quick Categories horizontal list */}
-          <div className="flex p-2.5 gap-1.5 overflow-x-auto bg-slate-900/80 border-b border-slate-800 scrollbar-none flex-shrink-0">
-            <button
-              onClick={() => setSelectedCategory('All')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === 'All'
-                ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20 scale-105'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
-                }`}
-            >
-              All Medicines
-            </button>
-            {categories.map(c => (
-              <button
-                key={c}
-                onClick={() => setSelectedCategory(c)}
-                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === c
-                  ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20 scale-105'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
-                  }`}
-              >
-                {c}
-              </button>
-            ))}
+          {/* Quick Categories bar with FIXED Add Category button */}
+          <div className="flex items-center p-2 gap-2 bg-slate-900/90 border-b border-slate-800 flex-shrink-0">
             {currentUser?.role === 'admin' && (
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(true)}
-                className="px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center gap-1.5 shadow-sm active:scale-95"
-                title="Create custom category"
+                className="px-3 py-1.5 text-xs font-black rounded-xl transition-all flex-shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95"
+                title="Create custom category (Always Visible)"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
                 <span>+ Add Category</span>
               </button>
             )}
+
+            {/* Scrollable Categories List */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
+              <button
+                onClick={() => setSelectedCategory('All')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === 'All'
+                  ? 'bg-sky-600 text-white font-black shadow-md shadow-sky-600/30'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  }`}
+              >
+                All Medicines
+              </button>
+              {categories.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setSelectedCategory(c)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === c
+                    ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20 scale-105'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Grid Products with spacious cards */}
@@ -5606,7 +5627,7 @@ export default function App() {
                           list="category-suggestions"
                           required
                           disabled={currentUser?.role !== 'admin'}
-                          placeholder="Select or enter category..."
+                          placeholder="Select or enter categories (comma-separated for multiple)..."
                           value={editingProduct?.category || ''}
                           onChange={(e) => setEditingProduct(prev => ({ ...prev, category: e.target.value }))}
                           className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50"
@@ -5616,6 +5637,38 @@ export default function App() {
                             <option key={c} value={c} />
                           ))}
                         </datalist>
+
+                        {/* Interactive Category Chips for Multi-Category Assignment */}
+                        <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto p-1.5 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                          {categories.filter(c => c !== 'All').map(cat => {
+                            const activeCats = (editingProduct?.category || '').split(',').map(s => s.trim()).filter(Boolean);
+                            const isSelected = activeCats.some(c => c.toLowerCase() === cat.toLowerCase());
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                disabled={currentUser?.role !== 'admin'}
+                                onClick={() => {
+                                  let updated: string[];
+                                  if (isSelected) {
+                                    updated = activeCats.filter(c => c.toLowerCase() !== cat.toLowerCase());
+                                  } else {
+                                    updated = [...activeCats, cat];
+                                  }
+                                  setEditingProduct(prev => prev ? ({ ...prev, category: updated.join(', ') }) : prev);
+                                }}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border ${
+                                  isSelected
+                                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-xs'
+                                    : 'bg-slate-800/80 text-slate-400 border-slate-750 hover:border-slate-600 hover:text-slate-200'
+                                }`}
+                                title={isSelected ? `Click to remove from "${cat}"` : `Click to add to "${cat}"`}
+                              >
+                                {isSelected ? '✓ ' : '+ '}{cat}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       <div className="flex flex-col gap-1.5">

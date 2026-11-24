@@ -249,7 +249,14 @@ app.get('/api/notifications', async (req, res) => {
     // Sort by clinical urgency
     expired.sort((a, b) => b.days_overdue - a.days_overdue);
     expiringSoon.sort((a, b) => a.days_left - b.days_left);
+    lowStock.sort((a, b) => (a.available_stock || 0) - (b.available_stock || 0));
     outOfStock.sort((a, b) => a.product_name.localeCompare(b.product_name));
+
+    // Priority ordering for All Alerts:
+    // 1. Expiring Soon & Low Stock at top (highest clinical importance)
+    // 2. Expired next
+    // 3. Out of stock at the very bottom
+    const allAlerts = [...expiringSoon, ...lowStock, ...expired, ...outOfStock];
 
     // Smart notification numbering: only count active clinical risks (expiring soon, low stock, expired)
     // Catalog out-of-stock items (unstocked medicines) do not inflate the active alert counter
@@ -265,6 +272,7 @@ app.get('/api/notifications', async (req, res) => {
         lowStockCount: lowStock.length,
         updatedAt: new Date().toISOString()
       },
+      allAlerts,
       expired,
       expiringSoon,
       outOfStock,

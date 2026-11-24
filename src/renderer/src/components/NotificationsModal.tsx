@@ -69,12 +69,33 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     updatedAt: new Date().toISOString()
   };
 
+  // Priority sorting for "All alerts":
+  // Tier 1: Expiring Soon & Low Stock (Highest importance, at top)
+  // Tier 2: Expired Batches
+  // Tier 3: Out-of-Stock (At the very bottom)
+  const getAlertRank = (item: NotificationItem) => {
+    if (item.type === 'EXPIRING_SOON' || item.type === 'LOW_STOCK') return 1;
+    if (item.type === 'EXPIRED') return 2;
+    if (item.type === 'OUT_OF_STOCK') return 3;
+    return 4;
+  };
+
   const allItems: NotificationItem[] = [
-    ...(data.expired || []),
-    ...(data.outOfStock || []),
     ...(data.expiringSoon || []),
-    ...(data.lowStock || [])
-  ];
+    ...(data.lowStock || []),
+    ...(data.expired || []),
+    ...(data.outOfStock || [])
+  ].sort((a, b) => {
+    const rankDiff = getAlertRank(a) - getAlertRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    if (a.type === 'EXPIRING_SOON' && b.type === 'EXPIRING_SOON') {
+      return (a.days_left ?? 999) - (b.days_left ?? 999);
+    }
+    if (a.type === 'LOW_STOCK' && b.type === 'LOW_STOCK') {
+      return (a.available_stock ?? 0) - (b.available_stock ?? 0);
+    }
+    return a.product_name.localeCompare(b.product_name);
+  });
 
   let displayedItems: NotificationItem[] = [];
   if (filter === 'expired') displayedItems = data.expired || [];

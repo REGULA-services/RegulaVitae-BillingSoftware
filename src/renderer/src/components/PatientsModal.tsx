@@ -127,12 +127,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
   };
 
   const handleDeleteExamplePatient = async (p: Patient) => {
-    const isExample = p.is_example === 1 || p.is_example === true;
-    if (!isExample) {
-      alert("Medical Records Protection: Actual registered patient clinical records are legally protected under the Tamil Nadu Clinical Establishments Act and cannot be deleted. Only pre-seeded example/demo patient records can be removed.");
-      return;
-    }
-    const confirmed = window.confirm(`Delete Example Record:\n\nAre you sure you want to remove demo patient ${p.name} (${p.patient_id})?\n\nThis will remove this placeholder record.`);
+    const confirmed = window.confirm(`Delete Patient Record:\n\nAre you sure you want to remove patient ${p.name} (${p.patient_id}) from the clinic database?`);
     if (!confirmed) return;
 
     try {
@@ -141,7 +136,7 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Failed to delete example patient.");
+        alert(data.error || "Failed to delete patient.");
         return;
       }
       await loadPatients(searchQuery);
@@ -458,25 +453,15 @@ export const PatientsModal: React.FC<PatientsModalProps> = ({
                       <span>Edit</span>
                     </button>
 
-                    {selectedPatient.is_example ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteExamplePatient(selectedPatient)}
-                        className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 rounded-xl text-xs font-semibold border border-rose-500/30 transition-all flex items-center space-x-1"
-                        title="Delete this demo/example patient placeholder"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 mr-1" />
-                        <span>Delete Example</span>
-                      </button>
-                    ) : (
-                      <div
-                        className="px-2.5 py-1.5 bg-slate-800/80 rounded-xl text-[10px] text-slate-400 border border-slate-700/60 flex items-center space-x-1 cursor-default"
-                        title="Protected under Tamil Nadu Clinical Establishments Act and Medical Council Regulations"
-                      >
-                        <Lock className="w-3 h-3 text-slate-500" />
-                        <span>Protected</span>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteExamplePatient(selectedPatient)}
+                      className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 rounded-xl text-xs font-semibold border border-rose-500/30 transition-all flex items-center space-x-1"
+                      title="Delete patient record"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      <span>Delete</span>
+                    </button>
                   </div>
                 </div>
 

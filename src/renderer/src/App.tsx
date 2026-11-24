@@ -267,6 +267,7 @@ interface Product {
 
 interface Employee {
   id: number;
+  username?: string | null;
   name: string;
   role: string;
   phone: string | null;
@@ -1820,6 +1821,11 @@ export default function App() {
         sku.includes(token) ||
         barcode.includes(token)
       );
+    }).sort((a, b) => {
+      const aInStock = (a.available_stock ?? 0) > 0 ? 1 : 0;
+      const bInStock = (b.available_stock ?? 0) > 0 ? 1 : 0;
+      if (aInStock !== bInStock) return bInStock - aInStock;
+      return (b.available_stock ?? 0) - (a.available_stock ?? 0) || a.name.localeCompare(b.name);
     }).slice(0, 10); // cap to 10 suggestions for performance
   }, [searchQuery, products]);
 
@@ -2693,23 +2699,22 @@ export default function App() {
       return;
     }
     const targetEmp = employees.find(e => e.id === id);
-    const isExample = targetEmp && (targetEmp.is_example === 1 || targetEmp.is_example === true);
-    if (!isExample) {
-      showToast("Statutory Protection: Genuine clinic staff and registered pharmacist records cannot be deleted. You can mark their employment status as 'Inactive' instead.", "error");
+    if (targetEmp?.username === 'admin' || (targetEmp?.role?.toLowerCase() === 'admin' && employees.filter(e => e.role?.toLowerCase() === 'admin').length <= 1)) {
+      showToast("Protection: Primary administrator account cannot be deleted.", "error");
       return;
     }
     showConfirm({
-      title: "Remove Example Staff Record",
-      message: `Are you sure you want to remove demo employee '${targetEmp?.name || id}'?`,
+      title: "Delete Staff Member Record",
+      message: `Are you sure you want to permanently delete employee '${targetEmp?.name || id}'?`,
       type: "danger",
-      confirmText: "Remove Example",
+      confirmText: "Delete Employee",
       onConfirm: async () => {
         try {
           const res = await fetch(apiUrl(`/api/employees/${id}`), {
             method: "DELETE"
           });
           if (res.ok) {
-            showToast("Example employee removed successfully.", "success");
+            showToast("Employee deleted successfully.", "success");
             if (editingEmployee.id === id) {
               setEditingEmployee({});
             }
@@ -3105,7 +3110,7 @@ export default function App() {
   // VISUAL RENDER NODES
   // ----------------------------------------------------
 
-  // Grid products after category and instant catalogue search filtering
+  // Grid products after category and instant catalogue search filtering (In-stock first priority)
   const visibleGridProducts = useMemo(() => {
     return products.filter(p => {
       const matchCat = selectedCategory === 'All' || p.category === selectedCategory;
@@ -3116,6 +3121,11 @@ export default function App() {
         (p.sku && p.sku.toLowerCase().includes(q)) ||
         (p.barcode && p.barcode.includes(q));
       return matchCat && matchSearch;
+    }).sort((a, b) => {
+      const aInStock = (a.available_stock ?? 0) > 0 ? 1 : 0;
+      const bInStock = (b.available_stock ?? 0) > 0 ? 1 : 0;
+      if (aInStock !== bInStock) return bInStock - aInStock;
+      return (b.available_stock ?? 0) - (a.available_stock ?? 0) || a.name.localeCompare(b.name);
     });
   }, [products, selectedCategory, catalogueSearch]);
 
@@ -3244,10 +3254,6 @@ export default function App() {
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
-          <div>
-            <h1 className="text-sm lg:text-lg font-bold tracking-tight text-white">{bakeryDetails.name}</h1>
-            <p className="text-[10px] lg:text-xs text-slate-400 font-medium font-mono">Mission for Cure | Pharmacy POS Terminal</p>
-          </div>
         </div>
 
         {/* Operating Mode Toggle (Mode A vs Mode B) */}
@@ -3310,29 +3316,33 @@ export default function App() {
             <span>Upload Excel</span>
           </button>
 
-          <button
-            onClick={() => {
-              setShowEmployeeCrudModal(true);
-              setEditingEmployee({});
-              loadEmployees();
-            }}
-            className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
-          >
-            <Users className="w-3.5 h-3.5 mr-2 text-purple-400" />
-            <span>Manage Employees</span>
-          </button>
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => {
+                setShowEmployeeCrudModal(true);
+                setEditingEmployee({});
+                loadEmployees();
+              }}
+              className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
+            >
+              <Users className="w-3.5 h-3.5 mr-2 text-purple-400" />
+              <span>Manage Employees</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setAdminProfileForm({ ...bakeryDetails });
-              setShowAdminProfileModal(true);
-            }}
-            className="flex items-center px-3 py-1.5 bg-blue-950/60 hover:bg-blue-900/80 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-blue-700/60 text-blue-200"
-            title="Doctor Profile, Qualifications, Medical Council Reg & Clinic Licensure"
-          >
-            <Stethoscope className="w-3.5 h-3.5 mr-2 text-cyan-400" />
-            <span>Doctor Profile & Licensure</span>
-          </button>
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => {
+                setAdminProfileForm({ ...bakeryDetails });
+                setShowAdminProfileModal(true);
+              }}
+              className="flex items-center px-3 py-1.5 bg-blue-950/60 hover:bg-blue-900/80 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-blue-700/60 text-blue-200"
+              title="Doctor Profile, Qualifications, Medical Council Reg & Clinic Licensure"
+            >
+              <Stethoscope className="w-3.5 h-3.5 mr-2 text-cyan-400" />
+              <span>Doctor Profile & Licensure</span>
+            </button>
+          )}
 
           <button
             onClick={() => setShowAnalyticsModal(true)}
@@ -3353,15 +3363,6 @@ export default function App() {
             <span>Patients Database</span>
           </button>
 
-          <button
-            onClick={() => setIsMobileView(true)}
-            className="flex items-center px-3 py-1.5 bg-sky-950/70 hover:bg-sky-900 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-sky-700/60 text-sky-200"
-            title="Switch to dedicated Phone & Tablet UI"
-          >
-            <Smartphone className="w-3.5 h-3.5 mr-1.5 text-sky-400" />
-            <span>Mobile View</span>
-          </button>
-
           {/* Real-Time Expiry & Inventory Alerts Bell */}
           <button
             onClick={() => {
@@ -3372,11 +3373,15 @@ export default function App() {
             title="Real-Time Expiry & Inventory Alerts"
           >
             <Bell className="w-4 h-4 text-amber-400" />
-            {notificationsData?.summary?.totalAlerts > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg animate-pulse">
-                {notificationsData.summary.totalAlerts > 99 ? '99+' : notificationsData.summary.totalAlerts}
-              </span>
-            )}
+            {(() => {
+              const smartCount = (notificationsData?.summary?.expiringSoonCount || 0) + (notificationsData?.summary?.lowStockCount || 0) + (notificationsData?.summary?.expiredCount || 0);
+              if (smartCount <= 0) return null;
+              return (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg animate-pulse">
+                  {smartCount}
+                </span>
+              );
+            })()}
           </button>
           
           <button
@@ -3387,18 +3392,12 @@ export default function App() {
             <Settings className="w-4 h-4" />
           </button>
 
-          {/* User Profile Badge & Logout */}
-          <div className="flex items-center space-x-2 pl-3 border-l border-slate-800">
-            <div className="flex flex-col items-end">
-              <span className="text-xs font-bold text-slate-200">{currentUser.name}</span>
-              <span className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${currentUser.role === 'admin' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                {currentUser.role}
-              </span>
-            </div>
+          {/* Logout Button */}
+          <div className="flex items-center pl-2 border-l border-slate-800">
             <button
               onClick={handleLogout}
               title="Logout / Switch User"
-              className="flex items-center px-2 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-md text-xs font-semibold transition-colors"
+              className="flex items-center px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors active:scale-95"
             >
               <LogOut className="w-3.5 h-3.5 mr-1" />
               <span>Logout</span>
@@ -3426,11 +3425,15 @@ export default function App() {
             title="Real-Time Alerts"
           >
             <Bell className="w-4 h-4 text-amber-400" />
-            {notificationsData?.summary?.totalAlerts > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg animate-pulse">
-                {notificationsData.summary.totalAlerts > 99 ? '99+' : notificationsData.summary.totalAlerts}
-              </span>
-            )}
+            {(() => {
+              const smartCount = (notificationsData?.summary?.expiringSoonCount || 0) + (notificationsData?.summary?.lowStockCount || 0) + (notificationsData?.summary?.expiredCount || 0);
+              if (smartCount <= 0) return null;
+              return (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shadow-lg animate-pulse">
+                  {smartCount}
+                </span>
+              );
+            })()}
           </button>
 
           <button
@@ -6029,6 +6032,12 @@ export default function App() {
                       <tbody className="divide-y divide-slate-800/40">
                         {products
                           .filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase()))
+                          .sort((a, b) => {
+                            const aInStock = (a.available_stock ?? 0) > 0 ? 1 : 0;
+                            const bInStock = (b.available_stock ?? 0) > 0 ? 1 : 0;
+                            if (aInStock !== bInStock) return bInStock - aInStock;
+                            return (b.available_stock ?? 0) - (a.available_stock ?? 0) || a.name.localeCompare(b.name);
+                          })
                           .map(p => {
                             const todayStr = new Date().toISOString().split('T')[0];
                             const isExp = Boolean(p.status === 'Expired' || p.is_expired || (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr));
@@ -6729,6 +6738,11 @@ export default function App() {
               <span className="text-sm font-bold text-white flex items-center">
                 <BarChart2 className="w-4 h-4 mr-2 text-emerald-400" />
                 Financial Reports, Margins & Stock Analytics
+                {currentUser?.role !== 'admin' && (
+                  <span className="ml-3 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    Employee View-Only Mode
+                  </span>
+                )}
               </span>
               <button
                 onClick={() => setShowAnalyticsModal(false)}
@@ -8300,21 +8314,21 @@ export default function App() {
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
-                              {emp.is_example ? (
-                                <button
-                                  onClick={() => deleteEmployee(emp.id)}
-                                  className="p-1 hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded transition-colors"
-                                  title="Delete Demo Employee Record"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
+                              {emp.username === 'admin' ? (
                                 <span
                                   className="p-1 text-slate-600 cursor-not-allowed rounded"
-                                  title="Statutory Employment Record: Actual staff and registered pharmacist employment records are protected from arbitrary deletion under pharmacy regulations. Set status to 'Inactive' instead."
+                                  title="Primary administrator account is protected and cannot be deleted."
                                 >
                                   <Lock className="w-3.5 h-3.5 text-slate-600" />
                                 </span>
+                              ) : (
+                                <button
+                                  onClick={() => deleteEmployee(emp.id)}
+                                  className="p-1 hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded transition-colors"
+                                  title="Delete Employee Record"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               )}
                             </td>
                           </tr>

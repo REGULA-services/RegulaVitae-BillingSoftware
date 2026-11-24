@@ -3,7 +3,7 @@ import {
   Search, Plus, Minus, Trash2, ShoppingBag, Users,
   BarChart2, Wifi, CheckCircle2, AlertTriangle,
   AlertCircle, X, ChevronRight, Download, RefreshCw, LogOut,
-  Package, Monitor, Edit2, ShieldAlert, Printer, Eye,
+  Package, Edit2, ShieldAlert, Printer, Eye,
   Settings, UserCheck, Tag, Sparkles, Bell
 } from 'lucide-react';
 import { apiUrl, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
@@ -62,6 +62,7 @@ interface Patient {
 
 interface Employee {
   id: number;
+  username?: string;
   name: string;
   role: 'admin' | 'pharmacist' | 'cashier';
   phone?: string;
@@ -83,6 +84,8 @@ interface BillRecord {
   discount?: number;
   tax?: number;
   total: number;
+  grand_total?: number;
+  total_amount?: number;
   total_mrp?: number;
   status?: string;
   items?: any[];
@@ -91,7 +94,7 @@ interface BillRecord {
 }
 
 interface MobileTabletAppProps {
-  onSwitchToDesktop: () => void;
+  onSwitchToDesktop?: () => void;
   currentUser?: { username: string; role: string; name?: string } | null;
   onLogout?: () => void;
 }
@@ -297,7 +300,7 @@ export const printMobileThermalReceipt = (bill: any, pharmacyDetails: any = null
 };
 
 export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
-  onSwitchToDesktop,
+  onSwitchToDesktop: _onSwitchToDesktop,
   currentUser = { username: 'admin', role: 'admin', name: 'Dr. Arjun Sharma' },
   onLogout
 }) => {
@@ -443,6 +446,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   const [cancellingBill, setCancellingBill] = useState<BillRecord | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('');
   const [inwardLogs, setInwardLogs] = useState<any[]>([]);
+  const [isRefreshingStats, setIsRefreshingStats] = useState<boolean>(false);
 
   // Employees / Staff State
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -582,9 +586,22 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     }
   };
 
+  const loadPatients = async () => {
+    try {
+      const patRes = await fetch(apiUrl('/api/patients'));
+      if (patRes && patRes.ok) {
+        const patData = await patRes.json();
+        setPatients(Array.isArray(patData) ? patData : []);
+      }
+    } catch (err) {
+      console.error('[MOBILE POS] Failed to reload patients:', err);
+    }
+  };
+
   const loadPeriodStats = async (period: 'today' | 'monthly' | 'yearly' = reportPeriod) => {
     try {
-      const res = await fetch(apiUrl(`/api/bills?period=${period}`));
+      const apiPeriod = period === 'today' ? 'day' : period === 'monthly' ? 'month' : period === 'yearly' ? 'year' : period;
+      const res = await fetch(apiUrl(`/api/bills?period=${apiPeriod}`));
       if (res && res.ok) {
         const bills = await res.json();
         if (Array.isArray(bills)) {
@@ -599,12 +616,13 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           bills.forEach((b: any) => {
             if (b.status !== 'Cancelled') {
               count++;
-              sales += Number(b.total || 0);
-              mrpTotal += Number(b.total_mrp || b.total || 0);
+              const billAmt = Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));
+              sales += billAmt;
+              mrpTotal += Number(b.total_mrp || billAmt);
               const pm = (b.payment_method || '').toLowerCase();
-              if (pm.includes('cash')) cash += Number(b.total || 0);
-              else if (pm.includes('card') || pm.includes('pos') || pm.includes('debit') || pm.includes('credit')) card += Number(b.total || 0);
-              else upi += Number(b.total || 0);
+              if (pm.includes('cash')) cash += billAmt;
+              else if (pm.includes('card') || pm.includes('pos') || pm.includes('debit') || pm.includes('credit')) card += billAmt;
+              else upi += billAmt;
 
               let lineItems: any[] = [];
               try {
@@ -742,19 +760,26 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     }
   }, [activeTab]);
 
-  // Filtered products for POS & Medicines tab
+  // Filtered products for POS & Medicines tab (In-stock medicines displayed first)
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
-      const q = searchQuery.toLowerCase().trim();
-      if (!q) return matchesCategory;
-      const matchesSearch =
-        p.name.toLowerCase().includes(q) ||
-        (p.generic_name && p.generic_name.toLowerCase().includes(q)) ||
-        (p.batch_number && p.batch_number.toLowerCase().includes(q)) ||
-        (p.barcode && p.barcode.includes(q));
-      return matchesCategory && matchesSearch;
-    });
+    return products
+      .filter((p) => {
+        const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+        const q = searchQuery.toLowerCase().trim();
+        if (!q) return matchesCategory;
+        const matchesSearch =
+          p.name.toLowerCase().includes(q) ||
+          (p.generic_name && p.generic_name.toLowerCase().includes(q)) ||
+          (p.batch_number && p.batch_number.toLowerCase().includes(q)) ||
+          (p.barcode && p.barcode.includes(q));
+        return matchesCategory && matchesSearch;
+      })
+      .sort((a, b) => {
+        const aInStock = (a.available_stock ?? 0) > 0 ? 1 : 0;
+        const bInStock = (b.available_stock ?? 0) > 0 ? 1 : 0;
+        if (aInStock !== bInStock) return bInStock - aInStock;
+        return (b.available_stock ?? 0) - (a.available_stock ?? 0) || a.name.localeCompare(b.name);
+      });
   }, [products, selectedCategory, searchQuery]);
 
   // Cart calculations with persistent discount and GST
@@ -1108,6 +1133,44 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     }
   };
 
+  // Delete Patient Record
+  const handleDeletePatient = async (p: Patient) => {
+    if (!window.confirm(`Are you sure you want to delete patient record "${p.name}"?`)) return;
+    try {
+      const res = await fetch(apiUrl(`/api/patients/${p.id}`), { method: 'DELETE' });
+      if (res.ok) {
+        alert(`Patient record "${p.name}" deleted successfully.`);
+        loadPatients();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete patient record.');
+      }
+    } catch (e: any) {
+      alert(`Error deleting patient: ${e.message}`);
+    }
+  };
+
+  // Delete Staff / Employee Record
+  const handleDeleteEmployee = async (emp: Employee) => {
+    if (emp.username === 'admin') {
+      alert('System administrator cannot be deleted.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to remove staff member "${emp.name}"?`)) return;
+    try {
+      const res = await fetch(apiUrl(`/api/employees/${emp.id}`), { method: 'DELETE' });
+      if (res.ok) {
+        alert(`Staff member "${emp.name}" removed successfully.`);
+        loadEmployees();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete staff member.');
+      }
+    } catch (e: any) {
+      alert(`Error deleting staff: ${e.message}`);
+    }
+  };
+
   // Save Inward Stock Consignment (Multi-Medicine)
   const handleInwardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1363,46 +1426,21 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       <header className="bg-slate-900 text-white shrink-0 shadow-md z-30">
         <div className="flex items-center justify-between px-3.5 py-2.5 max-w-lg mx-auto">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center text-white shrink-0 shadow-sm font-black text-sm">
-              🏥
-            </div>
+            <img
+              src="./icon.png"
+              alt="MADRAS ORTHO CLINIC"
+              className="h-8 w-8 rounded-xl object-cover shadow-md shadow-sky-900/30 shrink-0"
+              style={{ imageRendering: 'crisp-edges' }}
+            />
             <div className="min-w-0">
               <h1 className="text-sm font-black tracking-tight leading-tight truncate">
                 MADRAS ORTHO CLINIC
               </h1>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-                <span className="truncate">{currentUser?.name || 'Administrator'}</span>
-                <span>•</span>
-                <span className="px-1.5 py-0.2 rounded bg-slate-800 text-sky-400 uppercase font-bold text-[9px]">
-                  {currentUser?.role || 'admin'}
-                </span>
-              </div>
+              <p className="text-[10px] text-slate-400 font-medium">Pharmacy Dispensary</p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Direct Switch to Desktop View */}
-            <button
-              onClick={onSwitchToDesktop}
-              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-white rounded-lg text-xs font-bold border border-slate-700 flex items-center gap-1"
-              title="Switch to full desktop POS"
-            >
-              <Monitor className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Desktop</span>
-            </button>
-
-            {/* Logout Button */}
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-lg text-xs font-bold border border-rose-500/30 flex items-center gap-1 transition-all"
-                title="Log out of software"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            )}
-
             {/* Real-Time Expiry & Inventory Alerts Bell */}
             <button
               onClick={() => {
@@ -1413,11 +1451,15 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               title="Real-Time Alerts"
             >
               <Bell className="h-4 w-4 text-amber-400" />
-              {notificationsData?.summary?.totalAlerts > 0 && (
-                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center animate-pulse shadow-md">
-                  {notificationsData.summary.totalAlerts > 99 ? '99+' : notificationsData.summary.totalAlerts}
-                </span>
-              )}
+              {(() => {
+                const smartCount = (notificationsData?.summary?.expiringSoonCount || 0) + (notificationsData?.summary?.lowStockCount || 0) + (notificationsData?.summary?.expiredCount || 0);
+                if (smartCount <= 0) return null;
+                return (
+                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] font-black h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center animate-pulse shadow-md">
+                    {smartCount}
+                  </span>
+                );
+              })()}
             </button>
 
             {/* Cart Button */}
@@ -1432,6 +1474,18 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Logout Button */}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-bold border border-rose-500/30 flex items-center gap-1 transition-all active:scale-95"
+                title="Log out of software"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Logout</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -1768,6 +1822,15 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         {/* ── TAB 3: REPORTS, STATS & BILL HISTORY ─────────────────── */}
         {activeTab === 'reports' && (
           <div className="space-y-3 max-w-lg mx-auto">
+            {currentUser?.role !== 'admin' && (
+              <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-xs font-semibold flex items-center justify-between shadow-2xs">
+                <span>Employee View-Only Access</span>
+                <span className="text-[10px] font-mono uppercase bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-200">
+                  Read-Only Mode
+                </span>
+              </div>
+            )}
+
             {/* Sub-navigation pills */}
             <div className="flex bg-slate-200 p-1 rounded-xl gap-1 text-xs font-bold">
               <button
@@ -1826,10 +1889,19 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       <p className="text-xs text-slate-500">Live collection & statutory GST snapshot</p>
                     </div>
                     <button
-                      onClick={() => loadPeriodStats(reportPeriod)}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
+                      onClick={async () => {
+                        setIsRefreshingStats(true);
+                        await Promise.all([
+                          loadPeriodStats(reportPeriod),
+                          loadBillsHistory(),
+                          loadInwardLogs()
+                        ]);
+                        setIsRefreshingStats(false);
+                      }}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 transition-all"
+                      title="Refresh sales and tax summary"
                     >
-                      <RefreshCw className="h-4 w-4" />
+                      <RefreshCw className={`h-4 w-4 ${isRefreshingStats ? 'animate-spin text-blue-600' : ''}`} />
                     </button>
                   </div>
 
@@ -1956,7 +2028,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                                 <span className="font-semibold text-slate-800">{b.patient_name || 'Walk-in'}</span>
                                 <div className="text-[10px] text-slate-400">{b.date} • {b.payment_method || 'Cash'}</div>
                               </div>
-                              <span className="text-sm font-black text-slate-900">₹{Number(b.total).toFixed(2)}</span>
+                              <span className="text-sm font-black text-slate-900">₹{Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0)).toFixed(2)}</span>
                             </div>
 
                             {isCancelled && b.cancelled_reason && (
@@ -2121,25 +2193,35 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       >
                         View Visit & Bill History
                       </button>
-                      <button
-                        onClick={() => {
-                          setEditingPatient(p);
-                          setPatientForm({
-                            name: p.name,
-                            age: p.age ? p.age.toString() : '',
-                            gender: p.gender || 'Male',
-                            phone: p.phone || '',
-                            address: p.address || '',
-                            doctor: p.doctor || CLINIC_DOCTORS[0].name,
-                            diagnosis: p.diagnosis || '',
-                            notes: p.notes || ''
-                          });
-                          setIsPatientModalOpen(true);
-                        }}
-                        className="text-slate-600 hover:text-blue-600 font-medium"
-                      >
-                        Edit Details
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            setEditingPatient(p);
+                            setPatientForm({
+                              name: p.name,
+                              age: p.age ? p.age.toString() : '',
+                              gender: p.gender || 'Male',
+                              phone: p.phone || '',
+                              address: p.address || '',
+                              doctor: p.doctor || CLINIC_DOCTORS[0].name,
+                              diagnosis: p.diagnosis || '',
+                              notes: p.notes || ''
+                            });
+                            setIsPatientModalOpen(true);
+                          }}
+                          className="text-slate-600 hover:text-blue-600 font-medium"
+                        >
+                          Edit Details
+                        </button>
+                        <button
+                          onClick={() => handleDeletePatient(p)}
+                          className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5"
+                          title="Delete Patient Record"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -2322,40 +2404,37 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         <div className="font-bold text-slate-800">{emp.name}</div>
                         <div className="text-[10px] text-slate-500 uppercase">{emp.role} • {emp.shift || 'General'}</div>
                       </div>
-                      <button
-                        onClick={() => {
-                          setEditingEmployee(emp);
-                          setEmployeeForm({
-                            name: emp.name,
-                            role: emp.role,
-                            phone: emp.phone || '',
-                            email: emp.email || '',
-                            shift: emp.shift || 'General'
-                          });
-                          setIsEmployeeModalOpen(true);
-                        }}
-                        className="text-xs text-blue-600 font-semibold hover:underline"
-                      >
-                        Edit
-                      </button>
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => {
+                            setEditingEmployee(emp);
+                            setEmployeeForm({
+                              name: emp.name,
+                              role: emp.role,
+                              phone: emp.phone || '',
+                              email: emp.email || '',
+                              shift: emp.shift || 'General'
+                            });
+                            setIsEmployeeModalOpen(true);
+                          }}
+                          className="text-xs text-blue-600 font-semibold hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEmployee(emp)}
+                          className="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-0.5"
+                          title="Delete staff record"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
-            {/* Prescribing Orthopaedic Specialists */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-              <div className="text-sm font-bold text-slate-900">Clinic Specialists Directory</div>
-              <div className="space-y-1.5 pt-1">
-                {CLINIC_DOCTORS.map((doc, idx) => (
-                  <div key={idx} className="p-2 rounded-xl bg-slate-50 text-xs border border-slate-100">
-                    <div className="font-bold text-slate-800">{doc.name}</div>
-                    <div className="text-[11px] text-slate-500">{doc.specialty}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
             {/* Danger Zone: Clinic Data Maintenance (Admin Only) */}
             {currentUser?.role === 'admin' && (
@@ -2418,17 +2497,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             {/* System Controls */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-              <button
-                onClick={onSwitchToDesktop}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2"
-              >
-                <Monitor className="h-4 w-4" />
-                Switch to Full Desktop POS Layout
-              </button>
               {onLogout && (
                 <button
                   onClick={onLogout}
-                  className="w-full py-2 bg-slate-100 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <LogOut className="h-4 w-4" />
                   Log Out
@@ -2467,62 +2539,58 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
       {/* ─── BOTTOM NAVIGATION BAR ──────────────────────────────────── */}
       <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-1 pb-[max(8px,env(safe-area-inset-bottom))] shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] ${
-        currentUser?.role === 'admin' ? 'grid grid-cols-5' : 'flex justify-around items-center'
+        currentUser?.role === 'admin' ? 'grid grid-cols-5' : 'grid grid-cols-4'
       }`}>
         <button
           onClick={() => setActiveTab('billing')}
           className={`flex flex-col items-center justify-center gap-0.5 ${
-            currentUser?.role === 'admin' ? '' : 'px-8 py-1 rounded-xl bg-blue-50'
-          } ${
             activeTab === 'billing' ? 'text-blue-600 font-bold' : 'text-slate-500'
           }`}
         >
           <ShoppingBag className="h-5 w-5" />
-          <span className="text-[10px] font-bold">Billing {currentUser?.role !== 'admin' && '(Staff Mode)'}</span>
+          <span className="text-[10px] font-bold">Billing</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('medicines')}
+          className={`flex flex-col items-center justify-center gap-0.5 ${
+            activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
+          }`}
+        >
+          <Package className="h-5 w-5" />
+          <span className="text-[10px]">Medicines</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={`flex flex-col items-center justify-center gap-0.5 ${
+            activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
+          }`}
+        >
+          <BarChart2 className="h-5 w-5" />
+          <span className="text-[10px]">Reports {currentUser?.role !== 'admin' && '(View)'}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('patients')}
+          className={`flex flex-col items-center justify-center gap-0.5 ${
+            activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
+          }`}
+        >
+          <Users className="h-5 w-5" />
+          <span className="text-[10px]">Patients</span>
         </button>
 
         {currentUser?.role === 'admin' && (
-          <>
-            <button
-              onClick={() => setActiveTab('medicines')}
-              className={`flex flex-col items-center justify-center gap-0.5 ${
-                activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
-              }`}
-            >
-              <Package className="h-5 w-5" />
-              <span className="text-[10px]">Medicines</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('reports')}
-              className={`flex flex-col items-center justify-center gap-0.5 ${
-                activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
-              }`}
-            >
-              <BarChart2 className="h-5 w-5" />
-              <span className="text-[10px]">Reports</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('patients')}
-              className={`flex flex-col items-center justify-center gap-0.5 ${
-                activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
-              }`}
-            >
-              <Users className="h-5 w-5" />
-              <span className="text-[10px]">Patients</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('more')}
-              className={`flex flex-col items-center justify-center gap-0.5 ${
-                activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
-              }`}
-            >
-              <Settings className="h-5 w-5" />
-              <span className="text-[10px]">More</span>
-            </button>
-          </>
+          <button
+            onClick={() => setActiveTab('more')}
+            className={`flex flex-col items-center justify-center gap-0.5 ${
+              activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <Settings className="h-5 w-5" />
+            <span className="text-[10px]">More</span>
+          </button>
         )}
       </nav>
 
@@ -3514,7 +3582,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   <div key={b.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
                     <div className="flex justify-between font-bold">
                       <span className="font-mono text-blue-700">{b.bill_number}</span>
-                      <span className="text-slate-800">₹{Number(b.total).toFixed(2)}</span>
+                      <span className="text-slate-800">₹{Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0)).toFixed(2)}</span>
                     </div>
                     <div className="text-[10px] text-slate-500">{b.date} • {b.doctor || 'Doctor'}</div>
                   </div>
@@ -3551,7 +3619,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <div className="flex justify-between"><span className="text-slate-500">Doctor:</span><span>{viewingBillModal.doctor || 'Consultant'}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Payment:</span><span>{viewingBillModal.payment_method}</span></div>
               <div className="flex justify-between font-bold pt-1 border-t text-sm">
-                <span>Total Amount:</span><span className="text-blue-700">₹{Number(viewingBillModal.total).toFixed(2)}</span>
+                <span>Total Amount:</span><span className="text-blue-700">₹{Number(viewingBillModal.grand_total !== undefined && viewingBillModal.grand_total !== null ? viewingBillModal.grand_total : (viewingBillModal.total ?? viewingBillModal.total_amount ?? 0)).toFixed(2)}</span>
               </div>
             </div>
 

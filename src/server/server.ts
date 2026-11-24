@@ -89,7 +89,8 @@ app.use((req, res, next) => {
 // REAL-TIME MULTI-DEVICE EVENT BROADCASTER (SSE)
 // ----------------------------------------------------
 export interface RealtimeEvent {
-  type: 'INVENTORY_CHANGED' | 'BILL_CREATED' | 'STOCK_OUT' | 'EXPIRY_ALERT' | 'CATALOGUE_CHANGED' | 'SYNC_ALL';
+  id?: string | number;
+  type: 'INVENTORY_CHANGED' | 'BILL_CREATED' | 'STOCK_OUT' | 'EXPIRY_ALERT' | 'CATALOGUE_CHANGED' | 'EMPLOYEE_DELETED' | 'PATIENT_DELETED' | 'SYNC_ALL' | string;
   message?: string;
   data?: any;
   timestamp?: string;
@@ -250,11 +251,14 @@ app.get('/api/notifications', async (req, res) => {
     expiringSoon.sort((a, b) => a.days_left - b.days_left);
     outOfStock.sort((a, b) => a.product_name.localeCompare(b.product_name));
 
-    const totalAlerts = expired.length + expiringSoon.length + outOfStock.length;
+    // Smart notification numbering: only count active clinical risks (expiring soon, low stock, expired)
+    // Catalog out-of-stock items (unstocked medicines) do not inflate the active alert counter
+    const smartAlertsCount = expired.length + expiringSoon.length + lowStock.length;
 
     res.json({
       summary: {
-        totalAlerts,
+        totalAlerts: smartAlertsCount,
+        smartAlertsCount,
         expiredCount: expired.length,
         expiringSoonCount: expiringSoon.length,
         outOfStockCount: outOfStock.length,
@@ -916,7 +920,7 @@ app.put('/api/employees/:id', async (req, res) => {
   }
 });
 
-// Delete employee (ONLY example staff records are deletable)
+// Delete employee / staff record
 app.delete('/api/employees/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -926,15 +930,16 @@ app.delete('/api/employees/:id', async (req, res) => {
       return res.status(404).json({ error: "Employee not found." });
     }
 
-    const isExample = emp.is_example === 1 || emp.is_example === true;
-    if (!isExample) {
-      return res.status(403).json({
-        error: "Statutory Protection: Genuine clinic staff and registered pharmacist employment records cannot be deleted. You can mark their employment status as 'Inactive' instead. Only pre-seeded example employee records may be removed."
-      });
+    if (emp.username === 'admin') {
+      return res.status(400).json({ error: "Primary system administrator account cannot be deleted." });
     }
 
-    const result = await db.run("DELETE FROM employees WHERE id = ?", [Number(id)]);
-    res.json({ message: `Example staff record ${emp.name} deleted successfully.`, id: Number(id) });
+    await db.run("DELETE FROM employees WHERE id = ?", [Number(id)]);
+    if (emp.username) {
+      await db.run("DELETE FROM users WHERE username = ?", [emp.username]);
+    }
+    broadcastRealtimeEvent({ type: 'EMPLOYEE_DELETED', message: `Staff member ${emp.name} deleted`, id: Number(id) });
+    res.json({ success: true, message: `Staff record ${emp.name} deleted successfully.`, id: Number(id) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1540,7 +1545,7 @@ app.put('/api/patients/:id', async (req, res) => {
   }
 });
 
-// Delete patient profile (ONLY example patients can be deleted; actual clinical records are protected under TNCEA 1997 / D&C Rule 65)
+// Delete patient profile
 app.delete('/api/patients/:id', async (req, res) => {
   try {
     const idParam = req.params.id;
@@ -1557,17 +1562,11 @@ app.delete('/api/patients/:id', async (req, res) => {
       return res.status(404).json({ error: "Patient profile not found." });
     }
 
-    const isExample = patient.is_example === 1 || patient.is_example === true;
-    if (!isExample) {
-      return res.status(403).json({
-        error: "Medical Records Protection: Actual registered patient clinical records are legally protected under the Tamil Nadu Clinical Establishments Act and Medical Council Regulations. Only pre-seeded example/demo patient records may be deleted."
-      });
-    }
-
     await db.run("DELETE FROM patients WHERE id = ? OR patient_id = ?", [patient.id, patient.patient_id]);
+    broadcastRealtimeEvent({ type: 'PATIENT_DELETED', message: `Patient ${patient.name} deleted`, id: patient.id });
     res.json({
       success: true,
-      message: `Example patient record ${patient.name} (${patient.patient_id}) deleted successfully.`,
+      message: `Patient record ${patient.name} (${patient.patient_id}) deleted successfully.`,
       id: patient.id,
       patient_id: patient.patient_id
     });
@@ -1580,7 +1579,12 @@ app.delete('/api/patients/:id', async (req, res) => {
 app.get('/api/bills', async (req, res) => {
   try {
     const mode = req.query.mode as string | undefined;
-    const period = req.query.period as string || (mode ? 'all' : 'day');
+    let periodParam = (req.query.period as string || (mode ? 'all' : 'day')).toLowerCase();
+    if (periodParam === 'today') periodParam = 'day';
+    if (periodParam === 'monthly') periodParam = 'month';
+    if (periodParam === 'yearly') periodParam = 'year';
+    if (periodParam === 'weekly') periodParam = 'week';
+
     const dateStr = (req.query.date as string) || new Date().toISOString().split('T')[0];
     const year = Number(req.query.year || new Date().getFullYear());
     
@@ -1588,23 +1592,23 @@ app.get('/api/bills', async (req, res) => {
     let query = "";
     let params: any[] = [];
     
-    if (period === 'all') {
+    if (periodParam === 'all') {
       query = "SELECT * FROM bills ORDER BY date DESC, time DESC";
       params = [];
-    } else if (period === 'day') {
+    } else if (periodParam === 'day') {
       query = "SELECT * FROM bills WHERE date = ? ORDER BY date DESC, time DESC";
       params = [dateStr];
-    } else if (period === 'week') {
+    } else if (periodParam === 'week') {
       const { monday, sunday } = getMondayAndSunday(dateStr);
       query = "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
       params = [monday, sunday];
-    } else if (period === 'month') {
+    } else if (periodParam === 'month') {
       const monthParam = (req.query.month as string) || (dateStr && dateStr.substring(0, 7)) || new Date().toISOString().substring(0, 7);
       const [y, m] = monthParam.split('-');
       const lastDay = new Date(Number(y), Number(m), 0).getDate();
       query = "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
       params = [`${monthParam}-01`, `${monthParam}-${String(lastDay).padStart(2, '0')}`];
-    } else if (period === 'year') {
+    } else if (periodParam === 'year') {
       query = "SELECT * FROM bills WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
       params = [`${year}-01-01`, `${year}-12-31`];
     } else {
@@ -1612,10 +1616,16 @@ app.get('/api/bills', async (req, res) => {
     }
     
     let bills = await db.all(query, params);
-    bills = bills.map((b: any) => ({
-      ...b,
-      mode: b.mode || (b.clinic_patient_id ? 'CLINIC_DISPENSING' : 'RETAIL_PHARMACY')
-    }));
+    bills = bills.map((b: any) => {
+      const finalAmt = Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));
+      return {
+        ...b,
+        total: finalAmt,
+        grand_total: finalAmt,
+        total_amount: finalAmt,
+        mode: b.mode || (b.clinic_patient_id ? 'CLINIC_DISPENSING' : 'RETAIL_PHARMACY')
+      };
+    });
 
     if (mode) {
       if (mode === 'CLINIC_DISPENSING') {

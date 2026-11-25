@@ -16,8 +16,14 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const http = require('http');
+
+const isolatedComplianceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moc-compliance-test-'));
+process.env.APPDATA = isolatedComplianceDir;
+process.env.PORT = String(process.env.TEST_PORT || 4896);
 
 async function runTests() {
   console.log('\n================================================================');
@@ -146,20 +152,24 @@ async function runTests() {
   console.log('\n--- 4. API Endpoints, Dual Operating Modes & Regulatory Interceptors ---');
 
   const { server } = require('../dist-electron/src/server/server');
-  const testPort = 4848;
+  const testPort = Number(process.env.PORT || 4896);
+  let adminAuthToken = null;
+  let adminLoginPromise = null;
 
-  function makeRequest(method, endpoint, body) {
+  function rawRequest(method, endpoint, body, token) {
     return new Promise((resolve, reject) => {
       const payload = body ? JSON.stringify(body) : null;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+      };
       const req = http.request({
         hostname: 'localhost',
         port: testPort,
         path: endpoint,
         method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
-        }
+        headers
       }, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
@@ -176,6 +186,28 @@ async function runTests() {
       if (payload) req.write(payload);
       req.end();
     });
+  }
+
+  async function ensureAdminToken() {
+    if (adminAuthToken) return adminAuthToken;
+    if (!adminLoginPromise) {
+      adminLoginPromise = rawRequest('POST', '/api/auth/login', {
+        username: 'admin',
+        password: 'admin123'
+      }).then((res) => {
+        if (res.status === 200 && res.data && res.data.token) {
+          adminAuthToken = res.data.token;
+          return adminAuthToken;
+        }
+        throw new Error(`Compliance test admin login failed: HTTP ${res.status} ${JSON.stringify(res.data)}`);
+      });
+    }
+    return adminLoginPromise;
+  }
+
+  async function makeRequest(method, endpoint, body) {
+    const token = await ensureAdminToken();
+    return rawRequest(method, endpoint, body, token);
   }
 
   // Test 4A: Retail Pharmacy - Pharmacist supervision mandatory

@@ -1,13 +1,27 @@
 /**
  * apiConfig.ts
- * Dynamic API Base URL resolver for Madras Ortho Clinic Pharmacy Software.
- * 
- * Works seamlessly across:
- * 1. Desktop Electron window (file:// protocol -> http://localhost:4848)
- * 2. Localhost Web Browser (http://localhost:4848 -> http://localhost:4848)
- * 3. Mobile / Tablet / Laptop on same Wi-Fi (http://192.168.x.x:4848 -> http://192.168.x.x:4848)
- * 4. Android Capacitor APK (reads localStorage 'moc_clinic_server_url' or falls back to 'http://madrasorthoclinic.local:4848')
+ * Dynamic API Base URL resolver & per-session auth token manager
+ * for Madras Ortho Clinic Pharmacy Software.
+ *
+ * Security Invariant:
+ * - Auth session tokens are stored strictly in JavaScript memory (`activeAuthToken`),
+ *   NEVER in localStorage — guaranteeing every device, browser tab, ?view=mobile preview,
+ *   and restart encounters the Login screen independently without inheriting another session.
  */
+
+let activeAuthToken: string | null = null;
+let unauthorizedHandler: (() => void) | null = null;
+let authInterceptorInstalled = false;
+
+export const setAuthToken = (token: string | null): void => {
+  activeAuthToken = token && token.trim() ? token.trim() : null;
+};
+
+export const getAuthToken = (): string | null => activeAuthToken;
+
+export const setUnauthorizedHandler = (handler: (() => void) | null): void => {
+  unauthorizedHandler = handler;
+};
 
 export const getSavedClinicServerUrl = (): string => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -39,8 +53,8 @@ export const getApiBaseUrl = (): string => {
     }
 
     if (window.location) {
-      const isCapacitor = !!(window as any).Capacitor || 
-        window.location.protocol === 'capacitor:' || 
+      const isCapacitor = !!(window as any).Capacitor ||
+        window.location.protocol === 'capacitor:' ||
         (window.location.hostname === 'localhost' && (!window.location.port || window.location.port === '80' || window.location.port === '443'));
 
       // 2. If running inside native Android Capacitor APK, connect to zero-config clinic domain
@@ -69,6 +83,58 @@ export const apiUrl = (endpoint: string): string => {
 };
 
 /**
+ * Append session token query parameter for browser URLs that cannot pass Bearer headers
+ * (e.g., SSE EventSource streams and window.open Excel/PDF exports).
+ */
+export const authApiUrl = (endpoint: string): string => {
+  const url = apiUrl(endpoint);
+  if (!activeAuthToken) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}token=${encodeURIComponent(activeAuthToken)}`;
+};
+
+/**
+ * Installs a global fetch wrapper (before mockFetch) that attaches
+ * `Authorization: Bearer <token>` on all /api/ calls and forces lock-screen
+ * redirect on HTTP 401 Unauthorized responses.
+ */
+export function initAuthFetchInterceptor(): void {
+  if (authInterceptorInstalled || typeof window === 'undefined' || typeof window.fetch !== 'function') {
+    return;
+  }
+  authInterceptorInstalled = true;
+  const baseFetch = window.fetch.bind(window);
+
+  window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    const urlStr = typeof input === 'string' ? input : (input instanceof Request ? input.url : String(input));
+    const isApiCall = /\/api(\/|$|\?)/i.test(urlStr);
+
+    let finalInit = init;
+    if (isApiCall && activeAuthToken) {
+      const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+      if (!headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${activeAuthToken}`);
+      }
+      finalInit = { ...(init || {}), headers };
+    }
+
+    const res = await baseFetch(input as any, finalInit);
+
+    const isAuthEndpoint = /\/api\/auth\/(login|logout)/i.test(urlStr);
+    if (isApiCall && !isAuthEndpoint && res.status === 401 && activeAuthToken) {
+      activeAuthToken = null;
+      if (unauthorizedHandler) {
+        try {
+          unauthorizedHandler();
+        } catch {}
+      }
+    }
+
+    return res;
+  };
+}
+
+/**
  * Resilient fetch wrapper with exponential backoff retry.
  * Handles transient network dropouts when mobile/tablet devices move across clinic Wi-Fi zones.
  */
@@ -90,4 +156,3 @@ export const fetchWithRetry = async (
   }
   return fetch(url, options);
 };
-

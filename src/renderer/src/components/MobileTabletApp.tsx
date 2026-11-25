@@ -6,7 +6,7 @@ import {
   Package, Edit2, ShieldAlert, Printer, Eye,
   Settings, UserCheck, Tag, Sparkles, Bell
 } from 'lucide-react';
-import { apiUrl, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
+import { apiUrl, authApiUrl, getAuthToken, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
 import { NotificationsModal, NotificationsData } from './NotificationsModal';
 
 interface Product {
@@ -95,7 +95,7 @@ interface BillRecord {
 
 interface MobileTabletAppProps {
   onSwitchToDesktop?: () => void;
-  currentUser?: { username: string; role: string; name?: string } | null;
+  currentUser: { id?: number; username: string; role: string; name?: string } | null;
   onLogout?: () => void;
 }
 
@@ -301,9 +301,15 @@ export const printMobileThermalReceipt = (bill: any, pharmacyDetails: any = null
 
 export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   onSwitchToDesktop: _onSwitchToDesktop,
-  currentUser = { username: 'admin', role: 'admin', name: 'Dr. Arjun Sharma' },
+  currentUser,
   onLogout
 }) => {
+  // Safety gate: NEVER render Mobile POS without an authenticated user & active session token
+  useEffect(() => {
+    if ((!currentUser || !currentUser.role || !getAuthToken()) && onLogout) {
+      onLogout();
+    }
+  }, [currentUser, onLogout]);
   // Navigation tabs
   const [activeTab, setActiveTab] = useState<'billing' | 'medicines' | 'reports' | 'patients' | 'more'>('billing');
 
@@ -369,9 +375,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     }
   };
 
-  // Enforce staff mode: employees can ONLY access billing
+  // Enforce role scope: employees can view Billing, Medicines, Reports (Read-Only), & Patients, but NOT More/Settings
   useEffect(() => {
-    if (currentUser?.role && currentUser.role !== 'admin' && activeTab !== 'billing') {
+    if (currentUser?.role && currentUser.role !== 'admin' && activeTab === 'more') {
       setActiveTab('billing');
     }
   }, [currentUser, activeTab]);
@@ -708,6 +714,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   };
 
   useEffect(() => {
+    if (!currentUser || !currentUser.role || !getAuthToken()) return;
+
     loadData();
     loadPeriodStats('today');
     fetchNotifications();
@@ -716,8 +724,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     let reconnectTimeout: any = null;
 
     const connectSSE = () => {
+      if (!getAuthToken()) return;
       try {
-        const eventsUrl = apiUrl('/api/events');
+        const eventsUrl = authApiUrl('/api/events');
         eventSource = new EventSource(eventsUrl);
 
         eventSource.onmessage = (e) => {
@@ -772,7 +781,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       clearInterval(notifTimer);
     };
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (activeTab === 'reports') {
@@ -1444,6 +1453,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     }
   };
 
+  if (!currentUser || !currentUser.role || !getAuthToken()) {
+    return null;
+  }
+
   return (
     <div className="flex flex-col h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen max-w-full overflow-hidden bg-slate-100 text-slate-800 font-sans select-none antialiased">
       {/* ─── APP HEADER ─────────────────────────────────────────────── */}
@@ -1758,13 +1771,15 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             {/* Quick Actions Row */}
             <div className="flex gap-2">
-              <button
-                onClick={() => setIsAddCategoryOpen(true)}
-                className="flex-1 py-1.5 bg-white border border-slate-200 text-sky-600 text-xs font-bold rounded-lg shadow-2xs flex items-center justify-center gap-1"
-              >
-                <Tag className="h-3.5 w-3.5" />
-                + Add Category
-              </button>
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => setIsAddCategoryOpen(true)}
+                  className="flex-1 py-1.5 bg-white border border-slate-200 text-sky-600 text-xs font-bold rounded-lg shadow-2xs flex items-center justify-center gap-1"
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  + Add Category
+                </button>
+              )}
               <button
                 onClick={loadData}
                 className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1"
@@ -2008,14 +2023,14 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   </p>
                   <div className="flex flex-col gap-2 pt-1">
                     <button
-                      onClick={() => window.open(apiUrl('/api/reports/monthly?export=excel'), '_blank')}
+                      onClick={() => window.open(authApiUrl('/api/reports/monthly?export=excel'), '_blank')}
                       className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs"
                     >
                       <Download className="h-4 w-4" />
                       Download 6-Sheet Monthly Excel Report
                     </button>
                     <button
-                      onClick={() => window.open(apiUrl('/api/reports/daily?export=excel'), '_blank')}
+                      onClick={() => window.open(authApiUrl('/api/reports/daily?export=excel'), '_blank')}
                       className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-200"
                     >
                       <Download className="h-4 w-4" />
@@ -2261,14 +2276,16 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         >
                           Edit Details
                         </button>
-                        <button
-                          onClick={() => handleDeletePatient(p)}
-                          className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5"
-                          title="Delete Patient Record"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          <span>Delete</span>
-                        </button>
+                        {currentUser?.role === 'admin' && (
+                          <button
+                            onClick={() => handleDeletePatient(p)}
+                            className="text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-0.5"
+                            title="Delete Patient Record"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

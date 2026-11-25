@@ -10,7 +10,7 @@ import {
 import { PatientsModal } from './components/PatientsModal';
 import { MobileTabletApp } from './components/MobileTabletApp';
 import { NotificationsModal, NotificationsData } from './components/NotificationsModal';
-import { apiUrl } from './utils/apiConfig';
+import { apiUrl, authApiUrl, setAuthToken, getAuthToken, setUnauthorizedHandler } from './utils/apiConfig';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
   isBluetoothSupported,
@@ -448,11 +448,8 @@ export default function App() {
   const [complimentaryReason, setComplimentaryReason] = useState('Doctor / Staff Health Dispense');
   const [hasOpeningStock, setHasOpeningStock] = useState(false);
 
-  // Authentication & Role State
-  const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: 'admin' | 'employee' | string; name: string; doctor_reg_no?: string; pharmacist_reg_no?: string } | null>(() => {
-    const saved = localStorage.getItem("madrasortho_pos_user");
-    return saved ? JSON.parse(saved) : null;
-  });
+  // Authentication & Role State (Strictly per-device/per-session in-memory; NEVER auto-logged-in from localStorage)
+  const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: 'admin' | 'employee' | string; name: string; doctor_reg_no?: string; pharmacist_reg_no?: string } | null>(null);
   const [isFirstTimeEver, setIsFirstTimeEver] = useState<boolean>(() => {
     return !localStorage.getItem("madrasortho_pos_has_logged_in_ever");
   });
@@ -461,6 +458,39 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [changePasswordModal, setChangePasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ username: 'admin', currentPassword: '', newPassword: '', confirmPassword: '' });
+
+  const clearInMemoryClinicalState = () => {
+    setHistoryBills([]);
+    setSelectedBill(null);
+    setSelectedBillItems([]);
+    setAnalyticsData(null);
+    setPatientsList([]);
+    setEmployees([]);
+    setInwardRecords([]);
+    setNotificationsData({
+      summary: { totalAlerts: 0, expiredCount: 0, expiringSoonCount: 0, outOfStockCount: 0, lowStockCount: 0, updatedAt: '' },
+      expired: [],
+      expiringSoon: [],
+      outOfStock: [],
+      lowStock: []
+    });
+  };
+
+  // Clear any legacy cached user credentials from localStorage on startup and wire global 401 lock
+  useEffect(() => {
+    try {
+      localStorage.removeItem("madrasortho_pos_user");
+    } catch {}
+    setUnauthorizedHandler(() => {
+      setAuthToken(null);
+      setCurrentUser(null);
+      setIsLoggingIn(false);
+      clearInMemoryClinicalState();
+      setLoginForm({ username: 'admin', password: '' });
+      setLoginError('Your session expired or was signed out. Please log in to continue.');
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   // Ensure login state is completely clean whenever user is logged out
   useEffect(() => {
@@ -478,31 +508,46 @@ export default function App() {
       return;
     }
     setIsLoggingIn(true);
+    let serverResponded = false;
     try {
       const res = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(loginForm)
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setCurrentUser(data.user);
-        localStorage.setItem("madrasortho_pos_user", JSON.stringify(data.user));
+      serverResponded = true;
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.user) {
+        setAuthToken(data.token || null);
+        localStorage.removeItem("madrasortho_pos_user");
         localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
+        setCurrentUser(data.user);
         setIsFirstTimeEver(false);
         setIsLoggingIn(false);
         showToast(`Logged in as ${data.user.name} (${data.user.role.toUpperCase()})`, "success");
         return;
       }
+      // Server explicitly rejected credentials (401/400/etc.): never bypass with offline fallback
+      setAuthToken(null);
+      setLoginError(data.error || "Invalid username or password.");
+      setIsLoggingIn(false);
+      return;
     } catch (err) {
-      // Backend offline or error, handled below
+      if (serverResponded) {
+        setAuthToken(null);
+        setLoginError("Authentication failed. Please verify credentials.");
+        setIsLoggingIn(false);
+        return;
+      }
+      // Genuine network unreachable fallback (offline Electron/emulator only)
     }
 
-    // Direct infallible fallback for all role accounts
+    // Offline fallback ONLY when backend server is unreachable
     const uname = (loginForm.username || '').toLowerCase().trim();
     const pwd = loginForm.password;
     const savedAdminPwd = localStorage.getItem("madrasortho_admin_password");
     const savedEmpPwd = localStorage.getItem("madrasortho_employee_password");
+    const offlineTok = `offline-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     if (uname === 'admin' && (pwd === 'admin123' || pwd === 'admin' || (savedAdminPwd && pwd === savedAdminPwd))) {
       const u = {
@@ -512,8 +557,8 @@ export default function App() {
         name: bakeryDetails.doctorName || 'Dr. Arjun Sharma, MS (Ortho)',
         doctor_reg_no: bakeryDetails.doctorRegNo || 'TNMC/2012/94821'
       };
+      setAuthToken(offlineTok);
       setCurrentUser(u);
-      localStorage.setItem("madrasortho_pos_user", JSON.stringify(u));
       localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
       setIsFirstTimeEver(false);
       showToast(`Logged in as Administrator (${u.name})`, "success");
@@ -525,8 +570,8 @@ export default function App() {
         name: bakeryDetails.pharmacistName || 'Priya Nair, B.Pharm (Staff Pharmacist)',
         pharmacist_reg_no: bakeryDetails.pharmacistRegNo || 'TNSPC/2018/48912'
       };
+      setAuthToken(offlineTok);
       setCurrentUser(u);
-      localStorage.setItem("madrasortho_pos_user", JSON.stringify(u));
       localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
       setIsFirstTimeEver(false);
       showToast("Logged in as Clinic Staff / Pharmacist", "success");
@@ -538,8 +583,8 @@ export default function App() {
         name: bakeryDetails.doctorName || 'Dr. Arjun Sharma, MS (Ortho)',
         doctor_reg_no: bakeryDetails.doctorRegNo || 'TNMC/2012/94821'
       };
+      setAuthToken(offlineTok);
       setCurrentUser(u);
-      localStorage.setItem("madrasortho_pos_user", JSON.stringify(u));
       localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
       setIsFirstTimeEver(false);
       showToast(`Logged in as Doctor (${u.name})`, "success");
@@ -551,20 +596,34 @@ export default function App() {
         name: bakeryDetails.pharmacistName || 'Priya Nair, B.Pharm',
         pharmacist_reg_no: bakeryDetails.pharmacistRegNo || 'TNSPC/2018/48912'
       };
+      setAuthToken(offlineTok);
       setCurrentUser(u);
-      localStorage.setItem("madrasortho_pos_user", JSON.stringify(u));
       localStorage.setItem("madrasortho_pos_has_logged_in_ever", "true");
       setIsFirstTimeEver(false);
       showToast(`Logged in as Pharmacist (${u.name})`, "success");
     } else {
+      setAuthToken(null);
       setLoginError("Invalid username or password. Default Admin: admin / admin123  |  Default Employee: employee / employee123");
     }
     setIsLoggingIn(false);
   };
 
   const handleLogout = () => {
+    const tokenToRevoke = getAuthToken();
+    if (tokenToRevoke) {
+      fetch(apiUrl("/api/auth/logout"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${tokenToRevoke}`
+        },
+        body: JSON.stringify({ token: tokenToRevoke })
+      }).catch(() => {});
+    }
+    setAuthToken(null);
     setCurrentUser(null);
     setIsLoggingIn(false);
+    clearInMemoryClinicalState();
     localStorage.removeItem("madrasortho_pos_user");
     setLoginForm({ username: 'admin', password: '' });
     setLoginError('');
@@ -1261,7 +1320,19 @@ export default function App() {
     }
   };
 
+  // Fetch system printers on Electron boot
   useEffect(() => {
+    electronAPI.getPrinters().then((list: any[]) => {
+      setPrinters(list);
+      const def = list.find((p: any) => p.isDefault);
+      if (def) setSelectedPrinter(def.name);
+    }).catch(() => {});
+  }, []);
+
+  // Load clinical data ONLY after this device/tab has authenticated
+  useEffect(() => {
+    if (!currentUser || !getAuthToken()) return;
+
     loadProducts();
     loadEmployees();
     fetchPatients();
@@ -1275,13 +1346,6 @@ export default function App() {
         }
       })
       .catch(() => {});
-
-    // Fetch system printers
-    electronAPI.getPrinters().then((list: any[]) => {
-      setPrinters(list);
-      const def = list.find((p: any) => p.isDefault);
-      if (def) setSelectedPrinter(def.name);
-    });
 
     // Restore sessions from localStorage, with daily auto-reset and conflict resolution
     const restoreSessions = async () => {
@@ -1347,18 +1411,21 @@ export default function App() {
     };
 
     restoreSessions();
-  }, []);
+  }, [currentUser]);
 
-  // Real-Time SSE Listener & Multi-Device Inventory Sync
+  // Real-Time SSE Listener & Multi-Device Inventory Sync (Authenticated Only)
   useEffect(() => {
+    if (!currentUser || !getAuthToken()) return;
+
     fetchNotifications();
 
     let eventSource: EventSource | null = null;
     let reconnectTimer: any = null;
 
     const connectSSE = () => {
+      if (!getAuthToken()) return;
       try {
-        const eventsUrl = apiUrl('/api/events');
+        const eventsUrl = authApiUrl('/api/events');
         eventSource = new EventSource(eventsUrl);
 
         eventSource.onmessage = (event) => {
@@ -1428,7 +1495,7 @@ export default function App() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
       clearInterval(pollInterval);
     };
-  }, []);
+  }, [currentUser]);
 
   // Sync sessions with localStorage
   useEffect(() => {
@@ -2567,7 +2634,7 @@ export default function App() {
   // ----------------------------------------------------
 
   const handleDownloadTemplate = () => {
-    window.open(apiUrl("/api/products/template-excel"), "_blank");
+    window.open(authApiUrl("/api/products/template-excel"), "_blank");
     showToast("Downloading Ortho Medicines Excel template...", "info");
   };
 
@@ -3136,7 +3203,7 @@ export default function App() {
   };
 
   const handleExcelExport = () => {
-    let url = apiUrl(`/api/reports/${reportType}?export=excel`);
+    let url = authApiUrl(`/api/reports/${reportType}?export=excel`);
     if (reportType === 'yearly') {
       url += `&year=${reportYear}`;
     } else if (reportType === 'monthly') {
@@ -5437,8 +5504,7 @@ export default function App() {
                     type: "warning",
                     confirmText: "Sign Out",
                     onConfirm: () => {
-                      localStorage.removeItem("madrasortho_pos_user");
-                      setCurrentUser(null);
+                      handleLogout();
                       closeConfirm();
                     }
                   });

@@ -244,6 +244,36 @@ async function runAudit() {
   });
 
   // ----------------------------------------------------------------------
+  // PHASE 8: PER-DEVICE AUTHENTICATION & SESSION ISOLATION
+  // ----------------------------------------------------------------------
+  console.log('\n--- PHASE 8: Per-Device Authentication & Session Isolation ---');
+
+  const apiConfigTs = fs.readFileSync(path.join(__dirname, '../src/renderer/src/utils/apiConfig.ts'), 'utf8');
+
+  verify('App.tsx initializes unauthenticated with zero cross-tab localStorage session leakage', () => {
+    assert(!/localStorage\.(get|set)Item\(['"]madrasortho_pos_user['"]/.test(appTsx), 'App.tsx must not read/write madrasortho_pos_user in localStorage');
+    assert(appTsx.includes('setUnauthorizedHandler') && appTsx.includes('setAuthToken'), 'App.tsx must bind in-memory token lifecycle & 401 handler');
+    assert(appTsx.includes("authApiUrl('/api/events')"), 'Desktop EventSource must pass per-session token');
+  });
+
+  verify('MobileTabletApp.tsx removes default admin fallback and requires validated token', () => {
+    assert(!mobileTsx.includes("currentUser = { username: 'admin'"), 'MobileTabletApp must not supply a default admin user prop');
+    assert(mobileTsx.includes('!currentUser') && mobileTsx.includes('getAuthToken()'), 'MobileTabletApp must enforce authenticated user & token');
+    assert(mobileTsx.includes("authApiUrl('/api/events')"), 'Mobile EventSource must pass per-session token');
+  });
+
+  verify('apiConfig.ts keeps bearer tokens strictly in-memory and attaches Authorization headers', () => {
+    assert(apiConfigTs.includes('initAuthFetchInterceptor') && apiConfigTs.includes('setAuthToken') && apiConfigTs.includes('authApiUrl'), 'apiConfig must implement auth token helpers');
+    assert(apiConfigTs.includes('let activeAuthToken: string | null = null;'), 'Auth token must live in module memory');
+    assert(!/localStorage\.(get|set)Item\([^)]*(token|user)/i.test(apiConfigTs) && !/sessionStorage\.(get|set)Item/i.test(apiConfigTs), 'Auth token must stay strictly in-memory (never localStorage/sessionStorage)');
+  });
+
+  verify('server.ts enforces cryptographic session tokens, /api/auth/session, /api/auth/logout, and admin RBAC', () => {
+    assert(serverTs.includes("app.get('/api/auth/session'") && serverTs.includes("app.post('/api/auth/logout'"), 'Server must implement session verify & logout endpoints');
+    assert(serverTs.includes('isAdminOnlyRoute') && serverTs.includes('activeSessions'), 'Server must enforce session validation & admin RBAC middleware');
+  });
+
+  // ----------------------------------------------------------------------
   // SUMMARY
   // ----------------------------------------------------------------------
   console.log('\n========================================================================');

@@ -15164,6 +15164,18 @@ export function initMockFetch() {
   getDbData('patients', DEFAULT_PATIENTS);
 
   const originalFetch = window.fetch;
+  const mockSessions = new Map<string, { id: number; username: string; role: string; name: string; pharmacist_reg_no?: string | null; doctor_reg_no?: string | null }>();
+
+  const extractMockToken = (headersInit: any, queryToken: string | null): string | null => {
+    try {
+      const h = new Headers(headersInit || undefined);
+      const auth = h.get('Authorization') || '';
+      if (auth.toLowerCase().startsWith('bearer ')) {
+        return auth.slice(7).trim();
+      }
+    } catch {}
+    return queryToken && queryToken.trim() ? queryToken.trim() : null;
+  };
 
   window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const urlStr = typeof input === 'string' ? input : (input as any).url || input.toString();
@@ -15197,8 +15209,18 @@ export function initMockFetch() {
 
     try {
       // ----------------------------------------------------
-      // AUTHENTICATION API
+      // HEALTH & AUTHENTICATION API (PER-SESSION IN-MEMORY TOKENS)
       // ----------------------------------------------------
+      if (path === '/api/health' && method === 'GET') {
+        return makeResponse({ ok: true, status: 'running', service: 'Madras Ortho Clinic Pharmacy Server (Offline)' });
+      }
+
+      if (path === '/api/auth/logout' && method === 'POST') {
+        const tok = extractMockToken(init?.headers, params.get('token'));
+        if (tok) mockSessions.delete(tok);
+        return makeResponse({ success: true, message: "Logged out." });
+      }
+
       if (path === '/api/auth/login') {
         if (method === 'POST') {
           const body = JSON.parse(init?.body as string || '{}');
@@ -15215,36 +15237,61 @@ export function initMockFetch() {
             return false;
           });
 
+          const issueMockSession = (uObj: any) => {
+            const token = `mock-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+            mockSessions.set(token, uObj);
+            return makeResponse({ success: true, token, user: uObj });
+          };
+
           if (found) {
-            return makeResponse({
-              success: true,
-              user: {
-                id: found.id,
-                username: found.username,
-                role: found.role,
-                name: found.name,
-                pharmacist_reg_no: found.pharmacist_reg_no || null,
-                doctor_reg_no: found.doctor_reg_no || null
-              }
+            return issueMockSession({
+              id: found.id,
+              username: found.username,
+              role: found.role,
+              name: found.name,
+              pharmacist_reg_no: found.pharmacist_reg_no || null,
+              doctor_reg_no: found.doctor_reg_no || null
             });
           }
 
           // Special fallback for default accounts
           if (uname === 'admin' && (pwd === 'admin123' || pwd === 'admin')) {
-            return makeResponse({
-              success: true,
-              user: { id: 1, username: 'admin', role: 'admin', name: 'Dr. Arjun Sharma, MS (Ortho)' }
-            });
+            return issueMockSession({ id: 1, username: 'admin', role: 'admin', name: 'Dr. Arjun Sharma, MS (Ortho)' });
           }
           if (uname === 'employee' && (pwd === 'employee123' || pwd === 'employee' || pwd === '1234')) {
-            return makeResponse({
-              success: true,
-              user: { id: 2, username: 'employee', role: 'employee', name: 'Priya Nair, B.Pharm (Pharmacist)' }
-            });
+            return issueMockSession({ id: 2, username: 'employee', role: 'employee', name: 'Priya Nair, B.Pharm (Pharmacist)' });
           }
 
           return makeResponse({ error: "Invalid username or password." }, 401);
         }
+      }
+
+      const activeToken = extractMockToken(init?.headers, params.get('token'));
+      const activeSession = activeToken ? mockSessions.get(activeToken) || null : null;
+      if (!activeSession) {
+        return makeResponse({ error: "Authentication required. Please log in to access clinic software." }, 401);
+      }
+
+      if (path === '/api/auth/session' && method === 'GET') {
+        return makeResponse({ authenticated: true, user: activeSession });
+      }
+
+      const isAdminAction =
+        (path === '/api/auth/change-password' && method === 'PUT') ||
+        (path === '/api/clinic/details' && method === 'PUT') ||
+        (path === '/api/employees' && method === 'POST') ||
+        (path.startsWith('/api/employees/') && (method === 'PUT' || method === 'DELETE')) ||
+        (path.startsWith('/api/patients/') && method === 'DELETE') ||
+        (path === '/api/products' && method === 'POST') ||
+        (path.startsWith('/api/products/') && (method === 'POST' || method === 'PUT' || method === 'DELETE' || path === '/api/products/template-excel')) ||
+        (path === '/api/categories' && method === 'POST') ||
+        (path.startsWith('/api/categories/') && method === 'DELETE') ||
+        (path === '/api/inventory/inward' && method === 'POST') ||
+        (/^\/api\/bills\/\d+\/cancel$/.test(path) && method === 'POST') ||
+        (path.startsWith('/api/system/') && method === 'POST');
+
+      if (isAdminAction && activeSession.role !== 'admin') {
+        return makeResponse({ error: "Access Denied: Administrator privileges required." }, 403);
       }
 
       if (path === '/api/auth/change-password') {

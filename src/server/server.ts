@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { checkClinicalInteractions } from './clinicalRules';
 import express from 'express';
 import cors from 'cors';
@@ -79,10 +80,139 @@ app.get('/', (req, res, next) => {
 });
 
 
-// Logger middleware
+// Logger middleware (mask query token from console output)
 app.use((req, res, next) => {
-  console.log(`[API] ${req.method} ${req.url}`);
+  const safeUrl = req.url.replace(/([?&]token=)[^&]+/gi, '$1***');
+  console.log(`[API] ${req.method} ${safeUrl}`);
   next();
+});
+
+// ----------------------------------------------------
+// PER-DEVICE SESSION AUTHENTICATION & RBAC ENGINE
+// ----------------------------------------------------
+interface ActiveSession {
+  token: string;
+  userId: number;
+  username: string;
+  role: string;
+  name: string;
+  pharmacist_reg_no: string | null;
+  doctor_reg_no: string | null;
+  createdAt: number;
+  lastSeenAt: number;
+  ip: string;
+}
+
+const activeSessions = new Map<string, ActiveSession>();
+const sessionSseClients = new Map<string, Set<express.Response>>();
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12-hour clinic shift lifetime
+
+function extractRequestToken(req: express.Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+    const t = authHeader.slice(7).trim();
+    if (t) return t;
+  }
+  const qToken = req.query?.token;
+  if (typeof qToken === 'string' && qToken.trim()) {
+    return qToken.trim();
+  }
+  const bodyToken = (req.body as any)?.token;
+  if (typeof bodyToken === 'string' && bodyToken.trim()) {
+    return bodyToken.trim();
+  }
+  return null;
+}
+
+function getValidSession(req: express.Request): ActiveSession | null {
+  const token = extractRequestToken(req);
+  if (!token) return null;
+  const session = activeSessions.get(token);
+  if (!session) return null;
+  const now = Date.now();
+  if (now - session.createdAt > SESSION_TTL_MS) {
+    activeSessions.delete(token);
+    return null;
+  }
+  session.lastSeenAt = now;
+  return session;
+}
+
+function revokeSessionToken(token: string | null): ActiveSession | null {
+  if (!token) return null;
+  const existing = activeSessions.get(token) || null;
+  activeSessions.delete(token);
+  const sseSet = sessionSseClients.get(token);
+  if (sseSet) {
+    sseSet.forEach(sseRes => {
+      sseClients.delete(sseRes);
+      try { sseRes.end(); } catch {}
+    });
+    sessionSseClients.delete(token);
+  }
+  return existing;
+}
+
+const ADMIN_ONLY_RULES: Array<{ method: string; match: (subPath: string) => boolean }> = [
+  { method: 'PUT', match: (p) => p === '/auth/change-password' },
+  { method: 'PUT', match: (p) => p === '/clinic/details' },
+  { method: 'POST', match: (p) => p === '/events/broadcast' },
+  { method: 'GET', match: (p) => p === '/audit-logs' },
+  { method: 'POST', match: (p) => p.startsWith('/system/') },
+  { method: 'POST', match: (p) => p === '/employees' },
+  { method: 'PUT', match: (p) => p.startsWith('/employees/') },
+  { method: 'DELETE', match: (p) => p.startsWith('/employees/') },
+  { method: 'DELETE', match: (p) => p.startsWith('/patients/') },
+  { method: 'GET', match: (p) => p === '/products/template-excel' },
+  { method: 'POST', match: (p) => p === '/products' || p.startsWith('/products/') },
+  { method: 'PUT', match: (p) => p.startsWith('/products/') },
+  { method: 'DELETE', match: (p) => p.startsWith('/products/') },
+  { method: 'POST', match: (p) => p === '/categories' },
+  { method: 'DELETE', match: (p) => p.startsWith('/categories/') },
+  { method: 'POST', match: (p) => p === '/inventory/inward' },
+  { method: 'POST', match: (p) => /^\/bills\/\d+\/cancel$/.test(p) },
+  { method: 'POST', match: (p) => p === '/deleted-items' },
+  { method: 'POST', match: (p) => p === '/registers/recalls/quarantine' },
+  { method: 'POST', match: (p) => /^\/batches\/\d+\/quarantine$/.test(p) }
+];
+
+function isAdminOnlyRoute(method: string, subPath: string): boolean {
+  const m = method.toUpperCase();
+  return ADMIN_ONLY_RULES.some(r => r.method === m && r.match(subPath));
+}
+
+// Enforce per-device authentication & RBAC on all /api routes (except login/logout/health)
+app.use('/api', (req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
+  const subPath = req.path;
+  const isPublic =
+    (subPath === '/health' && req.method === 'GET') ||
+    (subPath === '/auth/login' && req.method === 'POST') ||
+    (subPath === '/auth/logout' && req.method === 'POST');
+
+  if (isPublic) return next();
+
+  const session = getValidSession(req);
+  if (!session) {
+    return res.status(401).json({
+      error: "Authentication required. Please log in on this device to access Madras Ortho Clinic Pharmacy System."
+    });
+  }
+
+  (req as any).session = session;
+
+  if (isAdminOnlyRoute(req.method, subPath) && session.role !== 'admin') {
+    return res.status(403).json({
+      error: "Access Denied: Administrator privileges required for this action."
+    });
+  }
+
+  next();
+});
+
+// Public health check (contains zero patient/clinic/financial data)
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, status: 'running', service: 'Madras Ortho Clinic Pharmacy Server' });
 });
 
 // ----------------------------------------------------
@@ -114,6 +244,7 @@ export function broadcastRealtimeEvent(event: RealtimeEvent) {
 
 // Server-Sent Events stream: multi-device real-time sync on port 4848
 app.get('/api/events', (req, res) => {
+  const sessionToken = ((req as any).session as ActiveSession | undefined)?.token;
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -126,6 +257,14 @@ app.get('/api/events', (req, res) => {
   // Initial handshake message
   res.write(`data: ${JSON.stringify({ type: 'CONNECTED', message: 'Real-time clinic synchronization active', timestamp: new Date().toISOString() })}\n\n`);
   sseClients.add(res);
+  if (sessionToken) {
+    let sSet = sessionSseClients.get(sessionToken);
+    if (!sSet) {
+      sSet = new Set();
+      sessionSseClients.set(sessionToken, sSet);
+    }
+    sSet.add(res);
+  }
 
   const pingInterval = setInterval(() => {
     try {
@@ -139,6 +278,9 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => {
     clearInterval(pingInterval);
     sseClients.delete(res);
+    if (sessionToken) {
+      sessionSseClients.get(sessionToken)?.delete(res);
+    }
   });
 });
 
@@ -364,34 +506,90 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: "Invalid username or password." });
     }
 
+    // Issue unique cryptographic per-device / per-tab session token
+    const token = crypto.randomBytes(32).toString('hex');
+    const nowMs = Date.now();
+    const sessionUser = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      pharmacist_reg_no: user.pharmacist_reg_no || null,
+      doctor_reg_no: user.doctor_reg_no || null
+    };
+    activeSessions.set(token, {
+      token,
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      pharmacist_reg_no: user.pharmacist_reg_no || null,
+      doctor_reg_no: user.doctor_reg_no || null,
+      createdAt: nowMs,
+      lastSeenAt: nowMs,
+      ip: req.ip || '127.0.0.1'
+    });
+
     // Record audit log
     await db.run(
-      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
-      [user.id, user.username, "USER_LOGIN", "users", user.id, req.ip || "127.0.0.1"]
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, new_state, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [user.id, user.username, "USER_LOGIN", "users", user.id, JSON.stringify({ role: user.role }), req.ip || "127.0.0.1"]
     );
 
     res.json({
       success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        name: user.name,
-        pharmacist_reg_no: user.pharmacist_reg_no || null,
-        doctor_reg_no: user.doctor_reg_no || null
-      }
+      token,
+      user: sessionUser
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Change Password (Admin or Self)
+// Verify Active Per-Device Session
+app.get('/api/auth/session', (req, res) => {
+  const session = (req as any).session as ActiveSession;
+  res.json({
+    authenticated: true,
+    user: {
+      id: session.userId,
+      username: session.username,
+      role: session.role,
+      name: session.name,
+      pharmacist_reg_no: session.pharmacist_reg_no,
+      doctor_reg_no: session.doctor_reg_no
+    }
+  });
+});
+
+// Revoke Active Session on Current Device Only
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const token = extractRequestToken(req);
+    const revoked = revokeSessionToken(token);
+    if (revoked) {
+      try {
+        const db = await getDatabase();
+        await db.run(
+          `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
+          [revoked.userId, revoked.username, "USER_LOGOUT", "users", revoked.userId, req.ip || "127.0.0.1"]
+        );
+      } catch {}
+    }
+    res.json({ success: true, message: "Session terminated cleanly." });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change Password (Admin Only — enforced by RBAC middleware & verified against session role)
 app.put('/api/auth/change-password', async (req, res) => {
   try {
-    const { requesterRole, username, currentPassword, newPassword } = req.body;
-    if (requesterRole && requesterRole !== 'admin' && (!username || username === 'admin')) {
-      return res.status(403).json({ error: "Access Denied: Only Admin accounts can change admin credentials." });
+    const session = (req as any).session as ActiveSession;
+    const { username, currentPassword, newPassword } = req.body;
+    const effectiveRole = session?.role || '';
+    if (effectiveRole !== 'admin') {
+      return res.status(403).json({ error: "Access Denied: Only Admin accounts can change credentials." });
     }
     if (!username || !newPassword) {
       return res.status(400).json({ error: "Username and new password are required." });
@@ -414,7 +612,7 @@ app.put('/api/auth/change-password', async (req, res) => {
     if (uname === 'admin' && (currentPassword === 'admin123' || currentPassword === 'admin')) isMatch = true;
     if (uname === 'employee' && (currentPassword === 'employee123' || currentPassword === 'employee')) isMatch = true;
     // Allow admin override to reset any other user's password
-    if (requesterRole === 'admin' && uname !== 'admin') isMatch = true;
+    if (effectiveRole === 'admin' && uname !== 'admin') isMatch = true;
 
     if (!isMatch) {
       return res.status(401).json({ error: "Incorrect current password." });
@@ -1003,6 +1201,10 @@ app.post('/api/bills', async (req, res) => {
     } = req.body;
 
     const effectivePaymentMethod = payment_method || req.body.paymentMethod || 'Cash';
+    const isComplimentary = Boolean(req.body.is_complimentary || effectivePaymentMethod === 'Complimentary');
+    if (isComplimentary && (req as any).session?.role !== 'admin') {
+      return res.status(403).json({ error: "Access Denied: Only Admin accounts can issue complimentary bills." });
+    }
     const rawItems = (bodyItems && Array.isArray(bodyItems)) ? bodyItems : (req.body.cart && Array.isArray(req.body.cart) ? req.body.cart : []);
     if (!rawItems || rawItems.length === 0) {
       return res.status(400).json({ error: "Invalid bill payload. Cart/items list cannot be empty." });
@@ -1130,7 +1332,6 @@ app.post('/api/bills', async (req, res) => {
 
     // Statutory Check 2: Dual Operating Mode Validation & Patient / Prescriber Normalization
     // Patient name and details are completely optional for patient checkout / bill printing.
-    const isComplimentary = Boolean(req.body.is_complimentary || payment_method === 'Complimentary');
     const finalPaymentMethod = isComplimentary ? 'Complimentary' : effectivePaymentMethod;
     const finalGrandTotal = isComplimentary ? 0 : Number(rawGrandTotal);
     const finalSubtotal = isComplimentary ? 0 : finalSubtotalValue;

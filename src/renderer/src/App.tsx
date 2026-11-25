@@ -483,7 +483,7 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.removeItem("madrasortho_pos_user");
-    } catch {}
+    } catch { }
     setUnauthorizedHandler(() => {
       setAuthToken(null);
       setCurrentUser(null);
@@ -621,7 +621,7 @@ export default function App() {
           "Authorization": `Bearer ${tokenToRevoke}`
         },
         body: JSON.stringify({ token: tokenToRevoke })
-      }).catch(() => {});
+      }).catch(() => { });
     }
     setAuthToken(null);
     setCurrentUser(null);
@@ -1065,7 +1065,7 @@ export default function App() {
   const handleSetDiscount = (percent: number) => {
     try {
       localStorage.setItem('moc_persistent_discount', String(percent));
-    } catch {}
+    } catch { }
     setPersistentDiscount(percent);
     setSessions(prev => prev.map(s => {
       if (s.id !== activeSessionId) return s;
@@ -1283,7 +1283,7 @@ export default function App() {
     // Cross-autofill attending doctor if recorded on patient profile
     if (p.attending_doctor) {
       setCheckoutDoctorName(p.attending_doctor);
-      const matchedClinicDoc = CLINIC_DOCTORS.find(d => 
+      const matchedClinicDoc = CLINIC_DOCTORS.find(d =>
         p.attending_doctor.toLowerCase().includes(d.name.toLowerCase().split(',')[0]) ||
         d.name.toLowerCase().includes(p.attending_doctor.toLowerCase().split(',')[0])
       );
@@ -1334,7 +1334,7 @@ export default function App() {
       setPrinters(list);
       const def = list.find((p: any) => p.isDefault);
       if (def) setSelectedPrinter(def.name);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Load clinical data ONLY after this device/tab has authenticated
@@ -1353,7 +1353,7 @@ export default function App() {
           setBakeryDetails(prev => ({ ...prev, ...data }));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Restore sessions from localStorage, with daily auto-reset and conflict resolution
     const restoreSessions = async () => {
@@ -1456,7 +1456,7 @@ export default function App() {
                 fetch(apiUrl("/api/clinic/details")).then(r => r.json()).then(d => {
                   setBakeryDetails(prev => ({ ...prev, ...d }));
                   localStorage.setItem("madrasortho_clinic_branding", JSON.stringify(d));
-                }).catch(() => {});
+                }).catch(() => { });
               }
               showToast("Clinic settings & licensure updated in real time across devices.", "info");
             }
@@ -1478,7 +1478,7 @@ export default function App() {
           try {
             const checkRes = await fetch(apiUrl('/api/auth/session'));
             if (checkRes.status === 401 || !getAuthToken()) return;
-          } catch {}
+          } catch { }
           if (!reconnectTimer && getAuthToken()) {
             reconnectTimer = setTimeout(() => {
               reconnectTimer = null;
@@ -1983,7 +1983,7 @@ export default function App() {
         if (!activeDev) {
           showToast("Bluetooth printer not connected. Please pair from Settings.", "error");
           // Fallback to browser/system print so invoice receipt is never lost
-          electronAPI.printReceipt(printData, selectedPrinter).catch(() => {});
+          electronAPI.printReceipt(printData, selectedPrinter).catch(() => { });
           return;
         }
         await printViaBluetooth(printData);
@@ -1991,7 +1991,7 @@ export default function App() {
       } else if (printerInterface === 'wifi') {
         if (!wifiPrinterIp) {
           showToast("Please enter WiFi Printer IP in Settings.", "error");
-          electronAPI.printReceipt(printData, selectedPrinter).catch(() => {});
+          electronAPI.printReceipt(printData, selectedPrinter).catch(() => { });
           return;
         }
         // Direct Electron TCP socket printing or server proxy
@@ -2463,15 +2463,15 @@ export default function App() {
               <div class="clinic-name">${(bakeryDetails.name || 'MADRAS ORTHO CLINIC').toUpperCase()}</div>
               <div class="clinic-sub">${bakeryDetails.description || (bakeryDetails as any).doctorSpecialty || 'Center for Orthopaedic Surgery & Speciality Clinic Pharmacy'}</div>
               <div class="clinic-sub">${[
-                bakeryDetails.address,
-                bakeryDetails.city && bakeryDetails.state ? `${bakeryDetails.city}, ${bakeryDetails.state}` : (bakeryDetails.city || bakeryDetails.state),
-                bakeryDetails.pincode ? `PIN: ${bakeryDetails.pincode}` : '',
-                bakeryDetails.phone ? `Ph: ${bakeryDetails.phone}` : '',
-                (bakeryDetails as any).dlNo ? `DL Form 20B: ${(bakeryDetails as any).dlNo}` : '',
-                (bakeryDetails as any).dlNo21 ? `DL Form 21B: ${(bakeryDetails as any).dlNo21}` : '',
-                (bakeryDetails as any).ceaNo ? `CEA Reg: ${(bakeryDetails as any).ceaNo}` : '',
-                (bakeryDetails as any).gstin ? `GSTIN: ${(bakeryDetails as any).gstin}` : ''
-              ].filter(Boolean).join(' • ')}</div>
+          bakeryDetails.address,
+          bakeryDetails.city && bakeryDetails.state ? `${bakeryDetails.city}, ${bakeryDetails.state}` : (bakeryDetails.city || bakeryDetails.state),
+          bakeryDetails.pincode ? `PIN: ${bakeryDetails.pincode}` : '',
+          bakeryDetails.phone ? `Ph: ${bakeryDetails.phone}` : '',
+          (bakeryDetails as any).dlNo ? `DL Form 20B: ${(bakeryDetails as any).dlNo}` : '',
+          (bakeryDetails as any).dlNo21 ? `DL Form 21B: ${(bakeryDetails as any).dlNo21}` : '',
+          (bakeryDetails as any).ceaNo ? `CEA Reg: ${(bakeryDetails as any).ceaNo}` : '',
+          (bakeryDetails as any).gstin ? `GSTIN: ${(bakeryDetails as any).gstin}` : ''
+        ].filter(Boolean).join(' • ')}</div>
             </div>
             <div class="grn-badge">
               <div style="font-size: 14px; color: #0284c7;">GOODS RECEIVED NOTE (GRN)</div>
@@ -2518,8 +2518,8 @@ export default function App() {
             </thead>
             <tbody>
               ${items.map((it: any, idx: number) => {
-                const lineTot = Number(it.quantity || 0) * Number(it.purchase_price || 0);
-                return `
+          const lineTot = Number(it.quantity || 0) * Number(it.purchase_price || 0);
+          return `
                   <tr>
                     <td style="color:#64748b; font-size:10px;">${idx + 1}</td>
                     <td style="font-weight:700;">${it.product_name || `Medicine #${it.product_id}`}</td>
@@ -2532,7 +2532,7 @@ export default function App() {
                     <td class="text-right font-mono" style="color:#16a34a; font-weight:700;">₹${Number(it.selling_price || it.mrp || 0).toFixed(2)}</td>
                   </tr>
                 `;
-              }).join('')}
+        }).join('')}
             </tbody>
           </table>
 
@@ -3471,11 +3471,10 @@ export default function App() {
                 localStorage.setItem("madrasortho_operating_mode", 'CLINIC_DISPENSING');
                 showToast("Operating in Mode A: Clinic Dispensing (TNCEA 1997 / Schedule K)", "info");
               }}
-              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-                operatingMode === 'CLINIC_DISPENSING'
-                  ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${operatingMode === 'CLINIC_DISPENSING'
+                ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
               title="Clinic Outpatient Dispensing under Tamil Nadu Clinical Establishments Act, 1997"
             >
               <span className={`w-2 h-2 rounded-full ${operatingMode === 'CLINIC_DISPENSING' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
@@ -3487,11 +3486,10 @@ export default function App() {
                 localStorage.setItem("madrasortho_operating_mode", 'RETAIL_PHARMACY');
                 showToast("Operating in Mode B: Retail Pharmacy Sales (D&C Form 20B/21B)", "info");
               }}
-              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
-                operatingMode === 'RETAIL_PHARMACY'
-                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${operatingMode === 'RETAIL_PHARMACY'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : 'text-slate-400 hover:text-slate-200'
+                }`}
               title="Retail Sale under Drugs and Cosmetics Rules Form 20B/21B and Section 42 of Pharmacy Act"
             >
               <span className={`w-2 h-2 rounded-full ${operatingMode === 'RETAIL_PHARMACY' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
@@ -3591,7 +3589,7 @@ export default function App() {
               );
             })()}
           </button>
-          
+
           <button
             onClick={() => setShowSettingsModal(true)}
             className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400 hover:text-slate-100 transition-colors"
@@ -3610,11 +3608,10 @@ export default function App() {
               <LogOut className="w-3.5 h-3.5 mr-1" />
               <span>Logout</span>
             </button>
-            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none ${
-              currentUser?.role === 'admin'
-                ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
-                : 'text-slate-400 bg-slate-800 border border-slate-700'
-            }`}>
+            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none ${currentUser?.role === 'admin'
+              ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+              : 'text-slate-400 bg-slate-800 border border-slate-700'
+              }`}>
               {currentUser?.role === 'admin' ? 'admin' : 'employee'}
             </span>
           </div>
@@ -3667,7 +3664,7 @@ export default function App() {
 
         {/* === LEFT PANEL: Categories & Visual Products Grid === */}
         <section className={`flex flex-col w-full lg:w-5/12 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'menu' ? 'flex flex-1' : 'hidden lg:flex'}`}>
-          
+
           {/* Catalogue Search Header */}
           <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
             <div className="relative flex-1">
@@ -3755,113 +3752,110 @@ export default function App() {
               </div>
             ) : (
               visibleGridProducts.map(p => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              const isExpired = Boolean(
-                p.status === 'Expired' ||
-                p.is_expired ||
-                (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr)
-              );
-              const availStock = p.available_stock !== undefined ? p.available_stock : (p.status === 'Out of Stock' ? 0 : 50);
-              const isOutOfStock = Boolean(
-                p.status === 'Out of Stock' ||
-                p.is_out_of_stock ||
-                availStock <= 0
-              );
-              const mrpVal = Number(p.mrp || p.price || 0);
-              const sellingVal = Number(p.price || 0);
-              const hasConcession = mrpVal > sellingVal;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isExpired = Boolean(
+                  p.status === 'Expired' ||
+                  p.is_expired ||
+                  (p.expiry_date && String(p.expiry_date).substring(0, 10) <= todayStr)
+                );
+                const availStock = p.available_stock !== undefined ? p.available_stock : (p.status === 'Out of Stock' ? 0 : 50);
+                const isOutOfStock = Boolean(
+                  p.status === 'Out of Stock' ||
+                  p.is_out_of_stock ||
+                  availStock <= 0
+                );
+                const mrpVal = Number(p.mrp || p.price || 0);
+                const sellingVal = Number(p.price || 0);
+                const hasConcession = mrpVal > sellingVal;
 
-              return (
-              <div
-                key={p.id}
-                className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition-all shadow-sm ${
-                  isExpired
-                    ? 'bg-rose-950/20 border-rose-900/50 text-slate-500 opacity-75'
-                    : isOutOfStock
-                      ? 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60'
-                      : 'bg-slate-800/40 border-slate-800/90 hover:border-sky-500/50 hover:bg-slate-800/70'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-1 mb-1.5 flex-wrap">
-                    <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20 truncate max-w-[130px]">
-                      {p.category}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                        isExpired
-                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                          : isOutOfStock
-                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                            : availStock <= 15
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                              : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      }`}>
-                        Stk: {availStock}
-                      </span>
-                      <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
-                        {p.quantity_type}
-                      </span>
-                    </div>
-                  </div>
-                  <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug">
-                    {p.name}
-                  </h4>
-                  {p.expiry_date && (
-                    <span className={`text-[9px] font-mono mt-1 block ${isExpired ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
-                      Exp: {String(p.expiry_date).substring(0, 10)} {isExpired ? '(EXPIRED)' : ''}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-end justify-between mt-3 pt-2.5 border-t border-slate-800/70">
-                  <div className="flex flex-col">
-                    <div className="flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-sm font-bold font-mono text-emerald-400 leading-none">
-                        ₹{sellingVal.toFixed(2)}
-                      </span>
-                      {hasConcession && (
-                        <span className="text-[10px] text-slate-400 line-through font-mono">
-                          MRP ₹{mrpVal.toFixed(2)}
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition-all shadow-sm ${isExpired
+                      ? 'bg-rose-950/20 border-rose-900/50 text-slate-500 opacity-75'
+                      : isOutOfStock
+                        ? 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60'
+                        : 'bg-slate-800/40 border-slate-800/90 hover:border-sky-500/50 hover:bg-slate-800/70'
+                      }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5 flex-wrap">
+                        <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20 truncate max-w-[130px]">
+                          {p.category}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${isExpired
+                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            : isOutOfStock
+                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                              : availStock <= 15
+                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            }`}>
+                            Stk: {availStock}
+                          </span>
+                          <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                            {p.quantity_type}
+                          </span>
+                        </div>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug">
+                        {p.name}
+                      </h4>
+                      {p.expiry_date && (
+                        <span className={`text-[9px] font-mono mt-1 block ${isExpired ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
+                          Exp: {String(p.expiry_date).substring(0, 10)} {isExpired ? '(EXPIRED)' : ''}
                         </span>
                       )}
                     </div>
-                    {hasConcession && (
-                      <span className="text-[9px] font-bold text-emerald-400/90 mt-0.5">
-                        Save ₹{(mrpVal - sellingVal).toFixed(2)}
-                      </span>
-                    )}
-                    <span className="text-[8.5px] text-amber-400/80 font-medium">
-                      {p.tax_percent}% GST
-                    </span>
-                  </div>
 
-                  <button
-                    onClick={() => addItemToBill(p, 1)}
-                    disabled={isExpired || isOutOfStock}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center space-x-1 active:scale-95 transition-all ${
-                      isExpired
-                        ? 'bg-rose-950/40 text-rose-400 border border-rose-800/80 cursor-not-allowed text-[10px]'
-                        : isOutOfStock
-                          ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed text-[10px]'
-                          : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 font-black'
-                    }`}
-                  >
-                    {isExpired ? (
-                      <span>Expired</span>
-                    ) : isOutOfStock ? (
-                      <span>Out of Stock</span>
-                    ) : (
-                      <>
-                        <Plus className="w-3.5 h-3.5 mr-0.5 stroke-[3]" />
-                        <span>Add</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          }))}
+                    <div className="flex items-end justify-between mt-3 pt-2.5 border-t border-slate-800/70">
+                      <div className="flex flex-col">
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="text-sm font-bold font-mono text-emerald-400 leading-none">
+                            ₹{sellingVal.toFixed(2)}
+                          </span>
+                          {hasConcession && (
+                            <span className="text-[10px] text-slate-400 line-through font-mono">
+                              MRP ₹{mrpVal.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                        {hasConcession && (
+                          <span className="text-[9px] font-bold text-emerald-400/90 mt-0.5">
+                            Save ₹{(mrpVal - sellingVal).toFixed(2)}
+                          </span>
+                        )}
+                        <span className="text-[8.5px] text-amber-400/80 font-medium">
+                          {p.tax_percent}% GST
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => addItemToBill(p, 1)}
+                        disabled={isExpired || isOutOfStock}
+                        className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center space-x-1 active:scale-95 transition-all ${isExpired
+                          ? 'bg-rose-950/40 text-rose-400 border border-rose-800/80 cursor-not-allowed text-[10px]'
+                          : isOutOfStock
+                            ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed text-[10px]'
+                            : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 font-black'
+                          }`}
+                      >
+                        {isExpired ? (
+                          <span>Expired</span>
+                        ) : isOutOfStock ? (
+                          <span>Out of Stock</span>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5 mr-0.5 stroke-[3]" />
+                            <span>Add</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              }))}
           </div>
         </section>
 
@@ -3927,58 +3921,56 @@ export default function App() {
                     const sellingVal = Number(p.price || 0);
 
                     return (
-                    <div
-                      key={p.id}
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // prevent blur before click fires
-                        if (!isExp && !isOos) {
-                          addItemToBill(p, 1);
-                          setSearchQuery('');
-                          setIsSearchFocused(false);
-                          setSearchSelectedIndex(0);
-                          setTimeout(() => barcodeInputRef.current?.focus(), 20);
-                        } else {
-                          addItemToBill(p, 1); // will trigger statutory guardrail toast
-                        }
-                      }}
-                      onMouseEnter={() => setSearchSelectedIndex(idx)}
-                      className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${
-                        isExp || isOos
+                      <div
+                        key={p.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // prevent blur before click fires
+                          if (!isExp && !isOos) {
+                            addItemToBill(p, 1);
+                            setSearchQuery('');
+                            setIsSearchFocused(false);
+                            setSearchSelectedIndex(0);
+                            setTimeout(() => barcodeInputRef.current?.focus(), 20);
+                          } else {
+                            addItemToBill(p, 1); // will trigger statutory guardrail toast
+                          }
+                        }}
+                        onMouseEnter={() => setSearchSelectedIndex(idx)}
+                        className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${isExp || isOos
                           ? 'opacity-60 bg-slate-950/40 hover:bg-slate-900 border-l-2 border-rose-500/40'
                           : searchSelectedIndex === idx
                             ? 'bg-bakery-500/20 border-l-2 border-bakery-500'
                             : 'hover:bg-slate-800 border-l-2 border-transparent'
-                        }`}
-                    >
-                      <div className="flex flex-col min-w-0">
-                        <span className={`text-xs font-semibold truncate ${
-                          isExp ? 'text-rose-400 line-through' : (isOos ? 'text-slate-400' : (searchSelectedIndex === idx ? 'text-bakery-300' : 'text-slate-200'))
-                        }`}>
-                          {p.name}
-                        </span>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
-                          <span>{p.category}</span>
-                          <span className={`px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
-                            Stk: {p.available_stock ?? (isOos ? 0 : 50)}
+                          }`}
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-xs font-semibold truncate ${isExp ? 'text-rose-400 line-through' : (isOos ? 'text-slate-400' : (searchSelectedIndex === idx ? 'text-bakery-300' : 'text-slate-200'))
+                            }`}>
+                            {p.name}
                           </span>
-                          {isExp && <span className="text-rose-400 font-bold uppercase text-[9px]">(Expired)</span>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono uppercase">{p.quantity_type}</span>
-                        <div className="flex flex-col items-end">
-                          <span className={`text-xs font-bold font-mono ${searchSelectedIndex === idx ? 'text-emerald-300' : 'text-emerald-400'}`}>
-                            ₹{sellingVal.toFixed(2)}
-                          </span>
-                          {mrpVal > sellingVal && (
-                            <span className="text-[9px] text-slate-400 line-through font-mono">
-                              MRP ₹{mrpVal.toFixed(2)}
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                            <span>{p.category}</span>
+                            <span className={`px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
+                              Stk: {p.available_stock ?? (isOos ? 0 : 50)}
                             </span>
-                          )}
+                            {isExp && <span className="text-rose-400 font-bold uppercase text-[9px]">(Expired)</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                          <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono uppercase">{p.quantity_type}</span>
+                          <div className="flex flex-col items-end">
+                            <span className={`text-xs font-bold font-mono ${searchSelectedIndex === idx ? 'text-emerald-300' : 'text-emerald-400'}`}>
+                              ₹{sellingVal.toFixed(2)}
+                            </span>
+                            {mrpVal > sellingVal && (
+                              <span className="text-[9px] text-slate-400 line-through font-mono">
+                                MRP ₹{mrpVal.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
+                    );
                   })}
                 </div>
               )}
@@ -4333,8 +4325,8 @@ export default function App() {
         <button
           onClick={() => setMobileTab('menu')}
           className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all active:scale-95 ${mobileTab === 'menu'
-              ? 'text-sky-400 font-bold bg-sky-500/10'
-              : 'text-slate-400 hover:text-slate-200'
+            ? 'text-sky-400 font-bold bg-sky-500/10'
+            : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <ShoppingBag className="w-5 h-5" />
@@ -4344,8 +4336,8 @@ export default function App() {
         <button
           onClick={() => setMobileTab('ticket')}
           className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all relative active:scale-95 ${mobileTab === 'ticket'
-              ? 'text-sky-400 font-bold bg-sky-500/10'
-              : 'text-slate-400 hover:text-slate-200'
+            ? 'text-sky-400 font-bold bg-sky-500/10'
+            : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <CreditCard className="w-5 h-5" />
@@ -4360,8 +4352,8 @@ export default function App() {
         <button
           onClick={() => setMobileTab('queue')}
           className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all relative active:scale-95 ${mobileTab === 'queue'
-              ? 'text-sky-400 font-bold bg-sky-500/10'
-              : 'text-slate-400 hover:text-slate-200'
+            ? 'text-sky-400 font-bold bg-sky-500/10'
+            : 'text-slate-400 hover:text-slate-200'
             }`}
         >
           <Users className="w-5 h-5" />
@@ -4400,44 +4392,43 @@ export default function App() {
                 const sellingVal = Number(p.price || 0);
 
                 return (
-                <div
-                  key={p.id}
-                  onClick={() => {
-                    addItemToBill(p, 1);
-                    if (!isExp && !isOos) {
-                      setShowSearchModal(false);
-                      setSearchQuery('');
-                    }
-                  }}
-                  className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border ${
-                    isExp || isOos
+                  <div
+                    key={p.id}
+                    onClick={() => {
+                      addItemToBill(p, 1);
+                      if (!isExp && !isOos) {
+                        setShowSearchModal(false);
+                        setSearchQuery('');
+                      }
+                    }}
+                    className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border ${isExp || isOos
                       ? 'bg-slate-950/40 border-rose-500/30 opacity-60'
                       : searchSelectedIndex === idx
                         ? 'bg-slate-800 border-bakery-500'
                         : 'bg-slate-950/20 border-transparent hover:bg-slate-800'
-                    }`}
-                >
-                  <div>
-                    <span className={`text-xs font-bold block ${isExp ? 'text-rose-400 line-through' : 'text-white'}`}>
-                      {p.name}
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-slate-500 uppercase">{p.category}</span>
-                      <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
-                        Stk: {p.available_stock ?? (isOos ? 0 : 50)}
+                      }`}
+                  >
+                    <div>
+                      <span className={`text-xs font-bold block ${isExp ? 'text-rose-400 line-through' : 'text-white'}`}>
+                        {p.name}
                       </span>
-                      {isExp && <span className="text-[9px] text-rose-400 font-bold uppercase">(Expired)</span>}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-slate-500 uppercase">{p.category}</span>
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
+                          Stk: {p.available_stock ?? (isOos ? 0 : 50)}
+                        </span>
+                        {isExp && <span className="text-[9px] text-rose-400 font-bold uppercase">(Expired)</span>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-emerald-400 block font-mono">₹{sellingVal.toFixed(2)}</span>
+                      {mrpVal > sellingVal && (
+                        <span className="text-[9px] text-slate-400 line-through font-mono block">MRP ₹{mrpVal.toFixed(2)}</span>
+                      )}
+                      <span className="text-[9px] px-1 bg-slate-800 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-emerald-400 block font-mono">₹{sellingVal.toFixed(2)}</span>
-                    {mrpVal > sellingVal && (
-                      <span className="text-[9px] text-slate-400 line-through font-mono block">MRP ₹{mrpVal.toFixed(2)}</span>
-                    )}
-                    <span className="text-[9px] px-1 bg-slate-800 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
-                  </div>
-                </div>
-              );
+                );
               })}
             </div>
 
@@ -4480,11 +4471,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setOperatingMode('CLINIC_DISPENSING')}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      operatingMode === 'CLINIC_DISPENSING'
-                        ? 'bg-sky-500 text-slate-950 shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${operatingMode === 'CLINIC_DISPENSING'
+                      ? 'bg-sky-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Building2 className="w-3.5 h-3.5" />
                     <span>Mode A: Clinic OP</span>
@@ -4492,11 +4482,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setOperatingMode('RETAIL_PHARMACY')}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      operatingMode === 'RETAIL_PHARMACY'
-                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${operatingMode === 'RETAIL_PHARMACY'
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Store className="w-3.5 h-3.5" />
                     <span>Mode B: Retail Rx</span>
@@ -4536,11 +4525,10 @@ export default function App() {
                       {clinicalAlerts.alerts.map((alert, idx) => (
                         <div
                           key={idx}
-                          className={`p-3 rounded-xl border text-xs leading-relaxed ${
-                            alert.severity === 'CRITICAL'
-                              ? 'bg-rose-950/60 border-rose-800/80 text-rose-200'
-                              : 'bg-amber-950/60 border-amber-800/80 text-amber-200'
-                          }`}
+                          className={`p-3 rounded-xl border text-xs leading-relaxed ${alert.severity === 'CRITICAL'
+                            ? 'bg-rose-950/60 border-rose-800/80 text-rose-200'
+                            : 'bg-amber-950/60 border-amber-800/80 text-amber-200'
+                            }`}
                         >
                           <div className="font-bold flex items-center justify-between text-[11px]">
                             <span>{alert.title}</span>
@@ -5050,11 +5038,10 @@ export default function App() {
                           setComplimentaryReason('Doctor / Staff Health Dispense');
                         }
                       }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                        isComplimentaryCheckout
-                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 scale-105'
-                          : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${isComplimentaryCheckout
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 scale-105'
+                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+                        }`}
                     >
                       {isComplimentaryCheckout ? 'Active (₹0)' : 'Enable'}
                     </button>
@@ -5074,9 +5061,8 @@ export default function App() {
                     )}
                   </div>
                   <div className="text-center my-2">
-                    <span className={`text-4xl sm:text-5xl font-black font-mono tracking-tight ${
-                      isComplimentaryCheckout ? 'text-amber-400' : 'text-emerald-400'
-                    }`}>
+                    <span className={`text-4xl sm:text-5xl font-black font-mono tracking-tight ${isComplimentaryCheckout ? 'text-amber-400' : 'text-emerald-400'
+                      }`}>
                       ₹{isComplimentaryCheckout ? '0.00' : billSummary.grandTotal.toFixed(2)}
                     </span>
                     {isComplimentaryCheckout && (
@@ -5195,13 +5181,12 @@ export default function App() {
                           placeholder="0.00"
                           value={cashReceived}
                           onChange={(e) => setCashReceived(e.target.value)}
-                          className={`w-full px-3 py-2 bg-slate-900 border rounded-xl text-lg font-bold font-mono focus:outline-none transition-colors ${
-                            !isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal)
-                              ? 'border-emerald-500/80 text-emerald-400 focus:border-emerald-400'
-                              : !isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) > 0
-                                ? 'border-rose-500/80 text-rose-400 focus:border-rose-400'
-                                : 'border-slate-700 text-slate-100 focus:border-sky-500'
-                          }`}
+                          className={`w-full px-3 py-2 bg-slate-900 border rounded-xl text-lg font-bold font-mono focus:outline-none transition-colors ${!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal)
+                            ? 'border-emerald-500/80 text-emerald-400 focus:border-emerald-400'
+                            : !isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) > 0
+                              ? 'border-rose-500/80 text-rose-400 focus:border-rose-400'
+                              : 'border-slate-700 text-slate-100 focus:border-sky-500'
+                            }`}
                         />
                         <span className="absolute right-3 top-2.5 text-xs text-slate-500 font-mono font-bold">INR (₹)</span>
                       </div>
@@ -5256,13 +5241,12 @@ export default function App() {
                         const diff = isTendered ? round2((cashPaise - payablePaise) / 100) : 0;
 
                         return (
-                          <div className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
-                            isSufficient
-                              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
-                              : isTendered
-                                ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
-                                : 'bg-slate-900/80 border-slate-800 text-slate-400'
-                          }`}>
+                          <div className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${isSufficient
+                            ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                            : isTendered
+                              ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
+                              : 'bg-slate-900/80 border-slate-800 text-slate-400'
+                            }`}>
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold uppercase tracking-wider">
                                 {isSufficient ? 'Change Due to Customer' : isTendered ? 'Short Amount (Deficit)' : 'Change / Balance'}
@@ -5271,9 +5255,8 @@ export default function App() {
                                 {isSufficient ? 'Return to patient upon receipt' : isTendered ? 'Additional cash required' : 'Enter cash amount above'}
                               </span>
                             </div>
-                            <span className={`text-xl font-black font-mono ${
-                              isSufficient ? 'text-amber-400' : isTendered ? 'text-rose-400' : 'text-slate-500'
-                            }`}>
+                            <span className={`text-xl font-black font-mono ${isSufficient ? 'text-amber-400' : isTendered ? 'text-rose-400' : 'text-slate-500'
+                              }`}>
                               ₹{isSufficient ? Math.max(0, diff).toFixed(2) : Math.abs(diff).toFixed(2)}
                             </span>
                           </div>
@@ -5431,11 +5414,10 @@ export default function App() {
                   <div className="text-[10px] text-slate-400 font-medium">@{currentUser?.username || 'user'}</div>
                 </div>
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                currentUser?.role === 'admin'
-                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${currentUser?.role === 'admin'
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                }`}>
                 {currentUser?.role === 'admin' ? 'admin' : 'employee'}
               </span>
             </div>
@@ -5636,7 +5618,7 @@ export default function App() {
       {showProductCrudModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl h-[92vh] max-h-[720px] flex flex-col overflow-hidden">
-            
+
             {/* Modal Header */}
             <div className="p-4 sm:px-6 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center space-x-3">
@@ -5655,17 +5637,15 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setProductModalTab('manual')}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      productModalTab === 'manual'
-                        ? 'bg-sky-500 text-slate-950 shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'manual'
+                      ? 'bg-sky-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Manual Entry</span>
-                    <span className={`text-[9px] font-black uppercase px-1 rounded ${
-                      productModalTab === 'manual' ? 'bg-slate-950 text-sky-300' : 'bg-sky-500/20 text-sky-400'
-                    }`}>Admin</span>
+                    <span className={`text-[9px] font-black uppercase px-1 rounded ${productModalTab === 'manual' ? 'bg-slate-950 text-sky-300' : 'bg-sky-500/20 text-sky-400'
+                      }`}>Admin</span>
                   </button>
                 )}
 
@@ -5673,28 +5653,25 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setProductModalTab('excel')}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      productModalTab === 'excel'
-                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'excel'
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" />
                     <span>Upload Excel</span>
-                    <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${
-                      productModalTab === 'excel' ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-500/20 text-emerald-400'
-                    }`}>Admin</span>
+                    <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${productModalTab === 'excel' ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-500/20 text-emerald-400'
+                      }`}>Admin</span>
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={() => setProductModalTab('list')}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    productModalTab === 'list'
-                      ? 'bg-indigo-500 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'list'
+                    ? 'bg-indigo-500 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                    }`}
                 >
                   <Database className="w-3.5 h-3.5" />
                   <span>Browse ({products.length})</span>
@@ -5707,17 +5684,15 @@ export default function App() {
                       setProductModalTab('inward');
                       fetchInwardRecords();
                     }}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      productModalTab === 'inward'
-                        ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'inward'
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Package className="w-3.5 h-3.5" />
                     <span>Inward Stock</span>
-                    <span className={`text-[9px] font-black uppercase px-1 rounded ${
-                      productModalTab === 'inward' ? 'bg-slate-950 text-amber-300' : 'bg-amber-500/20 text-amber-400'
-                    }`}>Admin</span>
+                    <span className={`text-[9px] font-black uppercase px-1 rounded ${productModalTab === 'inward' ? 'bg-slate-950 text-amber-300' : 'bg-amber-500/20 text-amber-400'
+                      }`}>Admin</span>
                   </button>
                 )}
               </div>
@@ -5736,7 +5711,7 @@ export default function App() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              
+
               {/* TAB 1: MANUAL ENTRY */}
               {productModalTab === 'manual' && (
                 <div className="max-w-2xl mx-auto">
@@ -5830,11 +5805,10 @@ export default function App() {
                                   }
                                   setEditingProduct(prev => prev ? ({ ...prev, category: updated.join(', ') }) : prev);
                                 }}
-                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border ${
-                                  isSelected
-                                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-xs'
-                                    : 'bg-slate-800/80 text-slate-400 border-slate-750 hover:border-slate-600 hover:text-slate-200'
-                                }`}
+                                className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border ${isSelected
+                                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-xs'
+                                  : 'bg-slate-800/80 text-slate-400 border-slate-750 hover:border-slate-600 hover:text-slate-200'
+                                  }`}
                                 title={isSelected ? `Click to remove from "${cat}"` : `Click to add to "${cat}"`}
                               >
                                 {isSelected ? '✓ ' : '+ '}{cat}
@@ -6059,7 +6033,7 @@ export default function App() {
               {/* TAB 2: INTELLIGENT EXCEL UPLOAD */}
               {productModalTab === 'excel' && (
                 <div className="max-w-3xl mx-auto flex flex-col gap-6">
-                  
+
                   {/* Informational Hero Card */}
                   <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-slate-900 to-sky-500/10 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
@@ -6068,7 +6042,7 @@ export default function App() {
                         <h4 className="text-sm font-bold text-white">Intelligent Excel Medicine Importer</h4>
                       </div>
                       <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-                        Upload Excel spreadsheets (.xlsx, .xls) or CSV files with your clinic’s custom medicines. 
+                        Upload Excel spreadsheets (.xlsx, .xls) or CSV files with your clinic’s custom medicines.
                         The system cross-checks medicine names (case-insensitive) against the 550+ existing database items.
                       </p>
                     </div>
@@ -6098,13 +6072,12 @@ export default function App() {
                         input?.click();
                       }
                     }}
-                    className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
-                      excelParsing
-                        ? 'border-sky-500 bg-sky-500/5 cursor-wait'
-                        : currentUser?.role !== 'admin'
-                          ? 'border-slate-800 bg-slate-950/40 opacity-50 cursor-not-allowed'
-                          : 'border-slate-700 hover:border-emerald-500 bg-slate-950/50 hover:bg-emerald-500/5 group'
-                    }`}
+                    className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${excelParsing
+                      ? 'border-sky-500 bg-sky-500/5 cursor-wait'
+                      : currentUser?.role !== 'admin'
+                        ? 'border-slate-800 bg-slate-950/40 opacity-50 cursor-not-allowed'
+                        : 'border-slate-700 hover:border-emerald-500 bg-slate-950/50 hover:bg-emerald-500/5 group'
+                      }`}
                   >
                     <input
                       id="excel-file-upload-input"
@@ -6309,135 +6282,133 @@ export default function App() {
                             const isOos = Boolean(p.status === 'Out of Stock' || p.is_out_of_stock || availStk <= 0);
 
                             return (
-                            <tr key={p.id} className="hover:bg-slate-900/60 transition-colors">
-                              <td className="py-2 px-3 font-semibold text-white">
-                                <div className={isExp ? 'line-through text-rose-400' : ''}>{p.name}</div>
-                                {p.barcode && <div className="text-[9px] text-slate-500 font-mono">{p.barcode}</div>}
-                              </td>
-                              <td className="py-2 px-3">
-                                {currentUser?.role === 'admin' ? (
-                                  <select
-                                    value={p.category}
-                                    onChange={(e) => updateProductCategory(p.id, e.target.value)}
-                                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-sky-300 font-medium focus:outline-none focus:border-sky-500 max-w-[155px] truncate cursor-pointer hover:border-sky-500/50"
-                                    title="Click to change medicine category"
-                                  >
-                                    {Array.from(new Set([
-                                      p.category,
-                                      'Orthopaedic',
-                                      'Analgesics & NSAIDs',
-                                      'Antibiotics',
-                                      'Muscle Relaxants',
-                                      'Joint Supplements & Calcium',
-                                      'Gastro-Protective',
-                                      'Topical Sprays & Ointments',
-                                      'Antacids & PPI',
-                                      'Neuropathic Pain',
-                                      'Post-Op Care & Dressings',
-                                      ...categories.filter(c => c !== 'All')
-                                    ])).filter(Boolean).map(c => (
-                                      <option key={c} value={c}>{c}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className="text-slate-400">{p.category}</span>
-                                )}
-                              </td>
-                              <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
-                              <td className="py-2 px-3 text-right font-mono text-slate-400">₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)}</td>
-                              <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{Number(p.price || 0).toFixed(2)}</td>
-                              <td className="py-2 px-3 text-center font-mono">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (availStk <= 15 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
-                                }`}>
-                                  {availStk}
-                                </span>
-                              </td>
-                              <td className="py-2 px-3 text-center font-mono text-[11px]">
-                                <span className={isExp ? 'text-rose-400 font-bold' : 'text-slate-400'}>
-                                  {p.expiry_date ? String(p.expiry_date).substring(0, 10) : '2028-12-31'}
-                                </span>
-                              </td>
-                              <td className="py-2 px-3 text-right font-mono text-slate-400">{p.tax_percent}%</td>
-                              <td className="py-2 px-3 text-center">
-                                <div className="flex flex-col items-center gap-1">
-                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                                    isExp ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : (isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
-                                  }`}>
-                                    {isExp ? 'Expired' : (isOos ? 'Out of Stock' : 'In Stock')}
-                                  </span>
-                                  {p.is_example ? (
-                                    <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                                      Demo Item
-                                    </span>
+                              <tr key={p.id} className="hover:bg-slate-900/60 transition-colors">
+                                <td className="py-2 px-3 font-semibold text-white">
+                                  <div className={isExp ? 'line-through text-rose-400' : ''}>{p.name}</div>
+                                  {p.barcode && <div className="text-[9px] text-slate-500 font-mono">{p.barcode}</div>}
+                                </td>
+                                <td className="py-2 px-3">
+                                  {currentUser?.role === 'admin' ? (
+                                    <select
+                                      value={p.category}
+                                      onChange={(e) => updateProductCategory(p.id, e.target.value)}
+                                      className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-sky-300 font-medium focus:outline-none focus:border-sky-500 max-w-[155px] truncate cursor-pointer hover:border-sky-500/50"
+                                      title="Click to change medicine category"
+                                    >
+                                      {Array.from(new Set([
+                                        p.category,
+                                        'Orthopaedic',
+                                        'Analgesics & NSAIDs',
+                                        'Antibiotics',
+                                        'Muscle Relaxants',
+                                        'Joint Supplements & Calcium',
+                                        'Gastro-Protective',
+                                        'Topical Sprays & Ointments',
+                                        'Antacids & PPI',
+                                        'Neuropathic Pain',
+                                        'Post-Op Care & Dressings',
+                                        ...categories.filter(c => c !== 'All')
+                                      ])).filter(Boolean).map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                      ))}
+                                    </select>
                                   ) : (
-                                    <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                                      Clinic Drug
-                                    </span>
+                                    <span className="text-slate-400">{p.category}</span>
                                   )}
-                                </div>
-                              </td>
-                              <td className="py-2 px-3 text-right">
-                                <div className="flex items-center justify-end space-x-1">
-                                  {currentUser?.role === 'admin' && (
+                                </td>
+                                <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-400">₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{Number(p.price || 0).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-center font-mono">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (availStk <= 15 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
+                                    }`}>
+                                    {availStk}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-center font-mono text-[11px]">
+                                  <span className={isExp ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                                    {p.expiry_date ? String(p.expiry_date).substring(0, 10) : '2028-12-31'}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-400">{p.tax_percent}%</td>
+                                <td className="py-2 px-3 text-center">
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${isExp ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : (isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
+                                      }`}>
+                                      {isExp ? 'Expired' : (isOos ? 'Out of Stock' : 'In Stock')}
+                                    </span>
+                                    {p.is_example ? (
+                                      <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                        Demo Item
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                        Clinic Drug
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-right">
+                                  <div className="flex items-center justify-end space-x-1">
+                                    {currentUser?.role === 'admin' && (
+                                      <button
+                                        onClick={() => {
+                                          setInwardConsignment({
+                                            supplier_name: '',
+                                            invoice_number: '',
+                                            received_date: new Date().toISOString().split('T')[0],
+                                            notes: '',
+                                            items: [
+                                              {
+                                                id: 'inw-' + Date.now(),
+                                                product_id: p.id,
+                                                product_name: p.name,
+                                                batch_number: '',
+                                                quantity: 0,
+                                                expiry_date: '',
+                                                purchase_price: p.purchase_price || (p.price ? +(p.price * 0.7).toFixed(2) : 0),
+                                                mrp: p.mrp || p.price || 0,
+                                                selling_price: p.price || 0
+                                              }
+                                            ]
+                                          });
+                                          setProductModalTab('inward');
+                                        }}
+                                        className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition-colors"
+                                        title="Record Monthly Inward Stock"
+                                      >
+                                        <Package className="w-3.5 h-3.5 text-amber-400" />
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => {
-                                        setInwardConsignment({
-                                          supplier_name: '',
-                                          invoice_number: '',
-                                          received_date: new Date().toISOString().split('T')[0],
-                                          notes: '',
-                                          items: [
-                                            {
-                                              id: 'inw-' + Date.now(),
-                                              product_id: p.id,
-                                              product_name: p.name,
-                                              batch_number: '',
-                                              quantity: 0,
-                                              expiry_date: '',
-                                              purchase_price: p.purchase_price || (p.price ? +(p.price * 0.7).toFixed(2) : 0),
-                                              mrp: p.mrp || p.price || 0,
-                                              selling_price: p.price || 0
-                                            }
-                                          ]
-                                        });
-                                        setProductModalTab('inward');
+                                        setEditingProduct(p);
+                                        setProductModalTab('manual');
                                       }}
-                                      className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition-colors"
-                                      title="Record Monthly Inward Stock"
+                                      className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-sky-400 rounded-lg transition-colors"
+                                      title="Edit medicine"
                                     >
-                                      <Package className="w-3.5 h-3.5 text-amber-400" />
+                                      <Edit className="w-3.5 h-3.5" />
                                     </button>
-                                  )}
-                                  <button
-                                    onClick={() => {
-                                      setEditingProduct(p);
-                                      setProductModalTab('manual');
-                                    }}
-                                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-sky-400 rounded-lg transition-colors"
-                                    title="Edit medicine"
-                                  >
-                                    <Edit className="w-3.5 h-3.5" />
-                                  </button>
-                                  {p.is_example ? (
-                                    <button
-                                      onClick={() => deleteProduct(p.id)}
-                                      className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
-                                      title="Delete Demo Medicine"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  ) : (
-                                    <span
-                                      className="p-1.5 text-slate-600 cursor-not-allowed rounded"
-                                      title="Statutory Pharmacy Inventory Protection: Actual clinic inventory items cannot be deleted to preserve drug dispensing audit trail under D&C Rules."
-                                    >
-                                      <Lock className="w-3.5 h-3.5 text-slate-600" />
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
+                                    {p.is_example ? (
+                                      <button
+                                        onClick={() => deleteProduct(p.id)}
+                                        className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
+                                        title="Delete Demo Medicine"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    ) : (
+                                      <span
+                                        className="p-1.5 text-slate-600 cursor-not-allowed rounded"
+                                        title="Statutory Pharmacy Inventory Protection: Actual clinic inventory items cannot be deleted to preserve drug dispensing audit trail under D&C Rules."
+                                      >
+                                        <Lock className="w-3.5 h-3.5 text-slate-600" />
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
                             );
                           })}
                       </tbody>
@@ -6849,7 +6820,7 @@ export default function App() {
       {showConflictModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
           <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
-            
+
             {/* Header */}
             <div className="p-4 sm:p-5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -6903,11 +6874,10 @@ export default function App() {
               {excelConflicts.map((conflict, idx) => (
                 <div
                   key={idx}
-                  className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                    conflict.userChoice === 'add'
-                      ? 'bg-sky-500/5 border-sky-500/40'
-                      : 'bg-slate-950/60 border-slate-800'
-                  }`}
+                  className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${conflict.userChoice === 'add'
+                    ? 'bg-sky-500/5 border-sky-500/40'
+                    : 'bg-slate-950/60 border-slate-800'
+                    }`}
                 >
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-bold text-white block truncate">
@@ -6930,11 +6900,10 @@ export default function App() {
                       onClick={() => {
                         setExcelConflicts(prev => prev.map((c, i) => i === idx ? { ...c, userChoice: 'skip' } : c));
                       }}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
-                        conflict.userChoice === 'skip'
-                          ? 'bg-slate-700 text-white shadow-sm'
-                          : 'bg-slate-900 text-slate-400 hover:text-slate-200'
-                      }`}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${conflict.userChoice === 'skip'
+                        ? 'bg-slate-700 text-white shadow-sm'
+                        : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                        }`}
                     >
                       Skip
                     </button>
@@ -6943,11 +6912,10 @@ export default function App() {
                       onClick={() => {
                         setExcelConflicts(prev => prev.map((c, i) => i === idx ? { ...c, userChoice: 'add' } : c));
                       }}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
-                        conflict.userChoice === 'add'
-                          ? 'bg-sky-500 text-slate-950 shadow-sm'
-                          : 'bg-slate-900 text-slate-400 hover:text-sky-400'
-                      }`}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${conflict.userChoice === 'add'
+                        ? 'bg-sky-500 text-slate-950 shadow-sm'
+                        : 'bg-slate-900 text-slate-400 hover:text-sky-400'
+                        }`}
                     >
                       Add Anyway
                     </button>
@@ -7236,9 +7204,8 @@ export default function App() {
 
                           <div className="p-2.5 bg-slate-900/70 border border-slate-800 rounded-xl">
                             <span className="text-[10px] text-slate-300 block uppercase font-bold">Net Difference</span>
-                            <span className={`text-base font-black font-mono ${
-                              (analyticsData.stockMovement?.netStockDifferenceUnits ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                            }`}>
+                            <span className={`text-base font-black font-mono ${(analyticsData.stockMovement?.netStockDifferenceUnits ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                              }`}>
                               {(analyticsData.stockMovement?.netStockDifferenceUnits ?? 0) >= 0 ? '+' : ''}
                               {analyticsData.stockMovement?.netStockDifferenceUnits ?? 0}
                             </span>
@@ -7500,33 +7467,30 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => setHistoryModeFilter('ALL')}
-                            className={`flex-1 py-1 px-2 rounded font-bold text-[11px] transition-all ${
-                              historyModeFilter === 'ALL'
-                                ? 'bg-slate-700 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-slate-200'
-                            }`}
+                            className={`flex-1 py-1 px-2 rounded font-bold text-[11px] transition-all ${historyModeFilter === 'ALL'
+                              ? 'bg-slate-700 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-slate-200'
+                              }`}
                           >
                             All ({historyBills.length})
                           </button>
                           <button
                             type="button"
                             onClick={() => setHistoryModeFilter('CLINIC_DISPENSING')}
-                            className={`flex-1 py-1 px-2 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition-all ${
-                              historyModeFilter === 'CLINIC_DISPENSING'
-                                ? 'bg-sky-600 text-white shadow-sm'
-                                : 'text-sky-400/80 hover:text-sky-300'
-                            }`}
+                            className={`flex-1 py-1 px-2 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition-all ${historyModeFilter === 'CLINIC_DISPENSING'
+                              ? 'bg-sky-600 text-white shadow-sm'
+                              : 'text-sky-400/80 hover:text-sky-300'
+                              }`}
                           >
                             <Building2 className="w-3 h-3" /> Mode A: Clinic ({historyBills.filter(b => b.mode === 'CLINIC_DISPENSING').length})
                           </button>
                           <button
                             type="button"
                             onClick={() => setHistoryModeFilter('RETAIL_PHARMACY')}
-                            className={`flex-1 py-1 px-2 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition-all ${
-                              historyModeFilter === 'RETAIL_PHARMACY'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-emerald-400/80 hover:text-emerald-300'
-                            }`}
+                            className={`flex-1 py-1 px-2 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition-all ${historyModeFilter === 'RETAIL_PHARMACY'
+                              ? 'bg-emerald-600 text-white shadow-sm'
+                              : 'text-emerald-400/80 hover:text-emerald-300'
+                              }`}
                           >
                             <Store className="w-3 h-3" /> Mode B: Retail ({historyBills.filter(b => b.mode !== 'CLINIC_DISPENSING').length})
                           </button>
@@ -7562,11 +7526,10 @@ export default function App() {
                                   >
                                     <td className="py-2.5 pl-2 font-mono font-bold text-bakery-400">#{bill.bill_number}</td>
                                     <td className="py-2.5">
-                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                                        bill.mode === 'CLINIC_DISPENSING'
-                                          ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
-                                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                                      }`}>
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${bill.mode === 'CLINIC_DISPENSING'
+                                        ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
+                                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                        }`}>
                                         {bill.mode === 'CLINIC_DISPENSING' ? 'Clinic OP' : 'Retail Rx'}
                                       </span>
                                     </td>
@@ -7635,11 +7598,10 @@ export default function App() {
                                   setShowCancelModal(true);
                                 }}
                                 disabled={selectedBill.status === 'Cancelled'}
-                                className={`px-3 py-1 font-bold rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex-shrink-0 ${
-                                  selectedBill.status === 'Cancelled'
-                                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                    : 'bg-rose-600 hover:bg-rose-500 text-white'
-                                }`}
+                                className={`px-3 py-1 font-bold rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex-shrink-0 ${selectedBill.status === 'Cancelled'
+                                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                  : 'bg-rose-600 hover:bg-rose-500 text-white'
+                                  }`}
                               >
                                 {selectedBill.status === 'Cancelled' ? 'Cancelled' : 'Cancel (Credit Note)'}
                               </button>
@@ -7764,193 +7726,193 @@ export default function App() {
 
               {/* Pharmacy/Clinic Details (Admin Editable Only) */}
               {currentUser?.role === 'admin' ? (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Clinic & Doctor Details</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSettingsModal(false);
-                      setAdminProfileForm({ ...bakeryDetails });
-                      setShowAdminProfileModal(true);
-                    }}
-                    className="text-[10px] font-bold text-sky-400 hover:text-sky-300 underline flex items-center gap-1"
-                  >
-                    <Stethoscope className="w-3 h-3" />
-                    <span>Full Doctor Profile Editor →</span>
-                  </button>
-                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Clinic & Doctor Details</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSettingsModal(false);
+                        setAdminProfileForm({ ...bakeryDetails });
+                        setShowAdminProfileModal(true);
+                      }}
+                      className="text-[10px] font-bold text-sky-400 hover:text-sky-300 underline flex items-center gap-1"
+                    >
+                      <Stethoscope className="w-3 h-3" />
+                      <span>Full Doctor Profile Editor →</span>
+                    </button>
+                  </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">Clinic / Pharmacy Name</label>
-                  <input
-                    type="text"
-                    value={bakeryDetails.name}
-                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, name: e.target.value }))}
-                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">Tagline / Description</label>
-                  <input
-                    type="text"
-                    value={(bakeryDetails as any).description || 'Mission for Cure'}
-                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, description: e.target.value }))}
-                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">Address Line</label>
-                  <input
-                    type="text"
-                    value={bakeryDetails.address}
-                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, address: e.target.value }))}
-                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">City</label>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Clinic / Pharmacy Name</label>
                     <input
                       type="text"
-                      value={bakeryDetails.city || 'Chennai'}
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, city: e.target.value }))}
+                      value={bakeryDetails.name}
+                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, name: e.target.value }))}
                       className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                     />
                   </div>
+
                   <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">State</label>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Tagline / Description</label>
                     <input
                       type="text"
-                      value={bakeryDetails.state || 'Tamil Nadu'}
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, state: e.target.value }))}
+                      value={(bakeryDetails as any).description || 'Mission for Cure'}
+                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, description: e.target.value }))}
                       className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                     />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">PIN Code</label>
-                    <input
-                      type="text"
-                      value={bakeryDetails.pincode || '600002'}
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, pincode: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Phone Number</label>
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Address Line</label>
                     <input
                       type="text"
-                      value={bakeryDetails.phone}
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, phone: e.target.value }))}
+                      value={bakeryDetails.address}
+                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, address: e.target.value }))}
                       className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                     />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">Official Email</label>
-                    <input
-                      type="email"
-                      value={bakeryDetails.email || 'contact@madrasortho.in'}
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, email: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
-                    />
-                  </div>
-                </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">GSTIN (Indian GST Number)</label>
-                  <input
-                    type="text"
-                    value={(bakeryDetails as any).gstin || ''}
-                    placeholder="e.g. 33AAAAA0000A1Z5"
-                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, gstin: e.target.value }))}
-                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">D.L. Form 20B</label>
-                    <input
-                      type="text"
-                      value={(bakeryDetails as any).dlNo || ''}
-                      placeholder="e.g. 20B/TN/CHE/00482"
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase">D.L. Form 21B</label>
-                    <input
-                      type="text"
-                      value={bakeryDetails.dlNo21 || ''}
-                      placeholder="e.g. 21B/TN/CHE/00482"
-                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo21: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase">Clinical Establishments Act (CEA Reg No)</label>
-                  <input
-                    type="text"
-                    value={bakeryDetails.ceaNo || ''}
-                    placeholder="e.g. TN-CEA/2021/04912"
-                    onChange={(e) => setBakeryDetails(prev => ({ ...prev, ceaNo: e.target.value }))}
-                    className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
-                  />
-                </div>
-
-                <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-2">
-                  <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Chief Doctor & Supervising Pharmacist</span>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Chief Doctor Name</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">City</label>
                       <input
                         type="text"
-                        value={bakeryDetails.doctorName || ''}
-                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, doctorName: e.target.value }))}
+                        value={bakeryDetails.city || 'Chennai'}
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, city: e.target.value }))}
                         className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Medical Council Reg No</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">State</label>
                       <input
                         type="text"
-                        value={bakeryDetails.doctorRegNo || ''}
-                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, doctorRegNo: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Registered Pharmacist</label>
-                      <input
-                        type="text"
-                        value={bakeryDetails.pharmacistName || ''}
-                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, pharmacistName: e.target.value }))}
+                        value={bakeryDetails.state || 'Tamil Nadu'}
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, state: e.target.value }))}
                         className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Pharmacy Council Reg No</label>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">PIN Code</label>
                       <input
                         type="text"
-                        value={bakeryDetails.pharmacistRegNo || ''}
-                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, pharmacistRegNo: e.target.value }))}
+                        value={bakeryDetails.pincode || '600002'}
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, pincode: e.target.value }))}
                         className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Phone Number</label>
+                      <input
+                        type="text"
+                        value={bakeryDetails.phone}
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, phone: e.target.value }))}
+                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">Official Email</label>
+                      <input
+                        type="email"
+                        value={bakeryDetails.email || 'contact@madrasortho.in'}
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, email: e.target.value }))}
+                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">GSTIN (Indian GST Number)</label>
+                    <input
+                      type="text"
+                      value={(bakeryDetails as any).gstin || ''}
+                      placeholder="e.g. 33AAAAA0000A1Z5"
+                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, gstin: e.target.value }))}
+                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">D.L. Form 20B</label>
+                      <input
+                        type="text"
+                        value={(bakeryDetails as any).dlNo || ''}
+                        placeholder="e.g. 20B/TN/CHE/00482"
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo: e.target.value }))}
+                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[9px] font-bold text-slate-500 uppercase">D.L. Form 21B</label>
+                      <input
+                        type="text"
+                        value={bakeryDetails.dlNo21 || ''}
+                        placeholder="e.g. 21B/TN/CHE/00482"
+                        onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo21: e.target.value }))}
+                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase">Clinical Establishments Act (CEA Reg No)</label>
+                    <input
+                      type="text"
+                      value={bakeryDetails.ceaNo || ''}
+                      placeholder="e.g. TN-CEA/2021/04912"
+                      onChange={(e) => setBakeryDetails(prev => ({ ...prev, ceaNo: e.target.value }))}
+                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                    />
+                  </div>
+
+                  <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-2">
+                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Chief Doctor & Supervising Pharmacist</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Chief Doctor Name</label>
+                        <input
+                          type="text"
+                          value={bakeryDetails.doctorName || ''}
+                          onChange={(e) => setBakeryDetails(prev => ({ ...prev, doctorName: e.target.value }))}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Medical Council Reg No</label>
+                        <input
+                          type="text"
+                          value={bakeryDetails.doctorRegNo || ''}
+                          onChange={(e) => setBakeryDetails(prev => ({ ...prev, doctorRegNo: e.target.value }))}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Registered Pharmacist</label>
+                        <input
+                          type="text"
+                          value={bakeryDetails.pharmacistName || ''}
+                          onChange={(e) => setBakeryDetails(prev => ({ ...prev, pharmacistName: e.target.value }))}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Pharmacy Council Reg No</label>
+                        <input
+                          type="text"
+                          value={bakeryDetails.pharmacistRegNo || ''}
+                          onChange={(e) => setBakeryDetails(prev => ({ ...prev, pharmacistRegNo: e.target.value }))}
+                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
               ) : (
                 <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg text-[10px] text-slate-400 flex items-center space-x-2">
                   <Lock className="w-4 h-4 text-sky-400 flex-shrink-0" />
@@ -7970,11 +7932,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setPrinterInterface('usb')}
-                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${
-                      printerInterface === 'usb'
-                        ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${printerInterface === 'usb'
+                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Printer className="w-3 h-3" />
                     <span>USB / Driver</span>
@@ -7983,11 +7944,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setPrinterInterface('wifi')}
-                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${
-                      printerInterface === 'wifi'
-                        ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${printerInterface === 'wifi'
+                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Wifi className="w-3 h-3" />
                     <span>WiFi / Network</span>
@@ -7996,11 +7956,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setPrinterInterface('bluetooth')}
-                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${
-                      printerInterface === 'bluetooth'
-                        ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${printerInterface === 'bluetooth'
+                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Bluetooth className="w-3 h-3" />
                     <span>Bluetooth</span>
@@ -8059,11 +8018,10 @@ export default function App() {
                   <div className="flex flex-col gap-2.5 p-3 bg-slate-950/70 border border-slate-800 rounded-lg">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-semibold text-slate-300">Bluetooth Wireless ESC/POS Printer</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                        bluetoothDeviceName
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${bluetoothDeviceName
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}>
                         {bluetoothDeviceName ? 'Connected' : 'Not Paired'}
                       </span>
                     </div>
@@ -8155,158 +8113,158 @@ export default function App() {
 
               {/* Bill Number Sequence Reset & Device Data Management (Admin Only) */}
               {currentUser?.role === 'admin' && (
-              <>
-              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bill Number Sequence</span>
-                <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2">
-                  <p className="text-[10px] text-slate-400 leading-relaxed">
-                    Bill numbers restart automatically every new day. Use the reset below to manually restart the sequence from <span className="text-white font-bold">#1</span> at any time (e.g., beginning of a new shift).
-                  </p>
-                  <p className="text-[10px] text-amber-400/80 font-semibold">
-                    ⚠ This will close all open bill tabs and cannot be undone.
-                  </p>
-                  <button
-                    onClick={() => {
-                      showConfirm({
-                        title: "Reset Bill Sequence",
-                        message: "Reset bill number sequence to #1?\n\nAll open bill tabs will be closed. This cannot be undone.",
-                        type: "danger",
-                        confirmText: "Reset Sequence",
-                        onConfirm: () => {
-                          // Clear counter and date so next bill starts fresh at 1
-                          localStorage.removeItem('bakers_pos_last_bill_num');
-                          localStorage.removeItem('bakers_pos_bill_date');
-                          localStorage.removeItem('bakers_pos_sessions');
-                          localStorage.removeItem('bakers_pos_active_session');
-                          localStorage.removeItem('madrasortho_pos_last_bill_num');
-                          localStorage.removeItem('madrasortho_pos_bill_date');
-                          localStorage.removeItem('madrasortho_pos_sessions');
-                          localStorage.removeItem('madrasortho_pos_active_session');
-                          setSessions([]);
-                          setShowSettingsModal(false);
-                          showToast("Bill sequence reset. Next bill will be #1.", "info");
-                          // createNewBill after short delay so state clears first
-                          setTimeout(() => createNewBill(), 100);
-                          closeConfirm();
-                        }
-                      });
-                    }}
-                    className="w-full py-2 bg-rose-900/40 hover:bg-rose-800/60 active:scale-[0.98] transition-all border border-rose-700/50 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-200"
-                  >
-                    Reset Bill Sequence → Start from #1
-                  </button>
-                </div>
-              </div>
-
-              {/* Device Data & Uninstall Management */}
-              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-rose-400" />
-                  Device Storage & Uninstall Options
-                </span>
-                <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2.5">
-                  <div className="flex flex-col gap-1.5 text-[10px] text-slate-400 leading-relaxed">
-                    <p className="flex items-start gap-1.5">
-                      <span className="text-sky-400 font-bold shrink-0">💻 Windows Desktop:</span>
-                      <span>When you uninstall via Windows Settings / Control Panel, you will be prompted with a choice to permanently delete all clinic databases, bill archives, and patient records, or keep them for future reinstallation.</span>
-                    </p>
-                    <p className="flex items-start gap-1.5">
-                      <span className="text-emerald-400 font-bold shrink-0">📱 Android Mobile:</span>
-                      <span>When uninstalling the APK, Android prompts whether to preserve or remove all local app storage from your device.</span>
-                    </p>
-                  </div>
-
-                  <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
-                    <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-amber-400" />
-                      Clinic Clean Slate (Purge Example Records Only)
-                    </span>
-                    <p className="text-[10px] text-slate-300 leading-relaxed">
-                      Quickly clear out all pre-seeded demo records (example patient profiles, demo employees, and sample bills) with one click so the clinic starts with a 100% clean slate. Genuine records created by the clinic are strictly protected and kept safe.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        showConfirm({
-                          title: "Purge All Example / Demo Records?",
-                          message: "This will permanently remove ONLY pre-seeded example patients, demo employees, and demo bills.\n\nAll real clinical and pharmacy records created by your clinic will remain completely safe and untouched.\n\nProceed with clearing demo records?",
-                          type: "danger",
-                          confirmText: "Purge Example Records",
-                          onConfirm: async () => {
-                            try {
-                              const res = await fetch(apiUrl("/api/system/clear-example-records"), { method: 'POST' });
-                              const data = await res.json();
-                              closeConfirm();
+                <>
+                  <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bill Number Sequence</span>
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2">
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        Bill numbers restart automatically every new day. Use the reset below to manually restart the sequence from <span className="text-white font-bold">#1</span> at any time (e.g., beginning of a new shift).
+                      </p>
+                      <p className="text-[10px] text-amber-400/80 font-semibold">
+                        ⚠ This will close all open bill tabs and cannot be undone.
+                      </p>
+                      <button
+                        onClick={() => {
+                          showConfirm({
+                            title: "Reset Bill Sequence",
+                            message: "Reset bill number sequence to #1?\n\nAll open bill tabs will be closed. This cannot be undone.",
+                            type: "danger",
+                            confirmText: "Reset Sequence",
+                            onConfirm: () => {
+                              // Clear counter and date so next bill starts fresh at 1
+                              localStorage.removeItem('bakers_pos_last_bill_num');
+                              localStorage.removeItem('bakers_pos_bill_date');
+                              localStorage.removeItem('bakers_pos_sessions');
+                              localStorage.removeItem('bakers_pos_active_session');
+                              localStorage.removeItem('madrasortho_pos_last_bill_num');
+                              localStorage.removeItem('madrasortho_pos_bill_date');
+                              localStorage.removeItem('madrasortho_pos_sessions');
+                              localStorage.removeItem('madrasortho_pos_active_session');
+                              setSessions([]);
                               setShowSettingsModal(false);
-                              showToast(data.message || "All demo/example records successfully purged.", "success");
-                              loadEmployees();
-                              fetchHistory();
-                            } catch (err: any) {
+                              showToast("Bill sequence reset. Next bill will be #1.", "info");
+                              // createNewBill after short delay so state clears first
+                              setTimeout(() => createNewBill(), 100);
                               closeConfirm();
-                              showToast("Failed to purge demo records: " + (err.message || err), "error");
                             }
-                          }
-                        });
-                      }}
-                      className="w-full py-2 bg-amber-600/30 hover:bg-amber-600/50 active:scale-[0.98] transition-all border border-amber-500/50 rounded-lg text-xs font-bold text-amber-200 hover:text-white flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Purge All Example / Demo Records</span>
-                    </button>
+                          });
+                        }}
+                        className="w-full py-2 bg-rose-900/40 hover:bg-rose-800/60 active:scale-[0.98] transition-all border border-rose-700/50 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-200"
+                      >
+                        Reset Bill Sequence → Start from #1
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
-                    <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3 text-rose-400" />
-                      Clean Device Wipe (Pre-Uninstall / Factory Reset)
+                  {/* Device Data & Uninstall Management */}
+                  <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5 text-rose-400" />
+                      Device Storage & Uninstall Options
                     </span>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Permanently wipe all local billing history, sales records, employee lists, and database files stored on this device.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        showConfirm({
-                          title: "Delete All Data From Device?",
-                          message: "WARNING: This will permanently delete ALL local bills, sales history, employee lists, and local database files stored on this device.\n\nUse this option if you are planning to uninstall the software, transfer the device, or perform a complete factory wipe.\n\nAre you sure you want to proceed?",
-                          type: "danger",
-                          confirmText: "Yes, Delete All Data",
-                          onConfirm: async () => {
-                            try {
-                              const res = await fetch(apiUrl("/api/system/wipe-all-data"), { method: 'POST' });
-                              const data = await res.json();
-                              // Clear client storage
-                              localStorage.clear();
-                              sessionStorage.clear();
-                              setShowSettingsModal(false);
-                              closeConfirm();
-                              showToast(data.message || "All clinic records deleted from device.", "success");
-                              setTimeout(() => {
-                                window.location.reload();
-                              }, 1200);
-                            } catch (err: any) {
-                              // If offline / mobile fallback
-                              localStorage.clear();
-                              sessionStorage.clear();
-                              setShowSettingsModal(false);
-                              closeConfirm();
-                              showToast("All local mobile storage deleted.", "success");
-                              setTimeout(() => {
-                                window.location.reload();
-                              }, 1200);
-                            }
-                          }
-                        });
-                      }}
-                      className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 active:scale-[0.98] transition-all border border-rose-800/60 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-100 flex items-center justify-center gap-1.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Wipe & Remove All Data From This Device</span>
-                    </button>
+                    <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2.5">
+                      <div className="flex flex-col gap-1.5 text-[10px] text-slate-400 leading-relaxed">
+                        <p className="flex items-start gap-1.5">
+                          <span className="text-sky-400 font-bold shrink-0">💻 Windows Desktop:</span>
+                          <span>When you uninstall via Windows Settings / Control Panel, you will be prompted with a choice to permanently delete all clinic databases, bill archives, and patient records, or keep them for future reinstallation.</span>
+                        </p>
+                        <p className="flex items-start gap-1.5">
+                          <span className="text-emerald-400 font-bold shrink-0">📱 Android Mobile:</span>
+                          <span>When uninstalling the APK, Android prompts whether to preserve or remove all local app storage from your device.</span>
+                        </p>
+                      </div>
+
+                      <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
+                        <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-400" />
+                          Clinic Clean Slate (Purge Example Records Only)
+                        </span>
+                        <p className="text-[10px] text-slate-300 leading-relaxed">
+                          Quickly clear out all pre-seeded demo records (example patient profiles, demo employees, and sample bills) with one click so the clinic starts with a 100% clean slate. Genuine records created by the clinic are strictly protected and kept safe.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            showConfirm({
+                              title: "Purge All Example / Demo Records?",
+                              message: "This will permanently remove ONLY pre-seeded example patients, demo employees, and demo bills.\n\nAll real clinical and pharmacy records created by your clinic will remain completely safe and untouched.\n\nProceed with clearing demo records?",
+                              type: "danger",
+                              confirmText: "Purge Example Records",
+                              onConfirm: async () => {
+                                try {
+                                  const res = await fetch(apiUrl("/api/system/clear-example-records"), { method: 'POST' });
+                                  const data = await res.json();
+                                  closeConfirm();
+                                  setShowSettingsModal(false);
+                                  showToast(data.message || "All demo/example records successfully purged.", "success");
+                                  loadEmployees();
+                                  fetchHistory();
+                                } catch (err: any) {
+                                  closeConfirm();
+                                  showToast("Failed to purge demo records: " + (err.message || err), "error");
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full py-2 bg-amber-600/30 hover:bg-amber-600/50 active:scale-[0.98] transition-all border border-amber-500/50 rounded-lg text-xs font-bold text-amber-200 hover:text-white flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Purge All Example / Demo Records</span>
+                        </button>
+                      </div>
+
+                      <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
+                        <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-rose-400" />
+                          Clean Device Wipe (Pre-Uninstall / Factory Reset)
+                        </span>
+                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                          Permanently wipe all local billing history, sales records, employee lists, and database files stored on this device.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            showConfirm({
+                              title: "Delete All Data From Device?",
+                              message: "WARNING: This will permanently delete ALL local bills, sales history, employee lists, and local database files stored on this device.\n\nUse this option if you are planning to uninstall the software, transfer the device, or perform a complete factory wipe.\n\nAre you sure you want to proceed?",
+                              type: "danger",
+                              confirmText: "Yes, Delete All Data",
+                              onConfirm: async () => {
+                                try {
+                                  const res = await fetch(apiUrl("/api/system/wipe-all-data"), { method: 'POST' });
+                                  const data = await res.json();
+                                  // Clear client storage
+                                  localStorage.clear();
+                                  sessionStorage.clear();
+                                  setShowSettingsModal(false);
+                                  closeConfirm();
+                                  showToast(data.message || "All clinic records deleted from device.", "success");
+                                  setTimeout(() => {
+                                    window.location.reload();
+                                  }, 1200);
+                                } catch (err: any) {
+                                  // If offline / mobile fallback
+                                  localStorage.clear();
+                                  sessionStorage.clear();
+                                  setShowSettingsModal(false);
+                                  closeConfirm();
+                                  showToast("All local mobile storage deleted.", "success");
+                                  setTimeout(() => {
+                                    window.location.reload();
+                                  }, 1200);
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 active:scale-[0.98] transition-all border border-rose-800/60 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-100 flex items-center justify-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Wipe & Remove All Data From This Device</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              </>
+                </>
               )}
             </div>
 
@@ -8716,7 +8674,7 @@ export default function App() {
       {showAdminProfileModal && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 lg:p-6 animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
-            
+
             {/* Modal Header */}
             <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
               <div className="flex items-center space-x-3">
@@ -9367,7 +9325,7 @@ export default function App() {
         }}
       />
 
-      
+
       {/* ----------------- TOAST STATUS BANNER ----------------- */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center px-4 py-2.5 bg-slate-900 border border-slate-800 text-xs rounded-xl shadow-2xl animate-bounce">

@@ -353,16 +353,25 @@ async function createControllerWindow() {
   }, 1200);
 
   controllerWindow.on('close', () => {
-    isQuitting = true;
-    if (tray) {
-      try { tray.destroy(); } catch {}
-      tray = null;
-    }
-    app.quit();
-    setTimeout(() => {
-      process.exit(0);
-    }, 500);
+    shutdownLocalhostApp(500);
   });
+}
+
+function shutdownLocalhostApp(exitDelayMs = 500, callQuit = true) {
+  isQuitting = true;
+  if (tray) {
+    try { tray.destroy(); } catch {}
+    tray = null;
+  }
+  if (callQuit) {
+    app.quit();
+  }
+  if (exitDelayMs <= 0) {
+    process.exit(0);
+  }
+  setTimeout(() => {
+    process.exit(0);
+  }, exitDelayMs);
 }
 
 function setupTray(iconPath: string) {
@@ -410,17 +419,7 @@ function setupTray(iconPath: string) {
       },
       {
         label: 'Quit Server',
-        click: () => {
-          isQuitting = true;
-          if (tray) {
-            try { tray.destroy(); } catch {}
-            tray = null;
-          }
-          app.quit();
-          setTimeout(() => {
-            process.exit(0);
-          }, 300);
-        }
+        click: () => shutdownLocalhostApp(300)
       }
     ]);
 
@@ -448,44 +447,17 @@ app.on('second-instance', () => {
 app.whenReady().then(createControllerWindow);
 
 app.on('before-quit', () => {
-  isQuitting = true;
-  if (tray) {
-    try { tray.destroy(); } catch {}
-    tray = null;
-  }
-  setTimeout(() => {
-    process.exit(0);
-  }, 1000);
+  shutdownLocalhostApp(1000, false);
 });
 
 app.on('will-quit', () => {
-  if (tray) {
-    try { tray.destroy(); } catch {}
-    tray = null;
-  }
-  process.exit(0);
+  shutdownLocalhostApp(0, false);
 });
 
-process.on('SIGINT', () => {
-  isQuitting = true;
-  app.quit();
-  process.exit(0);
-});
+process.on('SIGINT', () => shutdownLocalhostApp(0));
 
-process.on('SIGTERM', () => {
-  isQuitting = true;
-  app.quit();
-  process.exit(0);
-});
+process.on('SIGTERM', () => shutdownLocalhostApp(0));
 
 app.on('window-all-closed', () => {
-  isQuitting = true;
-  if (tray) {
-    try { tray.destroy(); } catch {}
-    tray = null;
-  }
-  app.quit();
-  setTimeout(() => {
-    process.exit(0);
-  }, 500);
+  shutdownLocalhostApp(500);
 });

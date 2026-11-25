@@ -20,7 +20,7 @@
   Pop $R0
   nsExec::Exec `"$SYSDIR\taskkill.exe" /F /T /IM "RegulaVitae POS.exe"`
   Pop $R0
-  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "try { Stop-Process -Name 'MADRAS ORTHO CLINIC LOCALHOST','MADRAS ORTHO CLINIC SOFTWARE','BakersChestPOS','BillingSoftwarePOS','RegulaVitae POS' -Force -ErrorAction SilentlyContinue } catch {}; try { Stop-Process -Id (Get-NetTCPConnection -LocalPort 4848 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique) -Force -ErrorAction SilentlyContinue } catch {}"`
+  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "try { Stop-Process -Name 'MADRAS ORTHO CLINIC LOCALHOST','MADRAS ORTHO CLINIC SOFTWARE','BakersChestPOS','BillingSoftwarePOS','RegulaVitae POS' -Force -ErrorAction SilentlyContinue } catch {}; try { Get-NetTCPConnection -LocalPort 4848 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 0 } | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } catch {}"`
   Pop $R0
 !macroend
 

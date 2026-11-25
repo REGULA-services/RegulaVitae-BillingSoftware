@@ -6,7 +6,7 @@ import {
   Package, Edit2, ShieldAlert, Printer, Eye,
   Settings, UserCheck, Tag, Sparkles, Bell
 } from 'lucide-react';
-import { apiUrl, authApiUrl, getAuthToken, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
+import { apiUrl, authApiUrl, getAuthToken, setAuthToken, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
 import { NotificationsModal, NotificationsData } from './NotificationsModal';
 
 interface Product {
@@ -492,14 +492,14 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
-      const res = await fetch(`${targetUrl}/api/clinic/details`, { signal: controller.signal });
+      const res = await fetch(`${targetUrl}/api/health`, { signal: controller.signal });
       clearTimeout(timeoutId);
       const elapsed = Math.round(performance.now() - start);
       if (res.ok) {
-        const details = await res.json().catch(() => ({}));
+        const health = await res.json().catch(() => ({}));
         setServerTestResult({
           status: 'success',
-          message: `Connected to ${details.clinic_name || 'Madras Ortho Clinic Server'}`,
+          message: `Connected to ${health.service || 'Madras Ortho Clinic Server'}`,
           latency: elapsed
         });
       } else {
@@ -522,16 +522,26 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     const targetUrl = (serverUrlInput || '').trim().replace(/\/+$/, '');
     if (!targetUrl) return;
     setSavedClinicServerUrl(targetUrl);
-    alert(`Clinic server URL saved to ${targetUrl}. Reconnecting...`);
-    loadData();
+    setAuthToken(null);
+    alert(`Clinic server URL saved to ${targetUrl}. Please log in again on the connected server.`);
+    if (onLogout) {
+      onLogout();
+    } else {
+      loadData();
+    }
   };
 
   const handleResetServerConnection = () => {
     setSavedClinicServerUrl('');
     setServerUrlInput(getApiBaseUrl());
     setServerTestResult(null);
-    alert('Reset to zero-config auto-detection (http://madrasorthoclinic.local:4848).');
-    loadData();
+    setAuthToken(null);
+    alert('Reset to zero-config auto-detection (http://madrasorthoclinic.local:4848). Please log in again.');
+    if (onLogout) {
+      onLogout();
+    } else {
+      loadData();
+    }
   };
 
   // Financial Stats Snapshot
@@ -750,12 +760,17 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           } catch (err) {}
         };
 
-        eventSource.onerror = () => {
+        eventSource.onerror = async () => {
           if (eventSource) {
             eventSource.close();
             eventSource = null;
           }
-          if (!reconnectTimeout) {
+          if (!getAuthToken()) return;
+          try {
+            const checkRes = await fetch(apiUrl('/api/auth/session'));
+            if (checkRes.status === 401 || !getAuthToken()) return;
+          } catch {}
+          if (!reconnectTimeout && getAuthToken()) {
             reconnectTimeout = setTimeout(() => {
               reconnectTimeout = null;
               connectSSE();
@@ -1086,7 +1101,11 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       if (res.ok) {
         setCategories((prev) => Array.from(new Set(['All', cat, ...prev.filter((c) => c !== 'All')])));
         setSelectedCategory(cat);
-        setProductForm((prev) => ({ ...prev, category: cat }));
+        setProductForm((prev) => {
+          const existing = (prev.category || '').split(',').map((s) => s.trim()).filter(Boolean);
+          const merged = Array.from(new Set([...existing, cat]));
+          return { ...prev, category: merged.join(', ') };
+        });
         setIsAddCategoryOpen(false);
         setNewCatName('');
         alert(`Category "${cat}" created successfully!`);

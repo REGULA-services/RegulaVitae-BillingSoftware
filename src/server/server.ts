@@ -131,7 +131,7 @@ function getValidSession(req: express.Request): ActiveSession | null {
   if (!session) return null;
   const now = Date.now();
   if (now - session.createdAt > SESSION_TTL_MS) {
-    activeSessions.delete(token);
+    revokeSessionToken(token);
     return null;
   }
   session.lastSeenAt = now;
@@ -152,6 +152,16 @@ function revokeSessionToken(token: string | null): ActiveSession | null {
   }
   return existing;
 }
+
+// Periodically sweep expired sessions and close their SSE streams
+setInterval(() => {
+  const now = Date.now();
+  for (const [tok, sess] of activeSessions.entries()) {
+    if (now - sess.createdAt > SESSION_TTL_MS) {
+      revokeSessionToken(tok);
+    }
+  }
+}, 30 * 60 * 1000).unref();
 
 const ADMIN_ONLY_RULES: Array<{ method: string; match: (subPath: string) => boolean }> = [
   { method: 'PUT', match: (p) => p === '/auth/change-password' },
@@ -304,19 +314,22 @@ app.get('/api/notifications', async (req, res) => {
     const prodMap = new Map<number, any>();
     products.forEach(p => prodMap.set(p.id, p));
 
-    // 1. Expired batches
     const expired: any[] = [];
-    // 2. Expiring soon (<60 days)
     const expiringSoon: any[] = [];
+    const activeStockByProd = new Map<number, number>();
 
     batches.forEach(b => {
       const p = prodMap.get(b.product_id);
       const prodName = p ? p.name : 'Unknown Medicine';
-      const avail = Number(b.available_stock || 0);
+      const avail = Math.max(0, Number(b.available_stock || 0));
       const expDate = String(b.expiry_date || '').substring(0, 10);
       if (!expDate) return;
 
       const diffDays = Math.ceil((new Date(expDate).getTime() - new Date(today).getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 0 && b.status !== 'Quarantined' && b.status !== 'Recalled' && avail > 0) {
+        activeStockByProd.set(b.product_id, (activeStockByProd.get(b.product_id) || 0) + avail);
+      }
 
       if (diffDays <= 0) {
         if (avail > 0 || b.status === 'Quarantined') {
@@ -355,13 +368,13 @@ app.get('/api/notifications', async (req, res) => {
       }
     });
 
-    // 3. Out of stock & low stock products
+    // 3. Out of stock & low stock products (computed directly from active non-expired batches)
     const outOfStock: any[] = [];
     const lowStock: any[] = [];
 
     products.forEach(p => {
-      const avail = Number(p.available_stock || 0);
-      if (avail <= 0 || p.status === 'Out of Stock') {
+      const avail = activeStockByProd.get(p.id) || 0;
+      if (avail <= 0) {
         outOfStock.push({
           id: `oos-${p.id}`,
           product_id: p.id,
@@ -388,17 +401,23 @@ app.get('/api/notifications', async (req, res) => {
       }
     });
 
-    // Sort by clinical urgency
+    // Sort by clinical urgency within buckets
     expired.sort((a, b) => b.days_overdue - a.days_overdue);
     expiringSoon.sort((a, b) => a.days_left - b.days_left);
     lowStock.sort((a, b) => (a.available_stock || 0) - (b.available_stock || 0));
     outOfStock.sort((a, b) => a.product_name.localeCompare(b.product_name));
 
     // Priority ordering for All Alerts:
-    // 1. Expiring Soon & Low Stock at top (highest clinical importance)
-    // 2. Expired next
-    // 3. Out of stock at the very bottom
-    const allAlerts = [...expiringSoon, ...lowStock, ...expired, ...outOfStock];
+    // Tier 1 (Equal top importance): Expiring Soon & Low Stock
+    // Tier 2: Expired
+    // Tier 3 (Bottom): Out of Stock
+    const getAlertRank = (item: any) =>
+      (item.type === 'EXPIRING_SOON' || item.type === 'LOW_STOCK') ? 1 : (item.type === 'EXPIRED' ? 2 : 3);
+    const allAlerts = [...expiringSoon, ...lowStock, ...expired, ...outOfStock].sort((a, b) => {
+      const rankDiff = getAlertRank(a) - getAlertRank(b);
+      if (rankDiff !== 0) return rankDiff;
+      return String(a.product_name || '').localeCompare(String(b.product_name || ''));
+    });
 
     // Smart notification numbering: only count active clinical risks (expiring soon, low stock, expired)
     // Catalog out-of-stock items (unstocked medicines) do not inflate the active alert counter
@@ -1088,8 +1107,10 @@ app.post('/api/products/batch', async (req, res) => {
 app.get('/api/employees', async (req, res) => {
   try {
     const db = await getDatabase();
-    const employees = await db.all("SELECT * FROM employees ORDER BY name ASC");
-    res.json(employees);
+    const employees = await db.all<any>("SELECT * FROM employees ORDER BY name ASC");
+    const isAdmin = (req as any).session?.role === 'admin';
+    const sanitized = isAdmin ? employees : employees.map(({ salary, ...rest }: any) => rest);
+    res.json(sanitized);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1408,8 +1429,13 @@ app.post('/api/bills', async (req, res) => {
           ]
         );
 
-        // Decrement stock from available batch (Both regular dispensing and doctor/staff free health dispense)
-        if (item.batch_number) {
+        // Decrement stock from specific product+batch (Both regular dispensing and complimentary dispense)
+        if (item.product_id && item.batch_number) {
+          await db.run(
+            "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE product_id = ? AND batch_number = ?",
+            [Number(item.quantity), Number(item.product_id), String(item.batch_number)]
+          );
+        } else if (item.batch_number) {
           await db.run(
             "UPDATE batches SET available_stock = MAX(0, available_stock - ?) WHERE batch_number = ?",
             [Number(item.quantity), String(item.batch_number)]
@@ -1962,6 +1988,10 @@ app.post('/api/bills/:id/cancel', async (req, res) => {
                 [qty, pid]
               );
             }
+            await db.run(
+              "UPDATE products SET available_stock = COALESCE(available_stock, 0) + ?, status = 'Available' WHERE id = ?",
+              [qty, pid]
+            );
           }
         }
       }
@@ -2672,8 +2702,8 @@ app.post('/api/inventory/inward', async (req, res) => {
 
         // Update product master catalog
         await db.run(
-          "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, status = 'Available' WHERE id = ?",
-          [sPrice, mrpVal, pPrice, pid]
+          "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, available_stock = COALESCE(available_stock, 0) + ?, status = 'Available' WHERE id = ?",
+          [sPrice, mrpVal, pPrice, qty, pid]
         );
 
         totalConsignmentCost += (qty * pPrice);
@@ -2767,10 +2797,10 @@ app.post('/api/inventory/inward', async (req, res) => {
       );
     }
 
-    // Synchronize product active catalogue selling rate, MRP, and purchase cost
+    // Synchronize product active catalogue selling rate, MRP, purchase cost, and available_stock
     await db.run(
-      "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, status = 'Available' WHERE id = ?",
-      [finalSellingPrice, Number(mrp || 0), Number(purchase_price || 0), pid]
+      "UPDATE products SET price = ?, mrp = ?, purchase_price = ?, available_stock = COALESCE(available_stock, 0) + ?, status = 'Available' WHERE id = ?",
+      [finalSellingPrice, Number(mrp || 0), Number(purchase_price || 0), Number(quantity), pid]
     );
 
     await db.run(

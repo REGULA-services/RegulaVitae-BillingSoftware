@@ -956,17 +956,6 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       return cats as any[];
     }
 
-
-    if (q.includes("FROM PATIENTS")) {
-      if (q.includes("PATIENT_ID = ?") && params.length > 0) {
-        return (this.data.patients || []).find(p => (p.patient_id || '').toLowerCase() === String(params[0]).toLowerCase()) as any;
-      }
-      if (q.includes("ID = ?") && params.length > 0) {
-        return (this.data.patients || []).find(p => p.id === Number(params[0])) as any;
-      }
-      return (this.data.patients || [])[0] as any;
-    }
-
     if (q.includes("FROM ADR_REPORTS")) {
       return [...(this.data.adr_reports || [])] as any[];
     }
@@ -1231,6 +1220,30 @@ export class JSONDatabaseEngine implements DatabaseEngine {
       this.data.products.push(product);
       this.save();
       return { lastID: id, changes: 1 };
+    }
+
+    // Update Product: arithmetic stock update from inward intake / cancel / sale
+    if (q.startsWith("UPDATE PRODUCTS SET") && q.includes("AVAILABLE_STOCK =")) {
+      const idParam = Number(params[params.length - 1]);
+      const idx = this.data.products.findIndex(p => p.id === idParam);
+      if (idx !== -1) {
+        const target = this.data.products[idx];
+        const qty = Number(params[params.length - 2] ?? params[0] ?? 0);
+        if (q.includes("AVAILABLE_STOCK - ?")) {
+          target.available_stock = Math.max(0, Number(target.available_stock || 0) - qty);
+        } else if (q.includes("AVAILABLE_STOCK, 0) + ?") || q.includes("AVAILABLE_STOCK + ?")) {
+          target.available_stock = Math.max(0, Number(target.available_stock || 0) + qty);
+        }
+        if (q.includes("PRICE = ?, MRP = ?, PURCHASE_PRICE = ?")) {
+          target.price = Number(params[0] || target.price || 0);
+          target.mrp = Number(params[1] || target.mrp || target.price || 0);
+          target.purchase_price = Number(params[2] || target.purchase_price || 0);
+        }
+        target.status = Number(target.available_stock || 0) > 0 ? 'Available' : 'Out of Stock';
+        this.save();
+        return { changes: 1 };
+      }
+      return { changes: 0 };
     }
 
     // Update Product: specific price/mrp sync from inward stock
@@ -1890,13 +1903,20 @@ export class JSONDatabaseEngine implements DatabaseEngine {
     if (q.includes("UPDATE BATCHES SET AVAILABLE_STOCK = MAX(0, AVAILABLE_STOCK - ?)") || q.includes("UPDATE BATCHES SET AVAILABLE_STOCK =")) {
       if (!this.data.batches) this.data.batches = [];
       const qty = Number(params[0]);
-      const target = params[params.length - 1];
-      let b = this.data.batches.find(bat => bat.batch_number === String(target));
-      if (!b) {
-        b = this.data.batches.find(bat => bat.id === Number(target));
-      }
-      if (!b) {
-        b = this.data.batches.find(bat => bat.product_id === Number(target) && bat.available_stock > 0);
+      let b: any = null;
+      if (q.includes("PRODUCT_ID = ?") && q.includes("BATCH_NUMBER = ?") && params.length >= 3) {
+        const prodId = Number(params[1]);
+        const batchNo = String(params[2]);
+        b = this.data.batches.find(bat => bat.product_id === prodId && bat.batch_number === batchNo);
+      } else {
+        const target = params[params.length - 1];
+        b = this.data.batches.find(bat => bat.batch_number === String(target));
+        if (!b) {
+          b = this.data.batches.find(bat => bat.id === Number(target));
+        }
+        if (!b) {
+          b = this.data.batches.find(bat => bat.product_id === Number(target) && bat.available_stock > 0);
+        }
       }
       if (b) {
         b.available_stock = Math.max(0, b.available_stock - qty);
@@ -1907,6 +1927,7 @@ export class JSONDatabaseEngine implements DatabaseEngine {
           .reduce((sum, bat) => sum + Math.max(0, Number(bat.available_stock || 0)), 0);
         const prod = this.data.products.find(p => p.id === b.product_id);
         if (prod) {
+          prod.available_stock = remainingProdStock;
           prod.status = remainingProdStock > 0 ? 'Available' : 'Out of Stock';
         }
 
@@ -2259,7 +2280,9 @@ export async function getDatabase(): Promise<DatabaseEngine> {
     try { await nativeEngine.run("ALTER TABLE batches ADD COLUMN quarantine_reason TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE batches ADD COLUMN quarantined_at TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE products ADD COLUMN is_example INTEGER DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE products ADD COLUMN available_stock REAL DEFAULT 0"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE employees ADD COLUMN is_example INTEGER DEFAULT 0"); } catch (e) {}
+    try { await nativeEngine.run("ALTER TABLE employees ADD COLUMN username TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE employees ADD COLUMN qualification TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE employees ADD COLUMN reg_no TEXT"); } catch (e) {}
     try { await nativeEngine.run("ALTER TABLE patients ADD COLUMN is_example INTEGER DEFAULT 0"); } catch (e) {}

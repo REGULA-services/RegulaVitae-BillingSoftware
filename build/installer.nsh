@@ -20,20 +20,15 @@
   Pop $R0
   nsExec::Exec `"$SYSDIR\taskkill.exe" /F /T /IM "RegulaVitae POS.exe"`
   Pop $R0
-  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "try { Stop-Process -Name 'MADRAS ORTHO CLINIC LOCALHOST','MADRAS ORTHO CLINIC SOFTWARE','BakersChestPOS','BillingSoftwarePOS','RegulaVitae POS' -Force -ErrorAction SilentlyContinue } catch {}; try { Stop-Process -Id (Get-NetTCPConnection -LocalPort 4848 -State Listen -ErrorAction SilentlyContinue).OwningProcess -Force -ErrorAction SilentlyContinue } catch {}"`
+  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "try { Stop-Process -Name 'MADRAS ORTHO CLINIC LOCALHOST','MADRAS ORTHO CLINIC SOFTWARE','BakersChestPOS','BillingSoftwarePOS','RegulaVitae POS' -Force -ErrorAction SilentlyContinue } catch {}; try { Stop-Process -Id (Get-NetTCPConnection -LocalPort 4848 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique) -Force -ErrorAction SilentlyContinue } catch {}"`
   Pop $R0
 !macroend
 
 !macro customInit
-  ; Fast startup: terminate exact running app processes cleanly without stalling UI launch,
+  ; Fast startup: terminate exact running app processes & port 4848 listener cleanly without stalling UI launch,
   ; and shift CWD to $TEMP so no directory handles are held.
   SetOutPath $TEMP
-  nsExec::Exec `"$SYSDIR\taskkill.exe" /F /T /IM "${APP_EXECUTABLE_FILENAME}"`
-  Pop $R0
-  nsExec::Exec `"$SYSDIR\taskkill.exe" /F /T /IM "MADRAS ORTHO CLINIC LOCALHOST.exe"`
-  Pop $R0
-  nsExec::Exec `"$SYSDIR\taskkill.exe" /F /T /IM "MADRAS ORTHO CLINIC SOFTWARE.exe"`
-  Pop $R0
+  !insertmacro _KILL_CLINIC_APPS
 !macroend
 
 !macro customCheckAppRunning

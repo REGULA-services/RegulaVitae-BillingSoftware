@@ -292,6 +292,109 @@ async function runTests() {
 
       const adminAllowed = await httpRequest('GET', '/api/employees', null, pcAdminToken);
       assert.strictEqual(adminAllowed.status, 200, `Expected 200 for admin GET /api/employees, got ${adminAllowed.status}`);
+      assert(Array.isArray(adminAllowed.data) && adminAllowed.data.some((e) => e.salary !== undefined), 'Admin should see staff salary metadata');
+
+      const empAllowedList = await httpRequest('GET', '/api/employees', null, mobileEmployeeToken);
+      assert.strictEqual(empAllowedList.status, 200, `Expected 200 for employee GET /api/employees, got ${empAllowedList.status}`);
+      assert(Array.isArray(empAllowedList.data) && empAllowedList.data.every((e) => e.salary === undefined), 'Employee view must omit payroll salary field');
+    });
+
+    // 4b. Integrated Inward Stock -> Multi-Category -> FEFO Batch Isolation -> Notification Ranking -> Cancel Restock
+    await test('Unified workflow: Multi-category medicine, shared batch isolation, smart notification ranking, and cancel restock', async () => {
+      const catRes = await httpRequest('POST', '/api/categories', { name: 'Spine & Trauma' }, pcAdminToken);
+      assert(catRes.status === 200 || catRes.status === 201, `Category create failed: HTTP ${catRes.status}`);
+
+      const prodA = await httpRequest('POST', '/api/products', {
+        name: 'Test Ortho Tablet A',
+        category: 'Spine & Trauma, Pain Management',
+        price: 100,
+        mrp: 120,
+        purchase_price: 70,
+        initial_stock: 10,
+        batch_number: 'SHARED-LOT-01',
+        expiry_date: '2027-06-30',
+        tax_percent: 5
+      }, pcAdminToken);
+      assert.strictEqual(prodA.status, 201);
+
+      const prodB = await httpRequest('POST', '/api/products', {
+        name: 'Test Ortho Tablet B',
+        category: 'Spine & Trauma',
+        price: 50,
+        mrp: 60,
+        purchase_price: 35,
+        initial_stock: 20,
+        batch_number: 'SHARED-LOT-01',
+        expiry_date: '2027-12-31',
+        tax_percent: 5
+      }, pcAdminToken);
+      assert.strictEqual(prodB.status, 201);
+
+      const soonDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const inwRes = await httpRequest('POST', '/api/inventory/inward', {
+        supplier_name: 'Chennai Pharma',
+        invoice_number: 'INV-E2E-01',
+        items: [{
+          product_id: prodB.data.id,
+          product_name: prodB.data.name,
+          batch_number: 'SOON-LOT-02',
+          quantity: 5,
+          expiry_date: soonDate,
+          purchase_price: 35,
+          mrp: 60,
+          selling_price: 50
+        }]
+      }, pcAdminToken);
+      assert.strictEqual(inwRes.status, 201);
+
+      // Employee bills 4 units of Product A on SHARED-LOT-01 -> Product B's SHARED-LOT-01 must remain untouched (20 units + 5 SOON = 25 total)
+      const billRes = await httpRequest('POST', '/api/bills', {
+        bill_number: 88001,
+        subtotal: 400,
+        discount: 0,
+        tax: 20,
+        grand_total: 420,
+        payment_method: 'Cash',
+        items: [{
+          product_id: prodA.data.id,
+          product_name: prodA.data.name,
+          batch_number: 'SHARED-LOT-01',
+          quantity: 4,
+          rate: 100,
+          total: 400,
+          tax_percent: 5
+        }]
+      }, mobileEmployeeToken);
+      assert.strictEqual(billRes.status, 201, `Employee bill checkout failed: HTTP ${billRes.status}`);
+
+      const prodsAfterSale = await httpRequest('GET', '/api/products', null, mobileEmployeeToken);
+      const aAfter = prodsAfterSale.data.find((p) => p.id === prodA.data.id);
+      const bAfter = prodsAfterSale.data.find((p) => p.id === prodB.data.id);
+      assert.strictEqual(aAfter.available_stock, 6, 'Product A stock should decrement from 10 to 6');
+      assert.strictEqual(bAfter.available_stock, 25, 'Product B stock must remain 25 despite identical batch_number');
+
+      // Notifications: Expiring Soon & Low Stock at top (Rank 1), Expired next (Rank 2), Out-of-Stock strictly at bottom (Rank 3)
+      const notifRes = await httpRequest('GET', '/api/notifications', null, mobileEmployeeToken);
+      assert.strictEqual(notifRes.status, 200);
+      assert(Array.isArray(notifRes.data.allAlerts) && notifRes.data.allAlerts.length > 0, 'allAlerts must be populated');
+      const ranks = notifRes.data.allAlerts.map((x) =>
+        (x.type === 'EXPIRING_SOON' || x.type === 'LOW_STOCK') ? 1 : (x.type === 'EXPIRED' ? 2 : 3)
+      );
+      for (let i = 1; i < ranks.length; i++) {
+        assert(ranks[i] >= ranks[i - 1], `Notification alert rank inverted at index ${i}: ${ranks[i - 1]} -> ${ranks[i]}`);
+      }
+      assert.strictEqual(
+        notifRes.data.summary.totalAlerts,
+        notifRes.data.summary.expiredCount + notifRes.data.summary.expiringSoonCount + notifRes.data.summary.lowStockCount,
+        'Smart alert badge total must exclude outOfStockCount'
+      );
+
+      // Admin cancels the bill -> Product A restores back to 10
+      const cancelRes = await httpRequest('POST', `/api/bills/${billRes.data.id}/cancel`, { reason: 'E2E restock verification' }, pcAdminToken);
+      assert.strictEqual(cancelRes.status, 200);
+      const prodsAfterCancel = await httpRequest('GET', '/api/products', null, pcAdminToken);
+      const aRestored = prodsAfterCancel.data.find((p) => p.id === prodA.data.id);
+      assert.strictEqual(aRestored.available_stock, 10, 'Cancelled bill must restore Product A available_stock to 10');
     });
 
     // 5. SSE Connection + Per-Device Logout Isolation

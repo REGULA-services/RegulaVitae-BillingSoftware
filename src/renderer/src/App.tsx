@@ -10,7 +10,7 @@ import {
 import { PatientsModal } from './components/PatientsModal';
 import { MobileTabletApp } from './components/MobileTabletApp';
 import { NotificationsModal, NotificationsData } from './components/NotificationsModal';
-import { apiUrl, authApiUrl, setAuthToken, getAuthToken, setUnauthorizedHandler } from './utils/apiConfig';
+import { apiUrl, authApiUrl, setAuthToken, getAuthToken, setUnauthorizedHandler, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from './utils/apiConfig';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
   isBluetoothSupported,
@@ -456,6 +456,9 @@ export default function App() {
   const [loginForm, setLoginForm] = useState({ username: 'admin', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showLoginServerConfig, setShowLoginServerConfig] = useState(false);
+  const [loginServerUrl, setLoginServerUrl] = useState(() => getSavedClinicServerUrl() || getApiBaseUrl());
+  const [loginServerStatus, setLoginServerStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [changePasswordModal, setChangePasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ username: 'admin', currentPassword: '', newPassword: '', confirmPassword: '' });
 
@@ -711,6 +714,7 @@ export default function App() {
   };
 
   const syncClinicDetailsToServer = async (details: ClinicBranding) => {
+    if (currentUser?.role !== 'admin') return;
     try {
       await fetch(apiUrl("/api/clinic/details"), {
         method: "PUT",
@@ -1026,7 +1030,12 @@ export default function App() {
         setCategories(prev => Array.from(new Set([catName, ...prev])));
         setSelectedCategory(catName);
         if (editingProduct) {
-          setEditingProduct(prev => prev ? ({ ...prev, category: catName }) : prev);
+          setEditingProduct(prev => {
+            if (!prev) return prev;
+            const existing = (prev.category || '').split(',').map(s => s.trim()).filter(Boolean);
+            const merged = Array.from(new Set([...existing, catName]));
+            return { ...prev, category: merged.join(', ') };
+          });
         }
         setShowAddCategoryModal(false);
         setNewCategoryName('');
@@ -1461,12 +1470,17 @@ export default function App() {
           }
         };
 
-        eventSource.onerror = () => {
+        eventSource.onerror = async () => {
           if (eventSource) {
             eventSource.close();
             eventSource = null;
           }
-          if (!reconnectTimer) {
+          if (!getAuthToken()) return;
+          try {
+            const checkRes = await fetch(apiUrl('/api/auth/session'));
+            if (checkRes.status === 401 || !getAuthToken()) return;
+          } catch {}
+          if (!reconnectTimer && getAuthToken()) {
             reconnectTimer = setTimeout(() => {
               reconnectTimer = null;
               connectSSE();
@@ -2465,6 +2479,7 @@ export default function App() {
                 bakeryDetails.phone ? `Ph: ${bakeryDetails.phone}` : '',
                 (bakeryDetails as any).dlNo ? `DL Form 20B: ${(bakeryDetails as any).dlNo}` : '',
                 (bakeryDetails as any).dlNo21 ? `DL Form 21B: ${(bakeryDetails as any).dlNo21}` : '',
+                (bakeryDetails as any).ceaNo ? `CEA Reg: ${(bakeryDetails as any).ceaNo}` : '',
                 (bakeryDetails as any).gstin ? `GSTIN: ${(bakeryDetails as any).gstin}` : ''
               ].filter(Boolean).join(' • ')}</div>
             </div>
@@ -2554,10 +2569,10 @@ export default function App() {
 
           <div class="signatures">
             <div>
-              <div class="sig-line">${bakeryDetails.pharmacistName ? `${bakeryDetails.pharmacistName} (Supervising Pharmacist)` : 'Pharmacist In-Charge (Verification & Physical Audit)'}</div>
+              <div class="sig-line">${bakeryDetails.pharmacistName ? `${bakeryDetails.pharmacistName}${bakeryDetails.pharmacistRegNo ? ` (Reg: ${bakeryDetails.pharmacistRegNo})` : ''} — Supervising Pharmacist` : 'Pharmacist In-Charge (Verification & Physical Audit)'}</div>
             </div>
             <div>
-              <div class="sig-line">${bakeryDetails.doctorName ? `${bakeryDetails.doctorName} (Chief Medical Officer / Authorized Signatory)` : 'Authorized Signatory / Clinic Admin'}</div>
+              <div class="sig-line">${bakeryDetails.doctorName ? `${bakeryDetails.doctorName}${bakeryDetails.doctorRegNo ? ` (Reg: ${bakeryDetails.doctorRegNo})` : ''} — Chief Medical Officer / Authorized Signatory` : 'Authorized Signatory / Clinic Admin'}</div>
             </div>
           </div>
 
@@ -3338,6 +3353,92 @@ export default function App() {
                 <p>• Employee: <code className="text-blue-400 bg-slate-900 px-1.5 py-0.5 rounded">employee123</code></p>
               </div>
             )}
+
+            <div className="pt-1 border-t border-slate-800/80">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginServerUrl(getSavedClinicServerUrl() || getApiBaseUrl());
+                  setShowLoginServerConfig(prev => !prev);
+                }}
+                className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-sky-400 py-1 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Wifi className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Clinic Server: <code className="text-slate-300 font-mono">{getApiBaseUrl()}</code></span>
+                </span>
+                <span>{showLoginServerConfig ? 'Hide' : 'Configure LAN'}</span>
+              </button>
+
+              {showLoginServerConfig && (
+                <div className="mt-2 p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                  <input
+                    type="text"
+                    value={loginServerUrl}
+                    onChange={(e) => setLoginServerUrl(e.target.value)}
+                    placeholder="http://192.168.x.x:4848 or http://madrasorthoclinic.local:4848"
+                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[11px] font-mono text-slate-100 focus:outline-none focus:border-sky-500"
+                  />
+                  {loginServerStatus && (
+                    <div className={`text-[10px] px-2 py-1 rounded border ${loginServerStatus.ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+                      {loginServerStatus.msg}
+                    </div>
+                  )}
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const target = (loginServerUrl || '').trim().replace(/\/+$/, '');
+                        if (!target) return;
+                        try {
+                          const start = performance.now();
+                          const r = await fetch(`${target}/api/health`);
+                          const ms = Math.round(performance.now() - start);
+                          if (r.ok) {
+                            setLoginServerStatus({ ok: true, msg: `Connected to clinic server (${ms}ms)` });
+                          } else {
+                            setLoginServerStatus({ ok: false, msg: `Server responded HTTP ${r.status}` });
+                          }
+                        } catch {
+                          setLoginServerStatus({ ok: false, msg: 'Unreachable. Verify Wi-Fi and port 4848.' });
+                        }
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold"
+                    >
+                      Test Ping
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = (loginServerUrl || '').trim().replace(/\/+$/, '');
+                        if (!target) return;
+                        setSavedClinicServerUrl(target);
+                        setAuthToken(null);
+                        setLoginServerStatus({ ok: true, msg: `Saved server host: ${target}` });
+                      }}
+                      className="flex-1 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[11px] font-bold"
+                    >
+                      Save Host
+                    </button>
+                    {getSavedClinicServerUrl() && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSavedClinicServerUrl('');
+                          setAuthToken(null);
+                          const autoUrl = getApiBaseUrl();
+                          setLoginServerUrl(autoUrl);
+                          setLoginServerStatus({ ok: true, msg: `Reset to auto-detect (${autoUrl})` });
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[11px] font-bold"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </form>
         </div>
       </div>
@@ -5335,7 +5436,7 @@ export default function App() {
                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
               }`}>
-                {currentUser?.role || 'Staff'}
+                {currentUser?.role === 'admin' ? 'admin' : 'employee'}
               </span>
             </div>
 
@@ -5424,44 +5525,48 @@ export default function App() {
 
 
 
-              <button
-                onClick={() => {
-                  setShowMobileNav(false);
-                  setShowEmployeeCrudModal(true);
-                }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                    <Users className="w-4 h-4" />
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setShowMobileNav(false);
+                    setShowEmployeeCrudModal(true);
+                  }}
+                  className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">Staff Management</span>
+                      <span className="text-[10px] text-slate-400">Pharmacists & billing clerks</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Staff Management</span>
-                    <span className="text-[10px] text-slate-400">Pharmacists & billing clerks</span>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
-              </button>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                </button>
+              )}
 
-              <button
-                onClick={() => {
-                  setShowMobileNav(false);
-                  setAdminProfileForm({ ...bakeryDetails });
-                  setShowAdminProfileModal(true);
-                }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
-                    <Stethoscope className="w-4 h-4" />
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setShowMobileNav(false);
+                    setAdminProfileForm({ ...bakeryDetails });
+                    setShowAdminProfileModal(true);
+                  }}
+                  className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
+                      <Stethoscope className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">Doctor Profile & Licensure</span>
+                      <span className="text-[10px] text-slate-400">Doctor degrees, council reg & clinic licenses</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Doctor Profile & Licensure</span>
-                    <span className="text-[10px] text-slate-400">Doctor degrees, council reg & clinic licenses</span>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
-              </button>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                </button>
+              )}
 
               <button
                 onClick={() => {
@@ -5484,16 +5589,18 @@ export default function App() {
 
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mt-3">Account</span>
 
-              <button
-                onClick={() => {
-                  setShowMobileNav(false);
-                  setChangePasswordModal(true);
-                }}
-                className="flex items-center space-x-3 p-3 bg-slate-950/50 hover:bg-slate-800 rounded-xl text-left transition-all border border-slate-800"
-              >
-                <KeyRound className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-medium text-slate-300">Change Password</span>
-              </button>
+              {currentUser?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setShowMobileNav(false);
+                    setChangePasswordModal(true);
+                  }}
+                  className="flex items-center space-x-3 p-3 bg-slate-950/50 hover:bg-slate-800 rounded-xl text-left transition-all border border-slate-800"
+                >
+                  <KeyRound className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-medium text-slate-300">Change Password</span>
+                </button>
+              )}
 
               <button
                 onClick={() => {
@@ -7642,7 +7749,9 @@ export default function App() {
               </span>
               <button
                 onClick={() => {
-                  syncClinicDetailsToServer(bakeryDetails);
+                  if (currentUser?.role === 'admin') {
+                    syncClinicDetailsToServer(bakeryDetails);
+                  }
                   setShowSettingsModal(false);
                 }}
                 className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
@@ -7653,7 +7762,8 @@ export default function App() {
 
             <div className="p-5 flex flex-col gap-4 overflow-y-auto flex-1">
 
-              {/* Pharmacy/Clinic Details */}
+              {/* Pharmacy/Clinic Details (Admin Editable Only) */}
+              {currentUser?.role === 'admin' ? (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Clinic & Doctor Details</span>
@@ -7841,6 +7951,12 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              ) : (
+                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg text-[10px] text-slate-400 flex items-center space-x-2">
+                  <Lock className="w-4 h-4 text-sky-400 flex-shrink-0" />
+                  <span>Clinic Profile & Licensure settings are managed by Admin ({bakeryDetails.name}).</span>
+                </div>
+              )}
 
               {/* Printer Hardware & Wireless Connectivity */}
               <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
@@ -8037,7 +8153,9 @@ export default function App() {
                 )}
               </div>
 
-              {/* Bill Number Sequence Reset */}
+              {/* Bill Number Sequence Reset & Device Data Management (Admin Only) */}
+              {currentUser?.role === 'admin' && (
+              <>
               <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bill Number Sequence</span>
                 <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2">
@@ -8060,6 +8178,10 @@ export default function App() {
                           localStorage.removeItem('bakers_pos_bill_date');
                           localStorage.removeItem('bakers_pos_sessions');
                           localStorage.removeItem('bakers_pos_active_session');
+                          localStorage.removeItem('madrasortho_pos_last_bill_num');
+                          localStorage.removeItem('madrasortho_pos_bill_date');
+                          localStorage.removeItem('madrasortho_pos_sessions');
+                          localStorage.removeItem('madrasortho_pos_active_session');
                           setSessions([]);
                           setShowSettingsModal(false);
                           showToast("Bill sequence reset. Next bill will be #1.", "info");
@@ -8184,21 +8306,38 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              </>
+              )}
             </div>
 
             <div className="p-3 bg-slate-950 text-xs flex items-center justify-between border-t border-slate-800">
-              <span className="text-[10px] text-slate-500 font-mono">Settings save automatically across devices.</span>
-              <button
-                type="button"
-                onClick={() => {
-                  syncClinicDetailsToServer(bakeryDetails);
-                  setShowSettingsModal(false);
-                  showToast("Clinic settings saved and synced across all devices.", "success");
-                }}
-                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
-              >
-                Save & Broadcast Changes
-              </button>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {currentUser?.role === 'admin' ? 'Settings save & sync across all devices.' : 'Printer preferences save for this terminal.'}
+              </span>
+              {currentUser?.role === 'admin' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    syncClinicDetailsToServer(bakeryDetails);
+                    setShowSettingsModal(false);
+                    showToast("Clinic settings saved and synced across all devices.", "success");
+                  }}
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                >
+                  Save & Broadcast Changes
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettingsModal(false);
+                    showToast("Printer settings saved for this terminal.", "success");
+                  }}
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                >
+                  Done
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -3004,8 +3004,8 @@ function formatServerEscPos(receiptData: any): Buffer {
   // ESC E 0: Bold off
   chunks.push(Buffer.from([0x1B, 0x45, 0x00]));
   pushAscii("Thank You. Stay Healthy!\n");
-  pushAscii("MADRAS ORTHO CLINIC SOFTWARE\n");
-  pushAscii("Mission for Cure\n\n\n\n");
+  pushAscii(`${bakeryName || 'MADRAS ORTHO CLINIC'}\n`);
+  pushAscii("Developed by RegulaVitae (c) 2026\n\n\n\n");
 
   // Paper cut: GS V 66 0
   chunks.push(Buffer.from([0x1D, 0x56, 0x42, 0x00]));
@@ -3433,24 +3433,30 @@ app.post('/api/system/clear-example-records', async (req, res) => {
 app.get('/api/network-info', (req, res) => {
   try {
     const interfaces = os.networkInterfaces();
-    const addresses: { interface: string; ip: string; isWifi: boolean; url: string }[] = [];
-    
+    const addresses: { interface: string; ip: string; isWifi: boolean; isPhysical: boolean; url: string }[] = [];
+
     for (const name of Object.keys(interfaces)) {
       for (const net of interfaces[name] || []) {
-        if (net.family === 'IPv4' && !net.internal) {
+        if (net.family === 'IPv4' && !net.internal && !net.address.startsWith('169.254.') && net.address !== '0.0.0.0') {
           const isWifi = /wi-?fi|wlan|wireless|802\.11/i.test(name);
+          const isVirtual = /vethernet|hyper-v|vmware|virtualbox|vbox|wsl|docker|nord|openvpn|wireguard|zerotier|tailscale|teredo|loopback/i.test(name);
           addresses.push({
             interface: name,
             ip: net.address,
             isWifi,
+            isPhysical: !isVirtual,
             url: `http://${net.address}:${PORT}`
           });
         }
       }
     }
 
-    // Sort so Wi-Fi interfaces appear first
-    addresses.sort((a, b) => (b.isWifi ? 1 : 0) - (a.isWifi ? 1 : 0));
+    // Sort so real Wi-Fi / physical LAN interfaces appear first
+    addresses.sort((a, b) => {
+      const scoreA = (a.isWifi ? 10 : 0) + (a.isPhysical ? 5 : 0);
+      const scoreB = (b.isWifi ? 10 : 0) + (b.isPhysical ? 5 : 0);
+      return scoreB - scoreA;
+    });
 
     res.json({
       port: Number(PORT),

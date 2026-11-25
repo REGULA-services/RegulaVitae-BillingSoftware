@@ -301,6 +301,56 @@ async function runAudit() {
   });
 
   // ----------------------------------------------------------------------
+  // PHASE 10: COPY BUTTONS, MULTI-INTERFACE mDNS, FIREWALL & REGULAVITAE COPYRIGHT
+  // ----------------------------------------------------------------------
+  console.log('\n--- PHASE 10: Copy Buttons, mDNS Resolution, Firewall & RegulaVitae Copyright ---');
+
+  const mainLocalhostTs = fs.readFileSync(path.join(__dirname, '../src/main/main-localhost.ts'), 'utf8');
+  const mainTs = fs.readFileSync(path.join(__dirname, '../src/main/main.ts'), 'utf8');
+  const mdnsTs = fs.readFileSync(path.join(__dirname, '../src/server/mdnsResponder.ts'), 'utf8');
+  const installerNsh = fs.readFileSync(path.join(__dirname, '../build/installer.nsh'), 'utf8');
+  const setupBat = fs.readFileSync(path.join(__dirname, '../Setup-Custom-URL.bat'), 'utf8');
+
+  verify('Localhost controller Copy buttons use Electron clipboard IPC + textarea fallback', () => {
+    assert(mainLocalhostTs.includes('clipboard.writeText'), 'main-localhost must use Electron clipboard.writeText');
+    assert(mainLocalhostTs.includes("ipcMain.on('copy-to-clipboard'"), 'main-localhost must handle copy-to-clipboard IPC');
+    assert(mainLocalhostTs.includes("ipcRenderer.send('copy-to-clipboard', text)"), 'Renderer copyText must invoke Electron clipboard IPC');
+    assert(mainLocalhostTs.includes("execCommand('copy')"), 'Renderer copyText must provide hidden textarea execCommand fallback');
+    assert(mainLocalhostTs.includes("switchQr('custom')") && mainLocalhostTs.includes('configure-mobile-firewall'), 'Localhost controller must include .local/IP QR toggle and firewall action');
+  });
+
+  verify('mDNS responder excludes APIPA 169.254.x.x and joins per-interface multicast for mobile .local resolution', () => {
+    assert(mdnsTs.includes("startsWith('169.254.')"), 'mDNS responder must exclude APIPA 169.254.x.x interfaces');
+    assert(mdnsTs.includes('(flags & 0x8000) !== 0'), 'mDNS responder must filter out DNS responses and process only queries (QR=0)');
+    assert(mdnsTs.includes('addMembership(MULTICAST_ADDR, iface.ip)'), 'mDNS responder must join 224.0.0.251 per active LAN interface');
+    assert(mdnsTs.includes('setMulticastInterface'), 'mDNS responder must bind outgoing multicast interface');
+    assert(mdnsTs.includes('q.qtype === 28'), 'mDNS responder must cleanly handle IPv6 AAAA queries');
+    assert(mdnsTs.includes('_http._tcp.local'), 'mDNS responder must advertise _http._tcp.local DNS-SD service');
+    assert(serverTs.includes("startsWith('169.254.')") && mainLocalhostTs.includes("startsWith('169.254.')"), 'Server network-info and main-localhost must exclude 169.254.x.x APIPA');
+  });
+
+  verify('Windows NSIS installer and custom URL setup open TCP 4848 and UDP 5353 firewall ports', () => {
+    assert(installerNsh.includes('4848') && installerNsh.includes('5353'), 'installer.nsh must open TCP 4848 and UDP 5353');
+    assert(setupBat.includes('4848') && setupBat.includes('5353'), 'Setup-Custom-URL.bat must open TCP 4848 and UDP 5353');
+  });
+
+  verify('Professional RegulaVitae developer copyright renders across Desktop POS, Mobile POS, Receipts & Localhost UI', () => {
+    assert(
+      appTsx.includes('Developed by RegulaVitae') &&
+      appTsx.includes('Developed &amp; Licensed by RegulaVitae') &&
+      /Developed by <span[^>]*>RegulaVitae<\/span>/.test(appTsx),
+      'Desktop POS Login, workspace footer & receipt must show RegulaVitae copyright'
+    );
+    assert(
+      mobileTsx.includes('Developed by RegulaVitae') &&
+      mobileTsx.includes('Developed &amp; Licensed by RegulaVitae'),
+      'Mobile/Tablet footer & receipt must show RegulaVitae copyright'
+    );
+    assert(mainLocalhostTs.includes('Developed by RegulaVitae'), 'Localhost controller footer must show RegulaVitae copyright');
+    assert(mainTs.includes('Developed by RegulaVitae') && serverTs.includes('Developed by RegulaVitae'), 'Standalone & Network ESC/POS thermal receipts must credit RegulaVitae');
+  });
+
+  // ----------------------------------------------------------------------
   // SUMMARY
   // ----------------------------------------------------------------------
   console.log('\n========================================================================');

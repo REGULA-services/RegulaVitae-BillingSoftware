@@ -46,8 +46,11 @@
 
 !macro customInstall
   ; Register custom local domain http://madrasorthoclinic.local in Windows hosts file
-  DetailPrint "Configuring custom URL http://madrasorthoclinic.local:4848..."
+  DetailPrint "Configuring custom URL http://madrasorthoclinic.local:4848 & Wi-Fi Firewall..."
   nsExec::Exec 'powershell -NoProfile -Command "try { if (-not (Select-String -Path \"$SYSDIR\drivers\etc\hosts\" -Pattern \"madrasorthoclinic\.local\" -Quiet)) { Add-Content -Path \"$SYSDIR\drivers\etc\hosts\" -Value \"`r`n127.0.0.1 madrasorthoclinic.local\" } } catch {}"'
+  Pop $R0
+  ; Ensure Windows Firewall permits Mobile/Tablet LAN Web Portal (TCP 4848) & mDNS .local discovery (UDP 5353)
+  nsExec::Exec `powershell.exe -NoProfile -NonInteractive -Command "try { New-NetFirewallRule -DisplayName 'Madras Ortho Clinic POS Server (TCP 4848)' -Direction Inbound -Protocol TCP -LocalPort 4848 -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null; New-NetFirewallRule -DisplayName 'Madras Ortho Clinic mDNS (UDP 5353)' -Direction Inbound -Protocol UDP -LocalPort 5353 -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null } catch {}"`
   Pop $R0
   SetOutPath $INSTDIR
 !macroend

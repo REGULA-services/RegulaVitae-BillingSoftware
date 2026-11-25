@@ -32,6 +32,12 @@ if %errorLevel% equ 0 (
     echo [SUCCESS] Custom URL http://madrasorthoclinic.local:4848 is now active!
 )
 
+echo [INFO] Opening Windows Firewall rules for Mobile LAN access (TCP 4848) and mDNS (UDP 5353)...
+netsh advfirewall firewall delete rule name="Madras Ortho Clinic POS Server (TCP 4848)" >nul 2>&1
+netsh advfirewall firewall add rule name="Madras Ortho Clinic POS Server (TCP 4848)" dir=in action=allow protocol=TCP localport=4848 profile=any >nul 2>&1
+netsh advfirewall firewall delete rule name="Madras Ortho Clinic mDNS (UDP 5353)" >nul 2>&1
+netsh advfirewall firewall add rule name="Madras Ortho Clinic mDNS (UDP 5353)" dir=in action=allow protocol=UDP localport=5353 profile=any >nul 2>&1
+
 echo.
 echo ====================================================================
 echo   SETUP COMPLETE!

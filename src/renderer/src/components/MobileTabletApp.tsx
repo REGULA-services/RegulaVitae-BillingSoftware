@@ -264,7 +264,7 @@ export const printMobileThermalReceipt = (bill: any, pharmacyDetails: any = null
       <div class="center footer">
         <div class="bold" style="font-size: 11px; margin-top: 4px; letter-spacing: 0.5px;">Drugs sold cannot be refunded</div>
         <div class="bold" style="margin-top: 4px;">Thank You. Stay Healthy!</div>
-        <div style="font-size: 9px; color: #666; margin-top: 4px;">MADRAS ORTHO CLINIC SOFTWARE | Mission for Cure</div>
+        <div style="font-size: 9px; color: #666; margin-top: 4px;">${details.name || 'MADRAS ORTHO CLINIC'} · Developed by RegulaVitae © 2026</div>
       </div>
     </body>
     </html>
@@ -1552,7 +1552,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       </header>
 
       {/* ─── MAIN CONTENT VIEWPORT ──────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto p-3 pb-28 overscroll-contain">
+      <main className="flex-1 overflow-y-auto p-3 pb-32 overscroll-contain">
         {/* ── TAB 1: POS BILLING ────────────────────────────────────── */}
         {activeTab === 'billing' && (
           <div className="space-y-3 max-w-lg mx-auto">
@@ -2602,7 +2602,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
       {/* ─── STICKY BOTTOM CART TRIGGER (BILLING TAB) ───────────────── */}
       {cart.length > 0 && !isCartOpen && activeTab === 'billing' && (
-        <div className="fixed bottom-16 left-0 right-0 p-3 z-30 pointer-events-none">
+        <div className="fixed bottom-[76px] left-0 right-0 p-3 z-30 pointer-events-none">
           <div className="max-w-lg mx-auto pointer-events-auto">
             <button
               onClick={() => setIsCartOpen(true)}
@@ -2626,62 +2626,67 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         </div>
       )}
 
-      {/* ─── BOTTOM NAVIGATION BAR ──────────────────────────────────── */}
-      <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-1 pb-[max(8px,env(safe-area-inset-bottom))] shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] ${
-        currentUser?.role === 'admin' ? 'grid grid-cols-5' : 'grid grid-cols-4'
-      }`}>
-        <button
-          onClick={() => setActiveTab('billing')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'billing' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <ShoppingBag className="h-5 w-5" />
-          <span className="text-[10px] font-bold">Billing</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('medicines')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Package className="h-5 w-5" />
-          <span className="text-[10px]">Medicines</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <BarChart2 className="h-5 w-5" />
-          <span className="text-[10px]">Reports {currentUser?.role !== 'admin' && '(View)'}</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('patients')}
-          className={`flex flex-col items-center justify-center gap-0.5 ${
-            activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
-          }`}
-        >
-          <Users className="h-5 w-5" />
-          <span className="text-[10px]">Patients</span>
-        </button>
-
-        {currentUser?.role === 'admin' && (
+      {/* ─── BOTTOM NAVIGATION BAR & COPYRIGHT FOOTER ───────────────── */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+        <nav className={`pt-1.5 pb-1 px-1 ${
+          currentUser?.role === 'admin' ? 'grid grid-cols-5' : 'grid grid-cols-4'
+        }`}>
           <button
-            onClick={() => setActiveTab('more')}
+            onClick={() => setActiveTab('billing')}
             className={`flex flex-col items-center justify-center gap-0.5 ${
-              activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              activeTab === 'billing' ? 'text-blue-600 font-bold' : 'text-slate-500'
             }`}
           >
-            <Settings className="h-5 w-5" />
-            <span className="text-[10px]">More</span>
+            <ShoppingBag className="h-5 w-5" />
+            <span className="text-[10px] font-bold">Billing</span>
           </button>
-        )}
-      </nav>
+
+          <button
+            onClick={() => setActiveTab('medicines')}
+            className={`flex flex-col items-center justify-center gap-0.5 ${
+              activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <Package className="h-5 w-5" />
+            <span className="text-[10px]">Medicines</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`flex flex-col items-center justify-center gap-0.5 ${
+              activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <BarChart2 className="h-5 w-5" />
+            <span className="text-[10px]">Reports {currentUser?.role !== 'admin' && '(View)'}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('patients')}
+            className={`flex flex-col items-center justify-center gap-0.5 ${
+              activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
+            }`}
+          >
+            <Users className="h-5 w-5" />
+            <span className="text-[10px]">Patients</span>
+          </button>
+
+          {currentUser?.role === 'admin' && (
+            <button
+              onClick={() => setActiveTab('more')}
+              className={`flex flex-col items-center justify-center gap-0.5 ${
+                activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              }`}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="text-[10px]">More</span>
+            </button>
+          )}
+        </nav>
+        <div className="bg-slate-50 border-t border-slate-100 px-2 py-0.5 pb-[max(3px,env(safe-area-inset-bottom))] text-center text-[9px] text-slate-500 font-medium">
+          &copy; 2026 <strong className="text-slate-700 font-bold">RegulaVitae</strong> · Developed &amp; Licensed by RegulaVitae
+        </div>
+      </footer>
 
       {/* ─── CHECKOUT SHEET DRAWER ──────────────────────────────────── */}
       {isCartOpen && (

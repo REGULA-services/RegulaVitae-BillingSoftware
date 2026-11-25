@@ -6,6 +6,7 @@
  */
 
 const assert = require('assert');
+const dgram = require('dgram');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
@@ -502,6 +503,105 @@ async function runTests() {
       );
 
       await httpRequest('POST', `/api/auth/logout`, {}, token);
+    });
+
+    await test('7. mDNS LAN Interface Selection (No APIPA 169.254.x.x) & Live RFC 6762 UDP Query/Response', async () => {
+      const { getLanIpv4Interfaces, getPrimaryLanIp, startMdnsResponder } = require('../dist-electron/src/server/mdnsResponder');
+      const interfaces = getLanIpv4Interfaces();
+      for (const iface of interfaces) {
+        assert(!iface.ip.startsWith('169.254.'), `mDNS must exclude APIPA link-local IP, got ${iface.ip} on ${iface.name}`);
+        assert(!iface.ip.startsWith('127.'), `mDNS must exclude loopback IP, got ${iface.ip}`);
+      }
+      const primaryIp = getPrimaryLanIp();
+      assert(!primaryIp.startsWith('169.254.'), `getPrimaryLanIp must never pick APIPA 169.254.*, got ${primaryIp}`);
+
+      if (interfaces.length === 0 || primaryIp === '127.0.0.1') {
+        console.log('     (No active physical/Wi-Fi LAN interface detected — skipping multicast UDP packet roundtrip)');
+        return;
+      }
+
+      // Build RFC 6762 DNS Query packet for madrasorthoclinic.local with QU=1 (0x8001)
+      function encodeDnsQuery(qname, qtype, qclass = 0x8001) {
+        const labels = qname.split('.').map((label) => {
+          const b = Buffer.from(label, 'utf8');
+          return Buffer.concat([Buffer.from([b.length]), b]);
+        });
+        const header = Buffer.from([
+          0x12, 0x34, // TxID (mDNS allows any on query; responder answers with TxID 0)
+          0x00, 0x00, // Standard query (QR=0)
+          0x00, 0x01, // QDCOUNT=1
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]);
+        const qtail = Buffer.alloc(4);
+        qtail.writeUInt16BE(qtype, 0);
+        qtail.writeUInt16BE(qclass, 2);
+        return Buffer.concat([header, ...labels, Buffer.from([0x00]), qtail]);
+      }
+
+      const mdnsHandle = startMdnsResponder('madrasorthoclinic.local', 4848);
+      await new Promise((r) => setTimeout(r, 350));
+
+      const client = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+      try {
+        await new Promise((resolve, reject) => {
+          client.once('error', reject);
+          client.bind(0, primaryIp, () => resolve());
+        });
+
+        const aPacket = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('Timed out waiting for unicast mDNS A response from mdnsResponder')), 4000);
+          client.on('message', (msg) => {
+            if (msg.length < 16) return;
+            const flags = msg.readUInt16BE(2);
+            const ancount = msg.readUInt16BE(6);
+            if ((flags & 0x8000) !== 0 && ancount >= 1) {
+              // Verify 4-byte RDATA matches one of our active LAN IPs
+              const last4 = `${msg[msg.length - 4]}.${msg[msg.length - 3]}.${msg[msg.length - 2]}.${msg[msg.length - 1]}`;
+              if (interfaces.some((i) => i.ip === last4)) {
+                clearTimeout(timer);
+                resolve({ msg, resolvedIp: last4, txId: msg.readUInt16BE(0), flags });
+              }
+            }
+          });
+          client.send(encodeDnsQuery('madrasorthoclinic.local', 1, 0x8001), 5353, '224.0.0.251', (err) => {
+            if (err) {
+              clearTimeout(timer);
+              reject(err);
+            }
+          });
+        });
+
+        assert.strictEqual(aPacket.txId, 0x1234, 'RFC 6762 Section 6.7 unicast reply to ephemeral port must echo query TxID (0x1234)');
+        assert.strictEqual((aPacket.flags & 0x8400), 0x8400, 'mDNS response must set QR+AA bits');
+        assert(!aPacket.resolvedIp.startsWith('169.254.'), `Resolved A record must not be APIPA: ${aPacket.resolvedIp}`);
+
+        // Also send AAAA (QTYPE 28) query with TxID 0 and verify valid NOERROR / responsive responder afterward
+        await new Promise((resolve, reject) => {
+          const aaaaTimer = setTimeout(() => reject(new Error('Timed out waiting for AAAA mDNS response')), 3000);
+          const onMsg = (msg) => {
+            if (msg.length < 12) return;
+            const flags = msg.readUInt16BE(2);
+            const rcode = flags & 0x000f;
+            if ((flags & 0x8000) !== 0 && rcode === 0) {
+              clearTimeout(aaaaTimer);
+              client.off('message', onMsg);
+              resolve();
+            }
+          };
+          client.on('message', onMsg);
+          const q28 = encodeDnsQuery('madrasorthoclinic.local', 28, 0x8001);
+          q28.writeUInt16BE(0x0000, 0);
+          client.send(q28, 5353, '224.0.0.251', (err) => {
+            if (err) {
+              clearTimeout(aaaaTimer);
+              reject(err);
+            }
+          });
+        });
+      } finally {
+        try { client.close(); } catch {}
+        try { if (mdnsHandle && typeof mdnsHandle.stop === 'function') mdnsHandle.stop(); } catch {}
+      }
     });
   } finally {
     if (sseToClose) sseToClose.close();

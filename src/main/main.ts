@@ -367,6 +367,7 @@ ipcMain.handle('print-receipt', async (event, receiptData, printerName) => {
               Statutory Tax Invoice under Rule 65(5) D&C Rules, 1945 & CGST Act 2017
             </div>
             <div class="bold" style="margin-top: 4px;">Wish you a speedy recovery!</div>
+            <div style="font-size: 8.5px; color: #666; margin-top: 3px;">Developed by RegulaVitae © 2026</div>
           </div>
         </body>
         </html>
@@ -531,8 +532,8 @@ function formatMainEscPos(receiptData: any): Buffer {
   pushAscii("Drugs sold cannot be refunded\n\n");
   chunks.push(Buffer.from([0x1B, 0x45, 0x00])); // Bold off
   pushAscii("Thank You. Stay Healthy!\n");
-  pushAscii("MADRAS ORTHO CLINIC SOFTWARE\n");
-  pushAscii("Mission for Cure\n\n\n\n");
+  pushAscii(`${bakeryName || 'MADRAS ORTHO CLINIC'}\n`);
+  pushAscii("Developed by RegulaVitae (c) 2026\n\n\n\n");
 
   // Paper cut: GS V 66 0
   chunks.push(Buffer.from([0x1D, 0x56, 0x42, 0x00]));

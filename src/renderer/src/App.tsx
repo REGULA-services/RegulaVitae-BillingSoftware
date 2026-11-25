@@ -207,7 +207,7 @@ const electronAPI = isElectron ? (window as any).electron : {
           <div class="center footer">
             <div class="bold" style="font-size: 11px; margin-top: 4px; letter-spacing: 0.5px;">Drugs sold cannot be refunded</div>
             <div class="bold" style="margin-top: 4px;">Thank You. Stay Healthy!</div>
-            <div style="font-size: 9px; color: #666; margin-top: 4px;">MADRAS ORTHO CLINIC SOFTWARE | Mission for Cure</div>
+            <div style="font-size: 9px; color: #666; margin-top: 4px;">${bakeryName || 'MADRAS ORTHO CLINIC'} · Developed by RegulaVitae © 2026</div>
           </div>
         </body>
         </html>
@@ -3432,6 +3432,14 @@ export default function App() {
               )}
             </div>
           </form>
+          <div className="px-6 py-3 bg-slate-950/70 border-t border-slate-800/80 text-center space-y-0.5">
+            <div className="text-[11px] font-semibold text-slate-300">
+              © 2026 <span className="text-sky-400 font-bold">RegulaVitae</span>. All Rights Reserved.
+            </div>
+            <div className="text-[10px] text-slate-500">
+              Developed &amp; Licensed by RegulaVitae · Clinical &amp; Pharmacy Software Systems
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -4319,6 +4327,18 @@ export default function App() {
         </section>
 
       </main>
+
+      {/* ----------------- DESKTOP DEVELOPER COPYRIGHT FOOTER ----------------- */}
+      <footer className="hidden lg:flex items-center justify-between px-5 py-1 bg-slate-900/95 border-t border-slate-800/90 text-[10px] text-slate-400 shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-300">Clinical &amp; Pharmacy POS Suite v1.0.0</span>
+          <span className="text-slate-600">•</span>
+          <span>TNCEA &amp; D&amp;C Compliant Architecture</span>
+        </div>
+        <div>
+          &copy; 2026 <span className="font-bold text-sky-400">RegulaVitae</span>. All Rights Reserved &nbsp;·&nbsp; Developed by <span className="font-semibold text-slate-200">RegulaVitae</span>
+        </div>
+      </footer>
 
       {/* ----------------- MOBILE BOTTOM TAB NAVIGATION BAR (CLEAN & SPACIOUS) ----------------- */}
       <nav aria-label="Mobile Navigation" className="lg:hidden flex items-center justify-around bg-slate-900/95 backdrop-blur-md border-t border-slate-800/90 py-2.5 px-4 shadow-2xl flex-shrink-0 z-40">

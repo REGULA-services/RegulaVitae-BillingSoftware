@@ -171,7 +171,11 @@ async function runAudit() {
   console.log('\n--- PHASE 5: Mobile Parity, Financial Calculations & Role Guards ---');
 
   verify('Mobile bill financial calculations safely handle grand_total/total/total_amount fallbacks (Zero NaN)', () => {
-    assert(mobileTsx.includes('const billAmt = Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));'), 'Mobile stats calculation must use robust fallbacks');
+    assert(
+      mobileTsx.includes('const billAmt = round2(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));') ||
+      mobileTsx.includes('const billAmt = Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));'),
+      'Mobile stats calculation must use robust fallbacks'
+    );
   });
 
   verify('Mobile Today Sales & Tax Summary refresh button is functional with visual spinner', () => {
@@ -271,6 +275,29 @@ async function runAudit() {
   verify('server.ts enforces cryptographic session tokens, /api/auth/session, /api/auth/logout, and admin RBAC', () => {
     assert(serverTs.includes("app.get('/api/auth/session'") && serverTs.includes("app.post('/api/auth/logout'"), 'Server must implement session verify & logout endpoints');
     assert(serverTs.includes('isAdminOnlyRoute') && serverTs.includes('activeSessions'), 'Server must enforce session validation & admin RBAC middleware');
+  });
+
+  // ----------------------------------------------------------------------
+  // PHASE 9: 2-DECIMAL FINANCIAL PRECISION, EXACT CASH TENDER & MOBILE LOGO UI
+  // ----------------------------------------------------------------------
+  console.log('\n--- PHASE 9: 2-Decimal Financial Precision, Cash Tender Parity & Mobile Header ---');
+
+  verify('apiConfig.ts exports shared round2 & toPaise integer-paise financial helpers', () => {
+    assert(apiConfigTs.includes('export const round2') && apiConfigTs.includes('export const toPaise'), 'apiConfig must export round2 and toPaise helpers');
+  });
+
+  verify('App.tsx & MobileTabletApp.tsx compare Cash Tendered in integer paise without float drift', () => {
+    assert(appTsx.includes('toPaise(parsedCash) < toPaise(payableAmt)'), 'App.tsx completeBilling must compare cash tendered in integer paise');
+    assert(appTsx.includes('round2(billSummary.grandTotal).toFixed(2)'), 'Desktop Exact button must match 2-decimal rounded Grand Total');
+    assert(mobileTsx.includes('round2(') && mobileTsx.includes('sgst') && mobileTsx.includes('cartCgst'), 'MobileTabletApp.tsx must round totals & balance CGST/SGST');
+  });
+
+  verify('Mobile header removes truncated clinic text and retains clean clinic logo only', () => {
+    const mobileHeaderMatch = mobileTsx.match(/<header[\s\S]*?<\/header>/);
+    assert(mobileHeaderMatch, 'Mobile header tag must exist');
+    const mobileHeaderBlock = mobileHeaderMatch[0];
+    assert(!mobileHeaderBlock.includes('MADRAS ORTHO CLINIC') && !mobileHeaderBlock.includes('Center for Orthopaedic') && !mobileHeaderBlock.includes('clinicDetails?.description'), 'Mobile header must not render clinic title/subtitle text alongside logo');
+    assert(mobileHeaderBlock.includes('<img') && mobileHeaderBlock.includes('./icon.png'), 'Mobile header must display clinic logo');
   });
 
   // ----------------------------------------------------------------------

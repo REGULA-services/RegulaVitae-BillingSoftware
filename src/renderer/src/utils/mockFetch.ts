@@ -15925,14 +15925,18 @@ export function initMockFetch() {
             }
           }
 
+          const round2 = (v: unknown) => {
+            const n = Number(v ?? 0);
+            return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
+          };
           const newId = bills.length > 0 ? Math.max(...bills.map((b: any) => Number(b.id) || 0)) + 1 : 1;
           const newBill = {
             id: newId,
             bill_number: typeof body.bill_number === 'number' ? body.bill_number : (parseInt(String(body.bill_number).replace(/\D/g, ''), 10) || body.bill_number || 1),
-            subtotal: isComplimentary ? 0 : Number(body.subtotal || 0),
-            discount: isComplimentary ? 0 : Number(body.discount || 0),
-            tax: isComplimentary ? 0 : Number(body.tax || 0),
-            grand_total: isComplimentary ? 0 : Number(body.grand_total || 0),
+            subtotal: isComplimentary ? 0 : round2(body.subtotal || 0),
+            discount: isComplimentary ? 0 : round2(body.discount || 0),
+            tax: isComplimentary ? 0 : round2(body.tax || 0),
+            grand_total: isComplimentary ? 0 : round2(body.grand_total || 0),
             payment_method: isComplimentary ? 'Complimentary' : (body.payment_method || 'Cash'),
             is_complimentary: isComplimentary ? 1 : 0,
             complimentary_recipient: body.complimentary_recipient || null,
@@ -15948,10 +15952,10 @@ export function initMockFetch() {
               product_id: it.product_id,
               product_name: it.product_name,
               quantity: Number(it.quantity || 1),
-              rate: Number(it.rate || 0),
-              mrp: Number(it.mrp || it.rate || 0),
-              purchase_price: Number(it.purchase_price || 0),
-              total: isComplimentary ? 0 : Number(it.total || 0),
+              rate: round2(it.rate || 0),
+              mrp: round2(it.mrp || it.rate || 0),
+              purchase_price: round2(it.purchase_price || 0),
+              total: isComplimentary ? 0 : round2(it.total ?? (Number(it.rate || 0) * Number(it.quantity || 1))),
               batch_number: it.batch_number || 'B-STD',
               expiry_date: it.expiry_date || '2028-12-31'
             }))
@@ -16391,24 +16395,30 @@ export function initMockFetch() {
           const modeA = { revenue: 0, count: 0, tax: 0 };
           const modeB = { revenue: 0, count: 0, tax: 0 };
 
+          const r2 = (v: unknown) => {
+            const n = Number(v ?? 0);
+            return Number.isFinite(n) ? Math.round((n + Number.EPSILON) * 100) / 100 : 0;
+          };
           paidBills.forEach((b: any) => {
-            const tot = Number(b.grand_total || 0);
-            netSales += tot;
-            totalDiscounts += Number(b.discount || 0);
-            totalTax += Number(b.tax || 0);
+            const tot = r2(b.grand_total || 0);
+            const disc = r2(b.discount || 0);
+            const tx = r2(b.tax || 0);
+            netSales = r2(netSales + tot);
+            totalDiscounts = r2(totalDiscounts + disc);
+            totalTax = r2(totalTax + tx);
             const pm = b.payment_method;
-            if (pm === "Cash") paymentBreakdown.Cash += tot;
-            else if (pm === "Google Pay" || pm === "GooglePay" || pm === "UPI") paymentBreakdown.GooglePay += tot;
-            else if (pm === "Bank Card" || pm === "BankCard" || pm === "Card") paymentBreakdown.BankCard += tot;
+            if (pm === "Cash") paymentBreakdown.Cash = r2(paymentBreakdown.Cash + tot);
+            else if (pm === "Google Pay" || pm === "GooglePay" || pm === "UPI") paymentBreakdown.GooglePay = r2(paymentBreakdown.GooglePay + tot);
+            else if (pm === "Bank Card" || pm === "BankCard" || pm === "Card") paymentBreakdown.BankCard = r2(paymentBreakdown.BankCard + tot);
 
             if (b.operating_mode === 'RETAIL_PHARMACY') {
-              modeB.revenue += tot;
+              modeB.revenue = r2(modeB.revenue + tot);
               modeB.count += 1;
-              modeB.tax += Number(b.tax || 0);
+              modeB.tax = r2(modeB.tax + tx);
             } else {
-              modeA.revenue += tot;
+              modeA.revenue = r2(modeA.revenue + tot);
               modeA.count += 1;
-              modeA.tax += Number(b.tax || 0);
+              modeA.tax = r2(modeA.tax + tx);
             }
           });
 
@@ -16431,43 +16441,44 @@ export function initMockFetch() {
             if (b.items) {
               b.items.forEach((it: any) => {
                 const qty = Number(it.quantity || 1);
-                const rate = Number(it.rate || 0);
-                const cost = rate * 0.72; // Standard pharmacy acquisition rate
-                const itemCogs = qty * cost;
+                const rate = r2(it.rate || 0);
+                const cost = r2(it.purchase_price ?? (rate * 0.72)); // Standard pharmacy acquisition rate
+                const itemCogs = r2(qty * cost);
 
                 if (b.is_complimentary || b.payment_method === 'Complimentary') {
                   totalComplimentaryUnits += qty;
-                  complimentaryMrpValue += (qty * rate);
+                  complimentaryMrpValue = r2(complimentaryMrpValue + r2(qty * rate));
                 } else {
                   totalUnitsSold += qty;
-                  totalCogs += itemCogs;
-                  grossSales += (qty * rate);
+                  totalCogs = r2(totalCogs + itemCogs);
+                  grossSales = r2(grossSales + r2(qty * rate));
 
-                  const itTotal = Number(it.total || 0);
+                  const itTotal = r2(it.total || 0);
                   const taxRate = Math.round(Number(it.tax_percent || 0));
-                  const taxable = itTotal / (1 + (taxRate / 100));
-                  const cgst = (itTotal - taxable) / 2;
-                  const sgst = (itTotal - taxable) / 2;
-                  if (taxRate <= 2) gstSlabs.slab0.taxable += taxable;
-                  else if (taxRate <= 6) { gstSlabs.slab5.taxable += taxable; gstSlabs.slab5.cgst += cgst; gstSlabs.slab5.sgst += sgst; gstSlabs.slab5.totalTax += (cgst + sgst); }
-                  else if (taxRate <= 15) { gstSlabs.slab12.taxable += taxable; gstSlabs.slab12.cgst += cgst; gstSlabs.slab12.sgst += sgst; gstSlabs.slab12.totalTax += (cgst + sgst); }
-                  else { gstSlabs.slab18.taxable += taxable; gstSlabs.slab18.cgst += cgst; gstSlabs.slab18.sgst += sgst; gstSlabs.slab18.totalTax += (cgst + sgst); }
+                  const taxable = r2(itTotal / (1 + (taxRate / 100)));
+                  const totalLineTax = r2(itTotal - taxable);
+                  const cgst = r2(totalLineTax / 2);
+                  const sgst = r2(totalLineTax - cgst);
+                  if (taxRate <= 2) gstSlabs.slab0.taxable = r2(gstSlabs.slab0.taxable + taxable);
+                  else if (taxRate <= 6) { gstSlabs.slab5.taxable = r2(gstSlabs.slab5.taxable + taxable); gstSlabs.slab5.cgst = r2(gstSlabs.slab5.cgst + cgst); gstSlabs.slab5.sgst = r2(gstSlabs.slab5.sgst + sgst); gstSlabs.slab5.totalTax = r2(gstSlabs.slab5.totalTax + cgst + sgst); }
+                  else if (taxRate <= 15) { gstSlabs.slab12.taxable = r2(gstSlabs.slab12.taxable + taxable); gstSlabs.slab12.cgst = r2(gstSlabs.slab12.cgst + cgst); gstSlabs.slab12.sgst = r2(gstSlabs.slab12.sgst + sgst); gstSlabs.slab12.totalTax = r2(gstSlabs.slab12.totalTax + cgst + sgst); }
+                  else { gstSlabs.slab18.taxable = r2(gstSlabs.slab18.taxable + taxable); gstSlabs.slab18.cgst = r2(gstSlabs.slab18.cgst + cgst); gstSlabs.slab18.sgst = r2(gstSlabs.slab18.sgst + sgst); gstSlabs.slab18.totalTax = r2(gstSlabs.slab18.totalTax + cgst + sgst); }
 
                   if (!productsMap[it.product_name]) {
                     productsMap[it.product_name] = { name: it.product_name, quantity: 0, total: 0, cogs: 0, profit: 0 };
                   }
                   productsMap[it.product_name].quantity += qty;
-                  productsMap[it.product_name].total += itTotal;
-                  productsMap[it.product_name].cogs += itemCogs;
-                  productsMap[it.product_name].profit += (itTotal - itemCogs);
+                  productsMap[it.product_name].total = r2(productsMap[it.product_name].total + itTotal);
+                  productsMap[it.product_name].cogs = r2(productsMap[it.product_name].cogs + itemCogs);
+                  productsMap[it.product_name].profit = r2(productsMap[it.product_name].profit + (itTotal - itemCogs));
                 }
               });
             }
           });
 
-          if (grossSales === 0 && netSales > 0) grossSales = netSales + totalDiscounts;
-          const grossProfit = Math.max(0, netSales - totalCogs);
-          const profitMarginPercent = netSales > 0 ? Number(((grossProfit / netSales) * 100).toFixed(2)) : 0;
+          if (grossSales === 0 && netSales > 0) grossSales = r2(netSales + totalDiscounts);
+          const grossProfit = Math.max(0, r2(netSales - totalCogs));
+          const profitMarginPercent = netSales > 0 ? r2((grossProfit / netSales) * 100) : 0;
 
           // Inward Stock
           const inwardList = getDbData('inward_stock', []).filter((r: any) => r.received_date >= start && r.received_date <= end);
@@ -16477,8 +16488,8 @@ export function initMockFetch() {
           inwardList.forEach((inw: any) => {
             const q = Number(inw.quantity || 0);
             totalInwardUnits += q;
-            totalInwardCost += (q * Number(inw.purchase_price || 0));
-            totalInwardMrp += (q * Number(inw.mrp || 0));
+            totalInwardCost = r2(totalInwardCost + r2(q * Number(inw.purchase_price || 0)));
+            totalInwardMrp = r2(totalInwardMrp + r2(q * Number(inw.mrp || 0)));
           });
 
           // Batches Closing Stock
@@ -16489,52 +16500,56 @@ export function initMockFetch() {
           batches.forEach((bat: any) => {
             const s = Math.max(0, Number(bat.available_stock || 0));
             closingStockUnits += s;
-            closingStockCost += (s * Number(bat.purchase_price || (bat.mrp ? bat.mrp * 0.72 : 50)));
-            closingStockMrp += (s * Number(bat.mrp || 70));
+            closingStockCost = r2(closingStockCost + r2(s * Number(bat.purchase_price || (bat.mrp ? r2(bat.mrp * 0.72) : 50))));
+            closingStockMrp = r2(closingStockMrp + r2(s * Number(bat.mrp || 70)));
           });
+
+          const totalTaxRounded = r2(totalTax);
+          const gstCgst = r2(totalTaxRounded / 2);
+          const gstSgst = r2(totalTaxRounded - gstCgst);
 
           return {
             periodLabel: label,
             startDate: start,
             endDate: end,
             totalSales: netSales,
-            grossSales: Number(grossSales.toFixed(2)),
-            totalDiscounts: Number(totalDiscounts.toFixed(2)),
+            grossSales: r2(grossSales),
+            totalDiscounts: r2(totalDiscounts),
             discountedBillsCount: activeBills.filter((b: any) => Number(b.discount || 0) > 0).length,
-            averageDiscountPercent: grossSales > 0 ? Number(((totalDiscounts / grossSales) * 100).toFixed(2)) : 0,
+            averageDiscountPercent: grossSales > 0 ? r2((totalDiscounts / grossSales) * 100) : 0,
             billCount: billsList.length,
             activeBillsCount: activeBills.length,
             cancelledBillsCount: billsList.filter((b: any) => b.status === 'Cancelled').length,
             financials: {
-              grossSales: Number(grossSales.toFixed(2)),
-              totalDiscounts: Number(totalDiscounts.toFixed(2)),
-              netSales: Number(netSales.toFixed(2)),
-              cogs: Number(totalCogs.toFixed(2)),
-              grossProfit: Number(grossProfit.toFixed(2)),
+              grossSales: r2(grossSales),
+              totalDiscounts: r2(totalDiscounts),
+              netSales: r2(netSales),
+              cogs: r2(totalCogs),
+              grossProfit: r2(grossProfit),
               profitMarginPercent
             },
             stockMovement: {
               inwardUnits: totalInwardUnits,
-              inwardPurchaseValuation: Number(totalInwardCost.toFixed(2)),
-              inwardMrpValuation: Number(totalInwardMrp.toFixed(2)),
+              inwardPurchaseValuation: r2(totalInwardCost),
+              inwardMrpValuation: r2(totalInwardMrp),
               unitsSold: totalUnitsSold,
-              unitsSoldCost: Number(totalCogs.toFixed(2)),
+              unitsSoldCost: r2(totalCogs),
               complimentaryUnits: totalComplimentaryUnits,
               complimentaryAbsorbedCost: 0,
               complimentaryCostAbsorbed: 0,
               netStockDifferenceUnits: totalInwardUnits - (totalUnitsSold + totalComplimentaryUnits),
-              netStockValuationDifference: Number((totalInwardCost - totalCogs).toFixed(2)),
+              netStockValuationDifference: r2(totalInwardCost - totalCogs),
               currentAvailableStockUnits: closingStockUnits,
-              currentStockValuationCost: Number(closingStockCost.toFixed(2)),
-              currentStockValuationMrp: Number(closingStockMrp.toFixed(2))
+              currentStockValuationCost: r2(closingStockCost),
+              currentStockValuationMrp: r2(closingStockMrp)
             },
             gstReport: {
-              taxableAmount: Number((netSales - totalTax).toFixed(2)),
-              taxableValue: Number((netSales - totalTax).toFixed(2)),
-              cgst: Number((totalTax / 2).toFixed(2)),
-              sgst: Number((totalTax / 2).toFixed(2)),
-              totalTax: Number(totalTax.toFixed(2)),
-              totalGst: Number(totalTax.toFixed(2)),
+              taxableAmount: r2(netSales - totalTaxRounded),
+              taxableValue: r2(netSales - totalTaxRounded),
+              cgst: gstCgst,
+              sgst: gstSgst,
+              totalTax: totalTaxRounded,
+              totalGst: totalTaxRounded,
               slabs: gstSlabs
             },
             complimentarySummary: {

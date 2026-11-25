@@ -6,7 +6,7 @@ import {
   Package, Edit2, ShieldAlert, Printer, Eye,
   Settings, UserCheck, Tag, Sparkles, Bell
 } from 'lucide-react';
-import { apiUrl, authApiUrl, getAuthToken, setAuthToken, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from '../utils/apiConfig';
+import { apiUrl, authApiUrl, getAuthToken, setAuthToken, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl, round2, toPaise } from '../utils/apiConfig';
 import { NotificationsModal, NotificationsData } from './NotificationsModal';
 
 interface Product {
@@ -648,13 +648,13 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           bills.forEach((b: any) => {
             if (b.status !== 'Cancelled') {
               count++;
-              const billAmt = Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));
-              sales += billAmt;
-              mrpTotal += Number(b.total_mrp || billAmt);
+              const billAmt = round2(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));
+              sales = round2(sales + billAmt);
+              mrpTotal = round2(mrpTotal + round2(b.total_mrp || billAmt));
               const pm = (b.payment_method || '').toLowerCase();
-              if (pm.includes('cash')) cash += billAmt;
-              else if (pm.includes('card') || pm.includes('pos') || pm.includes('debit') || pm.includes('credit')) card += billAmt;
-              else upi += billAmt;
+              if (pm.includes('cash')) cash = round2(cash + billAmt);
+              else if (pm.includes('card') || pm.includes('pos') || pm.includes('debit') || pm.includes('credit')) card = round2(card + billAmt);
+              else upi = round2(upi + billAmt);
 
               let lineItems: any[] = [];
               try {
@@ -664,9 +664,11 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             }
           });
 
-          const concession = Math.max(0, mrpTotal - sales);
-          const taxable = sales / 1.12;
-          const gst = sales - taxable;
+          const concession = Math.max(0, round2(mrpTotal - sales));
+          const taxable = round2(sales / 1.12);
+          const gst = round2(sales - taxable);
+          const cgst = round2(gst / 2);
+          const sgst = round2(gst - cgst);
 
           setTodayStats({
             billsCount: count,
@@ -674,8 +676,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             totalMrp: mrpTotal,
             concession,
             taxable,
-            cgst: gst / 2,
-            sgst: gst / 2,
+            cgst,
+            sgst,
             cashAmount: cash,
             cardAmount: card,
             upiAmount: upi,
@@ -830,20 +832,20 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       });
   }, [products, selectedCategory, searchQuery]);
 
-  // Cart calculations with persistent discount and GST
+  // Cart calculations with persistent discount and GST (strict 2-decimal paise precision)
   const totalItemsCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const totalMrp = useMemo(() => cart.reduce((sum, item) => sum + (item.mrp * item.quantity), 0), [cart]);
-  const cartSubtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.rate * item.quantity), 0), [cart]);
-  const discountAmount = useMemo(() => Number(((cartSubtotal * discountPercent) / 100).toFixed(2)), [cartSubtotal, discountPercent]);
+  const totalMrp = useMemo(() => round2(cart.reduce((sum, item) => sum + round2(item.mrp * item.quantity), 0)), [cart]);
+  const cartSubtotal = useMemo(() => round2(cart.reduce((sum, item) => sum + round2(item.rate * item.quantity), 0)), [cart]);
+  const discountAmount = useMemo(() => round2((cartSubtotal * discountPercent) / 100), [cartSubtotal, discountPercent]);
 
-  // GST Calculation (per-item tax percent with proportional discount reduction)
-  const cartGstTotal = useMemo(() => cart.reduce((sum, item) => sum + (item.rate * item.quantity * ((item.tax_percent ?? 5) / 100)), 0), [cart]);
+  // GST Calculation (per-item tax percent with proportional discount reduction under TNGST/CGST rules)
+  const cartGstTotal = useMemo(() => cart.reduce((sum, item) => sum + (round2(item.rate * item.quantity) * ((item.tax_percent ?? 5) / 100)), 0), [cart]);
   const discountRatio = useMemo(() => cartSubtotal > 0 ? discountAmount / cartSubtotal : 0, [cartSubtotal, discountAmount]);
-  const cartTax = useMemo(() => Number((cartGstTotal * (1 - discountRatio)).toFixed(2)), [cartGstTotal, discountRatio]);
-  const cartCgst = useMemo(() => Number((cartTax / 2).toFixed(2)), [cartTax]);
-  const cartSgst = useMemo(() => Number((cartTax / 2).toFixed(2)), [cartTax]);
-  const totalAmount = useMemo(() => Math.max(0, Number((cartSubtotal - discountAmount + cartTax).toFixed(2))), [cartSubtotal, discountAmount, cartTax]);
-  const totalSavings = useMemo(() => Math.max(0, totalMrp - totalAmount), [totalMrp, totalAmount]);
+  const cartTax = useMemo(() => round2(cartGstTotal * (1 - discountRatio)), [cartGstTotal, discountRatio]);
+  const cartCgst = useMemo(() => round2(cartTax / 2), [cartTax]);
+  const cartSgst = useMemo(() => round2(cartTax - cartCgst), [cartTax, cartCgst]);
+  const totalAmount = useMemo(() => Math.max(0, round2(cartSubtotal - discountAmount + cartTax)), [cartSubtotal, discountAmount, cartTax]);
+  const totalSavings = useMemo(() => Math.max(0, round2(totalMrp - totalAmount)), [totalMrp, totalAmount]);
 
   const handleSetDiscount = (percent: number) => {
     try {
@@ -971,10 +973,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
     setCart((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Cash change calculation
-  const cashNum = parseFloat(cashTendered) || 0;
-  const changeToReturn = Math.max(0, cashNum - totalAmount);
-  const isCashInsufficient = paymentMethod === 'Cash' && cashNum < totalAmount;
+  // Cash change calculation (Integer-Paise Precision per TN/Indian Currency Rules)
+  const cashNum = round2(parseFloat(cashTendered));
+  const changeToReturn = Math.max(0, round2((toPaise(cashNum) - toPaise(totalAmount)) / 100));
+  const isCashInsufficient = paymentMethod === 'Cash' && toPaise(cashNum) < toPaise(totalAmount);
 
   // Complete bill submission
   const handleCompleteBill = async () => {
@@ -1484,16 +1486,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             <img
               src="./icon.png"
-              alt="MADRAS ORTHO CLINIC"
-              className="h-8 w-8 rounded-xl object-cover shadow-md shadow-sky-900/30 shrink-0"
+              alt="Clinic Logo"
+              className="h-9 w-9 rounded-xl object-cover shadow-md shadow-sky-900/30 shrink-0"
               style={{ imageRendering: 'crisp-edges' }}
             />
-            <div className="min-w-0">
-              <h1 className="text-sm font-black tracking-tight leading-tight truncate">
-                {clinicDetails?.name || 'MADRAS ORTHO CLINIC'}
-              </h1>
-              <p className="text-[10px] text-slate-400 font-medium truncate">{clinicDetails?.description || 'Pharmacy Dispensary'}</p>
-            </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
@@ -1967,7 +1963,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         {reportPeriod === 'today' ? "Today's" : reportPeriod === 'monthly' ? "Monthly" : "Yearly"} Sales & Tax Summary
                       </h2>
                       <p className="text-xs text-slate-500 font-medium">
-                        {clinicDetails?.name || 'Madras Ortho Clinic'} • Live collection & statutory GST snapshot
+                        Live collection & statutory GST snapshot
                       </p>
                     </div>
                     <button
@@ -2699,7 +2695,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Current Bill Checkout</h3>
-                  <p className="text-[10px] text-slate-400">Madras Ortho Clinic Pharmacy</p>
+                  <p className="text-[10px] text-slate-400">Pharmacy Dispensing Checkout</p>
                 </div>
               </div>
               <button
@@ -2995,7 +2991,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     </label>
                     <input
                       type="number"
-                      step="any"
+                      step="0.01"
+                      min="0"
                       value={cashTendered}
                       onChange={(e) => setCashTendered(e.target.value)}
                       placeholder={`Min ₹${totalAmount.toFixed(2)}`}
@@ -3007,17 +3004,17 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     {/* Quick Cash Chips */}
                     <div className="flex gap-1.5 overflow-x-auto pb-1">
                       <button
-                        onClick={() => setCashTendered(totalAmount.toString())}
+                        onClick={() => setCashTendered(round2(totalAmount).toFixed(2))}
                         className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-700"
                       >
-                        Exact
+                        Exact (₹{round2(totalAmount).toFixed(2)})
                       </button>
                       {[100, 200, 500, 1000].map((val) => (
                         <button
                           key={val}
                           onClick={() => {
                             const cur = parseFloat(cashTendered) || 0;
-                            setCashTendered((cur + val).toString());
+                            setCashTendered(round2(cur + val).toFixed(2));
                           }}
                           className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-700"
                         >

@@ -3,8 +3,16 @@ import path from 'path';
 import crypto from 'crypto';
 import { getSeedProducts, OrthoProduct } from './orthoCatalog';
 
-// Export product interface
+// Export product interface & currency rounding helpers (strict 2-decimal paise precision)
 export { OrthoProduct, getSeedProducts };
+
+export const round2 = (value: unknown): number => {
+  const num = Number(value ?? 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+export const toPaise = (value: unknown): number => Math.round(round2(value) * 100);
 
 export interface BatchRecord {
   id: number;

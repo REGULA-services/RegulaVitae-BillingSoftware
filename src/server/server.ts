@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { checkClinicalInteractions } from './clinicalRules';
 import express from 'express';
 import cors from 'cors';
-import { getDatabase, hashPassword, verifyPassword, wipeAllData } from './database';
+import { getDatabase, hashPassword, verifyPassword, wipeAllData, round2 } from './database';
 import { 
   generateDailyExcel, 
   generateWeeklyExcel, 
@@ -1231,16 +1231,16 @@ app.post('/api/bills', async (req, res) => {
       return res.status(400).json({ error: "Invalid bill payload. Cart/items list cannot be empty." });
     }
 
-    const calculatedSubtotal = rawItems.reduce((acc: number, it: any) => acc + (Number(it.rate || it.price || 0) * Number(it.quantity || 1)), 0);
+    const calculatedSubtotal = round2(rawItems.reduce((acc: number, it: any) => acc + round2(Number(it.rate || it.price || 0) * Number(it.quantity || 1)), 0));
     const rawGrandTotal = grand_total !== undefined
-      ? Number(grand_total)
+      ? round2(grand_total)
       : (req.body.total_amount !== undefined
-        ? Number(req.body.total_amount)
+        ? round2(req.body.total_amount)
         : (req.body.total !== undefined
-          ? Number(req.body.total)
-          : (req.body.subtotal !== undefined ? Number(req.body.subtotal) : calculatedSubtotal)));
+          ? round2(req.body.total)
+          : (req.body.subtotal !== undefined ? round2(req.body.subtotal) : calculatedSubtotal)));
 
-    const finalSubtotalValue = subtotal !== undefined ? Number(subtotal) : calculatedSubtotal;
+    const finalSubtotalValue = subtotal !== undefined ? round2(subtotal) : calculatedSubtotal;
     const items = rawItems;
 
     const db = await getDatabase();
@@ -1354,10 +1354,10 @@ app.post('/api/bills', async (req, res) => {
     // Statutory Check 2: Dual Operating Mode Validation & Patient / Prescriber Normalization
     // Patient name and details are completely optional for patient checkout / bill printing.
     const finalPaymentMethod = isComplimentary ? 'Complimentary' : effectivePaymentMethod;
-    const finalGrandTotal = isComplimentary ? 0 : Number(rawGrandTotal);
-    const finalSubtotal = isComplimentary ? 0 : finalSubtotalValue;
-    const finalTax = isComplimentary ? 0 : Number(tax !== undefined ? tax : 0);
-    const finalDiscount = isComplimentary ? 0 : Number(discount !== undefined ? discount : 0);
+    const finalGrandTotal = isComplimentary ? 0 : round2(rawGrandTotal);
+    const finalSubtotal = isComplimentary ? 0 : round2(finalSubtotalValue);
+    const finalTax = isComplimentary ? 0 : round2(tax !== undefined ? tax : 0);
+    const finalDiscount = isComplimentary ? 0 : round2(discount !== undefined ? discount : 0);
     const finalPatientName = (patient_name || '').trim() || (isComplimentary ? (req.body.complimentary_recipient || 'Doctor / Staff Health Beneficiary') : 'Walk-in Patient');
     const finalDoctorName = (doctor_name || '').trim() || 'Dr. Arjun Sharma, MS (Ortho)';
     const finalDoctorReg = (doctor_reg_no || '').trim() || 'TNMC/2012/94821';
@@ -1406,14 +1406,14 @@ app.post('/api/bills', async (req, res) => {
 
       billId = Number(billResult.lastID || 0);
 
-      // Insert items & statutory register records & decrement batch available_stock
+      // Insert items & statutory register records & decrement batch available_stock (strict 2-decimal paise precision)
       for (const item of itemsToProcess) {
         const taxRate = Number(item.tax_percent || 0);
-        const totalAmt = isComplimentary ? 0 : Number(item.total || 0);
-        const baseAmt = totalAmt / (1 + (taxRate / 100));
-        const totalTax = totalAmt - baseAmt;
-        const cgst = totalTax / 2;
-        const sgst = totalTax / 2;
+        const totalAmt = isComplimentary ? 0 : round2(item.total ?? (Number(item.rate || 0) * Number(item.quantity || 1)));
+        const baseAmt = round2(totalAmt / (1 + (taxRate / 100)));
+        const totalTax = round2(totalAmt - baseAmt);
+        const cgst = round2(totalTax / 2);
+        const sgst = round2(totalTax - cgst);
 
         await db.run(
           `INSERT INTO bill_items (
@@ -1422,10 +1422,10 @@ app.post('/api/bills', async (req, res) => {
             mrp, purchase_price
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            billId, item.product_id, item.product_name, Number(item.quantity), Number(item.rate), totalAmt,
+            billId, item.product_id, item.product_name, Number(item.quantity), round2(item.rate), totalAmt,
             item.batch_number || 'B-STD', item.expiry_date || '2028-12-31', item.hsn_code || '30049099',
             taxRate, cgst, sgst, item.dosage_instructions || null, item.schedule || 'Schedule H',
-            Number(item.mrp || item.rate || 0), Number(item.purchase_price || 0)
+            round2(item.mrp || item.rate || 0), round2(item.purchase_price || 0)
           ]
         );
 
@@ -1884,7 +1884,7 @@ app.get('/api/bills', async (req, res) => {
     
     let bills = await db.all(query, params);
     bills = bills.map((b: any) => {
-      const finalAmt = Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));
+      const finalAmt = round2(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0));
       return {
         ...b,
         total: finalAmt,
@@ -2112,9 +2112,9 @@ async function compileComprehensiveStats(options: {
   let totalTax = 0;
 
   paidBills.forEach(b => {
-    netSales += Number(b.grand_total || 0);
-    totalDiscounts += Number(b.discount || 0);
-    totalTax += Number(b.tax || 0);
+    netSales = round2(netSales + round2(b.grand_total || 0));
+    totalDiscounts = round2(totalDiscounts + round2(b.discount || 0));
+    totalTax = round2(totalTax + round2(b.tax || 0));
   });
 
   // Calculate COGS and Gross Profit
@@ -2138,65 +2138,68 @@ async function compileComprehensiveStats(options: {
 
   activeItems.forEach(it => {
     const qty = Number(it.quantity || 0);
-    const itemTotal = Number(it.total || 0);
-    const batchInfo = batchPriceMap.get(String(it.batch_number)) || { purchase_price: Number(it.rate || 0) * 0.75, mrp: Number(it.rate || 0) };
-    const costPrice = batchInfo.purchase_price;
-    const itemCogs = qty * costPrice;
+    const itemTotal = round2(it.total || 0);
+    const batchInfo = batchPriceMap.get(String(it.batch_number)) || { purchase_price: round2(Number(it.rate || 0) * 0.75), mrp: round2(it.rate || 0) };
+    const costPrice = round2(batchInfo.purchase_price);
+    const itemCogs = round2(qty * costPrice);
 
     if (it.is_complimentary || it.payment_method === 'Complimentary') {
       totalComplimentaryUnits += qty;
       complimentaryAbsorbedCost = 0; // Statutory requirement: The cost for stocks as compliments must be 0 rs.
-      complimentaryMrpValue += (qty * batchInfo.mrp);
+      complimentaryMrpValue = round2(complimentaryMrpValue + round2(qty * batchInfo.mrp));
     } else {
       totalUnitsSold += qty;
-      totalCogs += itemCogs;
-      const itemMrpVal = Number(it.mrp || batchInfo.mrp || it.rate || 0);
-      totalUnitsSoldMrp += (qty * itemMrpVal);
-      grossSales += (qty * (Number(it.rate) || itemMrpVal));
+      totalCogs = round2(totalCogs + itemCogs);
+      const itemMrpVal = round2(it.mrp || batchInfo.mrp || it.rate || 0);
+      totalUnitsSoldMrp = round2(totalUnitsSoldMrp + round2(qty * itemMrpVal));
+      grossSales = round2(grossSales + round2(qty * round2(Number(it.rate) || itemMrpVal)));
 
       // GST Slab assignment
       const taxRate = Math.round(Number(it.tax_percent || 0));
-      const taxable = itemTotal / (1 + (taxRate / 100));
-      const cgst = Number(it.cgst || (itemTotal - taxable) / 2);
-      const sgst = Number(it.sgst || (itemTotal - taxable) / 2);
-      const taxAmt = cgst + sgst;
+      const taxable = round2(itemTotal / (1 + (taxRate / 100)));
+      const fallbackTax = round2(itemTotal - taxable);
+      const fallbackCgst = round2(fallbackTax / 2);
+      const fallbackSgst = round2(fallbackTax - fallbackCgst);
+      const cgst = round2(it.cgst ?? fallbackCgst);
+      const sgst = round2(it.sgst ?? fallbackSgst);
+      const taxAmt = round2(cgst + sgst);
 
       if (taxRate <= 2) {
-        gstSlabs.slab0.taxable += taxable;
+        gstSlabs.slab0.taxable = round2(gstSlabs.slab0.taxable + taxable);
       } else if (taxRate <= 6) {
-        gstSlabs.slab5.taxable += taxable;
-        gstSlabs.slab5.cgst += cgst;
-        gstSlabs.slab5.sgst += sgst;
-        gstSlabs.slab5.totalTax += taxAmt;
+        gstSlabs.slab5.taxable = round2(gstSlabs.slab5.taxable + taxable);
+        gstSlabs.slab5.cgst = round2(gstSlabs.slab5.cgst + cgst);
+        gstSlabs.slab5.sgst = round2(gstSlabs.slab5.sgst + sgst);
+        gstSlabs.slab5.totalTax = round2(gstSlabs.slab5.totalTax + taxAmt);
       } else if (taxRate <= 15) {
-        gstSlabs.slab12.taxable += taxable;
-        gstSlabs.slab12.cgst += cgst;
-        gstSlabs.slab12.sgst += sgst;
-        gstSlabs.slab12.totalTax += taxAmt;
+        gstSlabs.slab12.taxable = round2(gstSlabs.slab12.taxable + taxable);
+        gstSlabs.slab12.cgst = round2(gstSlabs.slab12.cgst + cgst);
+        gstSlabs.slab12.sgst = round2(gstSlabs.slab12.sgst + sgst);
+        gstSlabs.slab12.totalTax = round2(gstSlabs.slab12.totalTax + taxAmt);
       } else {
-        gstSlabs.slab18.taxable += taxable;
-        gstSlabs.slab18.cgst += cgst;
-        gstSlabs.slab18.sgst += sgst;
-        gstSlabs.slab18.totalTax += taxAmt;
+        gstSlabs.slab18.taxable = round2(gstSlabs.slab18.taxable + taxable);
+        gstSlabs.slab18.cgst = round2(gstSlabs.slab18.cgst + cgst);
+        gstSlabs.slab18.sgst = round2(gstSlabs.slab18.sgst + sgst);
+        gstSlabs.slab18.totalTax = round2(gstSlabs.slab18.totalTax + taxAmt);
       }
 
       // Aggregate top products
       const pName = it.product_name || 'Medicine';
       const existing = productAggMap.get(pName) || { name: pName, quantity: 0, total: 0, cogs: 0, profit: 0 };
       existing.quantity += qty;
-      existing.total += itemTotal;
-      existing.cogs += itemCogs;
-      existing.profit += (itemTotal - itemCogs);
+      existing.total = round2(existing.total + itemTotal);
+      existing.cogs = round2(existing.cogs + itemCogs);
+      existing.profit = round2(existing.profit + (itemTotal - itemCogs));
       productAggMap.set(pName, existing);
     }
   });
 
   if (grossSales === 0 && netSales > 0) {
-    grossSales = netSales + totalDiscounts;
+    grossSales = round2(netSales + totalDiscounts);
   }
 
-  const grossProfit = Math.max(0, netSales - totalCogs);
-  const profitMarginPercent = netSales > 0 ? Number(((grossProfit / netSales) * 100).toFixed(2)) : 0;
+  const grossProfit = Math.max(0, round2(netSales - totalCogs));
+  const profitMarginPercent = netSales > 0 ? round2((grossProfit / netSales) * 100) : 0;
 
   // 2. Inward Stock in this Period
   const inwardRows = await db.all<any>(
@@ -2209,13 +2212,13 @@ async function compileComprehensiveStats(options: {
   inwardRows.forEach(inw => {
     const qty = Number(inw.quantity || 0);
     totalInwardUnits += qty;
-    totalInwardPurchaseValuation += (qty * Number(inw.purchase_price || 0));
-    totalInwardMrpValuation += (qty * Number(inw.mrp || 0));
+    totalInwardPurchaseValuation = round2(totalInwardPurchaseValuation + round2(qty * round2(inw.purchase_price || 0)));
+    totalInwardMrpValuation = round2(totalInwardMrpValuation + round2(qty * round2(inw.mrp || 0)));
   });
 
   // Net Stock Movement & Difference
   const netStockUnitsDifference = totalInwardUnits - (totalUnitsSold + totalComplimentaryUnits);
-  const netStockValuationDifference = totalInwardPurchaseValuation - (totalCogs + complimentaryAbsorbedCost);
+  const netStockValuationDifference = round2(totalInwardPurchaseValuation - (totalCogs + complimentaryAbsorbedCost));
 
   // Closing / Current Available Stock
   let currentClosingStockUnits = 0;
@@ -2224,8 +2227,8 @@ async function compileComprehensiveStats(options: {
   allBatches.forEach(b => {
     const stk = Math.max(0, Number(b.available_stock || 0));
     currentClosingStockUnits += stk;
-    currentClosingStockPurchaseValuation += (stk * Number(b.purchase_price || 0));
-    currentClosingStockMrpValuation += (stk * Number(b.mrp || 0));
+    currentClosingStockPurchaseValuation = round2(currentClosingStockPurchaseValuation + round2(stk * round2(b.purchase_price || 0)));
+    currentClosingStockMrpValuation = round2(currentClosingStockMrpValuation + round2(stk * round2(b.mrp || 0)));
   });
 
   // 3. Payment & Mode Breakdown
@@ -2235,27 +2238,28 @@ async function compileComprehensiveStats(options: {
 
   activeBills.forEach(b => {
     const pm = String(b.payment_method || '').toLowerCase();
-    const tot = Number(b.grand_total || 0);
+    const tot = round2(b.grand_total || 0);
+    const tx = round2(b.tax || 0);
     if (b.is_complimentary || pm.includes("complimentary")) {
       paymentBreakdown.Complimentary += 1;
     } else if (pm.includes("cash")) {
-      paymentBreakdown.Cash += tot;
+      paymentBreakdown.Cash = round2(paymentBreakdown.Cash + tot);
     } else if (pm.includes("card") || pm.includes("pos") || pm.includes("debit") || pm.includes("credit")) {
-      paymentBreakdown.BankCard += tot;
+      paymentBreakdown.BankCard = round2(paymentBreakdown.BankCard + tot);
     } else if (pm.includes("google") || pm.includes("upi") || pm.includes("gpay") || pm.includes("phonepe") || pm.includes("paytm")) {
-      paymentBreakdown.GooglePay += tot;
+      paymentBreakdown.GooglePay = round2(paymentBreakdown.GooglePay + tot);
     } else {
-      paymentBreakdown.Cash += tot;
+      paymentBreakdown.Cash = round2(paymentBreakdown.Cash + tot);
     }
 
     if (b.operating_mode === 'RETAIL_PHARMACY') {
-      modeB.revenue += tot;
+      modeB.revenue = round2(modeB.revenue + tot);
       modeB.count += 1;
-      modeB.tax += Number(b.tax || 0);
+      modeB.tax = round2(modeB.tax + tx);
     } else {
-      modeA.revenue += tot;
+      modeA.revenue = round2(modeA.revenue + tot);
       modeA.count += 1;
-      modeA.tax += Number(b.tax || 0);
+      modeA.tax = round2(modeA.tax + tx);
     }
   });
 
@@ -2271,12 +2275,12 @@ async function compileComprehensiveStats(options: {
     const prod = productMap.get(b.product_id);
     const prodName = prod ? prod.name : 'Medicine';
     const category = prod ? prod.category : 'General';
-    const sellingPrice = Number(b.selling_price || prod?.price || b.mrp || 0);
-    const purchasePrice = Number(b.purchase_price || prod?.purchase_price || 0);
-    const mrp = Number(b.mrp || prod?.mrp || sellingPrice);
+    const sellingPrice = round2(b.selling_price || prod?.price || b.mrp || 0);
+    const purchasePrice = round2(b.purchase_price || prod?.purchase_price || 0);
+    const mrp = round2(b.mrp || prod?.mrp || sellingPrice);
     const availStock = Math.max(0, Number(b.available_stock || 0));
-    const marginPerUnit = Number((sellingPrice - purchasePrice).toFixed(2));
-    const marginPercent = sellingPrice > 0 ? Number(((marginPerUnit / sellingPrice) * 100).toFixed(2)) : 0;
+    const marginPerUnit = round2(sellingPrice - purchasePrice);
+    const marginPercent = sellingPrice > 0 ? round2((marginPerUnit / sellingPrice) * 100) : 0;
     const expDateStr = String(b.expiry_date || '2028-12-31').substring(0, 10);
     const diffDays = Math.ceil((new Date(expDateStr).getTime() - new Date(todayIso).getTime()) / (1000 * 60 * 60 * 24));
     const expiryStatus = diffDays < 0 ? 'EXPIRED' : (diffDays <= 60 ? 'EXPIRING SOON' : 'VALID');
@@ -2294,8 +2298,8 @@ async function compileComprehensiveStats(options: {
       margin_per_unit: marginPerUnit,
       margin_percent: marginPercent,
       available_stock: availStock,
-      cost_valuation: Number((availStock * purchasePrice).toFixed(2)),
-      mrp_valuation: Number((availStock * mrp).toFixed(2)),
+      cost_valuation: round2(availStock * purchasePrice),
+      mrp_valuation: round2(availStock * mrp),
       stock_status: stockStatus
     };
   });
@@ -2306,18 +2310,21 @@ async function compileComprehensiveStats(options: {
   const detailedSalesItems = activeItems.map(it => {
     const b = billMap.get(it.bill_id) || {};
     const qty = Number(it.quantity || 0);
-    const rate = Number(it.rate || 0);
-    const totalAmt = Number(it.total || 0);
-    const batchInfo = batchPriceMap.get(String(it.batch_number)) || { purchase_price: rate * 0.75, mrp: rate };
-    const itemMrp = Number(it.mrp || batchInfo.mrp || rate);
-    const itemCost = Number(it.purchase_price || batchInfo.purchase_price || 0);
-    const concession = Math.max(0, itemMrp - rate);
+    const rate = round2(it.rate || 0);
+    const totalAmt = round2(it.total || 0);
+    const batchInfo = batchPriceMap.get(String(it.batch_number)) || { purchase_price: round2(rate * 0.75), mrp: rate };
+    const itemMrp = round2(it.mrp || batchInfo.mrp || rate);
+    const itemCost = round2(it.purchase_price || batchInfo.purchase_price || 0);
+    const concession = Math.max(0, round2(itemMrp - rate));
     const taxRate = Number(it.tax_percent || 0);
-    const taxable = totalAmt / (1 + (taxRate / 100));
-    const cgst = Number(it.cgst || (totalAmt - taxable) / 2);
-    const sgst = Number(it.sgst || (totalAmt - taxable) / 2);
-    const purchaseCost = qty * itemCost;
-    const grossProfit = totalAmt - purchaseCost;
+    const taxable = round2(totalAmt / (1 + (taxRate / 100)));
+    const fallbackTax = round2(totalAmt - taxable);
+    const fallbackCgst = round2(fallbackTax / 2);
+    const fallbackSgst = round2(fallbackTax - fallbackCgst);
+    const cgst = round2(it.cgst ?? fallbackCgst);
+    const sgst = round2(it.sgst ?? fallbackSgst);
+    const purchaseCost = round2(qty * itemCost);
+    const grossProfit = round2(totalAmt - purchaseCost);
 
     return {
       bill_number: b.bill_number || it.bill_id,
@@ -2333,65 +2340,69 @@ async function compileComprehensiveStats(options: {
       rate: rate,
       discount_from_mrp: concession,
       quantity: qty,
-      taxable_amount: Number(taxable.toFixed(2)),
+      taxable_amount: taxable,
       tax_percent: taxRate,
-      cgst: Number(cgst.toFixed(2)),
-      sgst: Number(sgst.toFixed(2)),
-      total_amount: Number(totalAmt.toFixed(2)),
-      purchase_cost: Number(purchaseCost.toFixed(2)),
-      gross_profit: Number(grossProfit.toFixed(2))
+      cgst: cgst,
+      sgst: sgst,
+      total_amount: totalAmt,
+      purchase_cost: purchaseCost,
+      gross_profit: grossProfit
     };
   });
+
+  const roundedTotalTax = round2(totalTax);
+  const roundedCgst = round2(roundedTotalTax / 2);
+  const roundedSgst = round2(roundedTotalTax - roundedCgst);
 
   return {
     periodLabel,
     startDate,
     endDate,
-    totalSales: netSales,
-    grossSales: Number(grossSales.toFixed(2)),
-    totalDiscounts: Number(totalDiscounts.toFixed(2)),
+    totalSales: round2(netSales),
+    grossSales: round2(grossSales),
+    totalDiscounts: round2(totalDiscounts),
     discountedBillsCount: activeBills.filter(b => Number(b.discount || 0) > 0).length,
-    averageDiscountPercent: grossSales > 0 ? Number(((totalDiscounts / grossSales) * 100).toFixed(2)) : 0,
+    averageDiscountPercent: grossSales > 0 ? round2((totalDiscounts / grossSales) * 100) : 0,
     billCount: bills.length,
     activeBillsCount: activeBills.length,
     cancelledBillsCount: cancelledBills.length,
     
     // MRP & Purchase Rate / Financial Margins
     financials: {
-      grossSales: Number(grossSales.toFixed(2)),
-      totalDiscounts: Number(totalDiscounts.toFixed(2)),
-      netSales: Number(netSales.toFixed(2)),
-      cogs: Number(totalCogs.toFixed(2)),
-      grossProfit: Number(grossProfit.toFixed(2)),
+      grossSales: round2(grossSales),
+      totalDiscounts: round2(totalDiscounts),
+      netSales: round2(netSales),
+      cogs: round2(totalCogs),
+      grossProfit: round2(grossProfit),
       profitMarginPercent
     },
 
     // Stock Movement & Difference
     stockMovement: {
       inwardUnits: totalInwardUnits,
-      inwardPurchaseValuation: Number(totalInwardPurchaseValuation.toFixed(2)),
-      inwardMrpValuation: Number(totalInwardMrpValuation.toFixed(2)),
+      inwardPurchaseValuation: round2(totalInwardPurchaseValuation),
+      inwardMrpValuation: round2(totalInwardMrpValuation),
       unitsSold: totalUnitsSold,
-      unitsSoldCost: Number(totalCogs.toFixed(2)),
-      unitsSoldMrp: Number(totalUnitsSoldMrp.toFixed(2)),
+      unitsSoldCost: round2(totalCogs),
+      unitsSoldMrp: round2(totalUnitsSoldMrp),
       complimentaryUnits: totalComplimentaryUnits,
       complimentaryAbsorbedCost: 0, // Requirement: The cost for stocks as compliments must be 0 rs.
       complimentaryCostAbsorbed: 0,
       netStockDifferenceUnits: netStockUnitsDifference,
-      netStockValuationDifference: Number(netStockValuationDifference.toFixed(2)),
+      netStockValuationDifference: round2(netStockValuationDifference),
       currentAvailableStockUnits: currentClosingStockUnits,
-      currentStockValuationCost: Number(currentClosingStockPurchaseValuation.toFixed(2)),
-      currentStockValuationMrp: Number(currentClosingStockMrpValuation.toFixed(2))
+      currentStockValuationCost: round2(currentClosingStockPurchaseValuation),
+      currentStockValuationMrp: round2(currentClosingStockMrpValuation)
     },
 
-    // GST Breakdown
+    // GST Breakdown (CGST + SGST balanced to exact paise under TNGST rules)
     gstReport: {
-      taxableAmount: Number((netSales - totalTax).toFixed(2)),
-      taxableValue: Number((netSales - totalTax).toFixed(2)),
-      cgst: Number((totalTax / 2).toFixed(2)),
-      sgst: Number((totalTax / 2).toFixed(2)),
-      totalTax: Number(totalTax.toFixed(2)),
-      totalGst: Number(totalTax.toFixed(2)),
+      taxableAmount: round2(netSales - roundedTotalTax),
+      taxableValue: round2(netSales - roundedTotalTax),
+      cgst: roundedCgst,
+      sgst: roundedSgst,
+      totalTax: roundedTotalTax,
+      totalGst: roundedTotalTax,
       slabs: gstSlabs
     },
 
@@ -2404,7 +2415,7 @@ async function compileComprehensiveStats(options: {
       absorbedCost: 0, // Requirement: Complimentary stock cost is 0 rs
       totalCostAbsorbed: 0,
       complimentaryAbsorbedCost: 0,
-      mrpValue: Number(complimentaryMrpValue.toFixed(2))
+      mrpValue: round2(complimentaryMrpValue)
     },
 
     paymentBreakdown,
@@ -2706,9 +2717,9 @@ app.post('/api/inventory/inward', async (req, res) => {
           [sPrice, mrpVal, pPrice, qty, pid]
         );
 
-        totalConsignmentCost += (qty * pPrice);
+        totalConsignmentCost = round2(totalConsignmentCost + round2(qty * pPrice));
         totalConsignmentUnits += qty;
-        insertedRecords.push({ id: result.lastID, product_id: pid, product_name: pName, batch_number: batchNum, quantity: qty, purchase_price: pPrice });
+        insertedRecords.push({ id: result.lastID, product_id: pid, product_name: pName, batch_number: batchNum, quantity: qty, purchase_price: round2(pPrice) });
       }
 
       await db.run(
@@ -2727,7 +2738,7 @@ app.post('/api/inventory/inward', async (req, res) => {
         success: true,
         count: insertedRecords.length,
         total_units: totalConsignmentUnits,
-        total_purchase_cost: totalConsignmentCost,
+        total_purchase_cost: round2(totalConsignmentCost),
         invoice_number,
         supplier_name,
         message: `Successfully recorded inward consignment of ${insertedRecords.length} medicines (${totalConsignmentUnits} units) totaling ₹${totalConsignmentCost.toFixed(2)}`

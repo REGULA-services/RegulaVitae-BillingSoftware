@@ -9,6 +9,14 @@
  *   and restart encounters the Login screen independently without inheriting another session.
  */
 
+export const round2 = (value: unknown): number => {
+  const num = Number(value ?? 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+export const toPaise = (value: unknown): number => Math.round(round2(value) * 100);
+
 let activeAuthToken: string | null = null;
 let unauthorizedHandler: (() => void) | null = null;
 let authInterceptorInstalled = false;

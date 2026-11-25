@@ -432,6 +432,77 @@ async function runTests() {
       const mobAfterLogout = await httpRequest('GET', '/api/auth/session', null, mobileEmployeeToken);
       assert.strictEqual(mobAfterLogout.status, 401, 'Logged-out Mobile Employee token must return 401');
     });
+
+    // 6. Strict 2-Decimal Financial Precision, TNGST/CGST Balanced Split & Paise Exactness
+    await test('Fractional-rate checkout stores and reports all financial figures strictly at <= 2 decimals', async () => {
+      const loginRes = await httpRequest('POST', '/api/auth/login', {
+        username: 'admin',
+        password: 'admin123'
+      });
+      assert.strictEqual(loginRes.status, 200);
+      const token = loginRes.data.token;
+
+      const prod = await httpRequest('POST', '/api/products', {
+        name: 'Aceclofenac Fractional Test 100mg',
+        category: 'Orthopaedic Pain & Analgesics',
+        price: 42.5,
+        mrp: 48.75,
+        purchase_price: 29.13,
+        tax_percent: 5,
+        initial_stock: 20,
+        batch_number: 'FRAC-TEST-01',
+        expiry_date: '2028-12-31'
+      }, token);
+      assert.strictEqual(prod.status, 201);
+
+      const qty = 3;
+      const subtotal = Math.round(qty * 42.5 * 100) / 100; // 127.50
+      const discount = Math.round((subtotal * 5 / 100) * 100) / 100; // 6.38
+      const gstRaw = (subtotal * 0.05) * (1 - discount / subtotal);
+      const tax = Math.round((gstRaw + Number.EPSILON) * 100) / 100; // 6.06
+      const grandTotal = Math.round((subtotal - discount + tax + Number.EPSILON) * 100) / 100; // 127.18
+
+      const billRes = await httpRequest('POST', '/api/bills', {
+        payment_method: 'Cash',
+        subtotal,
+        discount,
+        tax,
+        grand_total: grandTotal,
+        items: [{
+          product_id: prod.data.id,
+          product_name: prod.data.name,
+          batch_number: 'FRAC-TEST-01',
+          quantity: qty,
+          rate: 42.5,
+          mrp: 48.75,
+          purchase_price: 29.13,
+          tax_percent: 5,
+          total: subtotal
+        }]
+      }, token);
+      assert.strictEqual(billRes.status, 201, `Fractional checkout failed: ${billRes.status}`);
+
+      const checkTwoDecimals = (v) => Math.abs(Math.round(Number(v) * 100) - Number(v) * 100) < 1e-6;
+      assert(checkTwoDecimals(billRes.data.subtotal), `subtotal must have <=2 decimals: ${billRes.data.subtotal}`);
+      assert(checkTwoDecimals(billRes.data.discount), `discount must have <=2 decimals: ${billRes.data.discount}`);
+      assert(checkTwoDecimals(billRes.data.tax), `tax must have <=2 decimals: ${billRes.data.tax}`);
+      assert(checkTwoDecimals(billRes.data.grand_total), `grand_total must have <=2 decimals: ${billRes.data.grand_total}`);
+
+      const report = await httpRequest('GET', `/api/reports/daily?date=${billRes.data.date}`, null, token);
+      assert.strictEqual(report.status, 200);
+      const fin = report.data.financials;
+      assert(checkTwoDecimals(fin.netSales), `netSales drift: ${fin.netSales}`);
+      assert(checkTwoDecimals(fin.grossProfit), `grossProfit drift: ${fin.grossProfit}`);
+      assert(checkTwoDecimals(report.data.gstReport.cgst), `cgst drift: ${report.data.gstReport.cgst}`);
+      assert(checkTwoDecimals(report.data.gstReport.sgst), `sgst drift: ${report.data.gstReport.sgst}`);
+      assert.strictEqual(
+        Math.round((report.data.gstReport.cgst + report.data.gstReport.sgst) * 100),
+        Math.round(report.data.gstReport.totalTax * 100),
+        'CGST + SGST must equal totalTax to the exact paisa'
+      );
+
+      await httpRequest('POST', `/api/auth/logout`, {}, token);
+    });
   } finally {
     if (sseToClose) sseToClose.close();
     if (child) {

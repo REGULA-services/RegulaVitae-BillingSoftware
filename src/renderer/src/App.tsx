@@ -10,7 +10,7 @@ import {
 import { PatientsModal } from './components/PatientsModal';
 import { MobileTabletApp } from './components/MobileTabletApp';
 import { NotificationsModal, NotificationsData } from './components/NotificationsModal';
-import { apiUrl, authApiUrl, setAuthToken, getAuthToken, setUnauthorizedHandler, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl } from './utils/apiConfig';
+import { apiUrl, authApiUrl, setAuthToken, getAuthToken, setUnauthorizedHandler, getSavedClinicServerUrl, setSavedClinicServerUrl, getApiBaseUrl, round2, toPaise } from './utils/apiConfig';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import {
   isBluetoothSupported,
@@ -801,7 +801,6 @@ export default function App() {
 
   // Payment calculator
   const [cashReceived, setCashReceived] = useState('');
-  const [changeDue, setChangeDue] = useState(0);
 
   // Printer configurations
   const [printers, setPrinters] = useState<any[]>([]);
@@ -1578,26 +1577,26 @@ export default function App() {
       };
     }
 
-    // Subtotal: prices in DB are EXCLUSIVE of GST (MRP base price)
-    const subtotal = activeSession.items.reduce((sum, item) => sum + item.total, 0);
+    // Subtotal: prices in DB are EXCLUSIVE of GST (MRP base price), rounded to strict 2 decimals (paise precision)
+    const subtotal = round2(activeSession.items.reduce((sum, item) => sum + round2(item.total), 0));
 
     let discount = 0;
     if (activeSession.discountPercent > 0) {
-      discount = (subtotal * activeSession.discountPercent) / 100;
+      discount = round2((subtotal * activeSession.discountPercent) / 100);
     } else if (activeSession.discountAmount > 0) {
-      discount = Math.min(subtotal, activeSession.discountAmount);
+      discount = round2(Math.min(subtotal, activeSession.discountAmount));
     }
 
-    // GST = sum of (item.total * item.tax_percent / 100) — per-item GST
+    // GST = sum of (item.total * item.tax_percent / 100) — per-item GST under TNGST/CGST rules
     const gstTotal = activeSession.items.reduce((sum, item) => {
-      return sum + (item.total * (item.tax_percent / 100));
+      return sum + (round2(item.total) * (Number(item.tax_percent || 0) / 100));
     }, 0);
     // Discount reduces the taxable base proportionally
     const discountRatio = subtotal > 0 ? discount / subtotal : 0;
-    const tax = gstTotal * (1 - discountRatio);
-    const cgst = tax / 2;
-    const sgst = tax / 2;
-    const grandTotal = Math.max(0, subtotal - discount + tax);
+    const tax = round2(gstTotal * (1 - discountRatio));
+    const cgst = round2(tax / 2);
+    const sgst = round2(tax - cgst);
+    const grandTotal = Math.max(0, round2(subtotal - discount + tax));
 
     return {
       subtotal,
@@ -1608,16 +1607,6 @@ export default function App() {
       grandTotal
     };
   }, [activeSession]);
-
-  // Update change due in cash payments
-  useEffect(() => {
-    if (showPaymentModal && cashReceived) {
-      const received = parseFloat(cashReceived) || 0;
-      setChangeDue(Math.max(0, received - billSummary.grandTotal));
-    } else {
-      setChangeDue(0);
-    }
-  }, [cashReceived, billSummary.grandTotal, showPaymentModal]);
 
   // Payment modal keyboard shortcuts: C = Cash, G = Google Pay, K = (Bank) Card
   useEffect(() => {
@@ -1783,7 +1772,7 @@ export default function App() {
         updatedItems[existingIndex] = {
           ...updatedItems[existingIndex],
           quantity: requestedQty,
-          total: requestedQty * product.price,
+          total: round2(requestedQty * product.price),
         };
       } else {
         updatedItems.push({
@@ -1791,11 +1780,11 @@ export default function App() {
           product_name: product.name,
           generic_name: product.generic_name || product.name,
           quantity: quantity,
-          rate: product.price, // Price sold at
-          mrp: product.mrp || product.price,
-          purchase_price: product.purchase_price || 0,
+          rate: round2(product.price), // Price sold at
+          mrp: round2(product.mrp || product.price),
+          purchase_price: round2(product.purchase_price || 0),
           tax_percent: product.tax_percent || 0,
-          total: quantity * product.price,
+          total: round2(quantity * product.price),
           batch_number: product.batch_number || `B-2026-${String(product.id).padStart(4, '0')}`,
           expiry_date: product.expiry_date || '2028-12-31',
           hsn_code: product.hsn_code || '30049099',
@@ -1832,7 +1821,7 @@ export default function App() {
       updated[index] = {
         ...updated[index],
         quantity,
-        total: quantity * updated[index].rate
+        total: round2(quantity * updated[index].rate)
       };
       return { ...s, items: updated };
     }));
@@ -2106,11 +2095,13 @@ export default function App() {
     };
     const serverPaymentMethod = isFree ? 'Complimentary' : (methodMap[paymentMethod] || paymentMethod);
 
-    // Smart Cash Tender Validation: Cash tendered must be >= payable grand total (bypassed for free dispense)
+    // Smart Cash Tender Validation (Integer-Paise Precision per TN/Indian Currency Rules): Cash tendered must be >= payable grand total
     if (paymentMethod === 'Cash' && !isFree) {
-      const cashAmt = parseFloat(cashReceived);
-      if (isNaN(cashAmt) || cashAmt < billSummary.grandTotal) {
-        showToast(`Insufficient Cash Tendered: Total payable is ₹${billSummary.grandTotal.toFixed(2)}, but received ₹${isNaN(cashAmt) ? '0.00' : cashAmt.toFixed(2)}. Please enter the full amount received from the customer before completing payment.`, "error");
+      const parsedCash = parseFloat(cashReceived);
+      const payableAmt = round2(billSummary.grandTotal);
+      const cashAmt = round2(parsedCash);
+      if (isNaN(parsedCash) || toPaise(parsedCash) < toPaise(payableAmt)) {
+        showToast(`Insufficient Cash Tendered: Total payable is ₹${payableAmt.toFixed(2)}, but received ₹${isNaN(parsedCash) ? '0.00' : cashAmt.toFixed(2)}. Please enter the full amount received from the customer before completing payment.`, "error");
         paymentCashInputRef.current?.focus();
         return;
       }
@@ -2132,10 +2123,10 @@ export default function App() {
 
     const payload = {
       bill_number: activeSession.billNumber,
-      subtotal: isFree ? 0 : billSummary.subtotal,
-      discount: isFree ? billSummary.subtotal : billSummary.discount,
-      tax: isFree ? 0 : billSummary.tax,
-      grand_total: isFree ? 0 : billSummary.grandTotal,
+      subtotal: isFree ? 0 : round2(billSummary.subtotal),
+      discount: isFree ? round2(billSummary.subtotal) : round2(billSummary.discount),
+      tax: isFree ? 0 : round2(billSummary.tax),
+      grand_total: isFree ? 0 : round2(billSummary.grandTotal),
       payment_method: serverPaymentMethod,
       is_complimentary: isFree ? 1 : 0,
       complimentary_recipient: isFree ? (complimentaryRecipient.trim() || 'Clinic Doctor / Staff') : undefined,
@@ -2231,7 +2222,6 @@ export default function App() {
       setComplimentaryRecipient('');
       setComplimentaryReason('Doctor / Staff Health Dispense');
       setCashReceived('');
-      setChangeDue(0);
       setSearchQuery('');
       loadProducts();
     } catch (err: any) {
@@ -3265,14 +3255,16 @@ export default function App() {
         <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-sky-700 via-sky-600 to-cyan-500 p-6 text-white">
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isMobileView ? 'justify-center' : 'space-x-3'}`}>
               <div className="bg-white/20 backdrop-blur rounded-xl overflow-hidden w-12 h-12 flex-shrink-0 flex items-center justify-center">
-                <img src="./icon.png" alt="MADRAS ORTHO CLINIC" className="w-12 h-12 object-cover" />
+                <img src="./icon.png" alt="Clinic Logo" className="w-12 h-12 object-cover" />
               </div>
-              <div>
-                <h2 className="text-xl font-black tracking-tight">MADRAS ORTHO CLINIC SOFTWARE</h2>
-                <p className="text-xs font-bold text-white/80">Mission for Cure — Select Account</p>
-              </div>
+              {!isMobileView && (
+                <div>
+                  <h2 className="text-xl font-black tracking-tight">MADRAS ORTHO CLINIC SOFTWARE</h2>
+                  <p className="text-xs font-bold text-white/80">Mission for Cure — Select Account</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -4257,11 +4249,11 @@ export default function App() {
               let sub = 0;
               let tx = 0;
               sess.items.forEach(item => {
-                sub += item.rate * item.quantity;
+                sub = round2(sub + round2(item.rate * item.quantity));
                 // tax calculation disabled (tax_percent set to 0)
               });
-              const disc = sess.discountAmount > 0 ? sess.discountAmount : sub * (sess.discountPercent / 100);
-              const total = Math.max(0, sub + tx - disc);
+              const disc = round2(sess.discountAmount > 0 ? sess.discountAmount : (sub * (sess.discountPercent / 100)));
+              const total = Math.max(0, round2(sub + tx - disc));
 
               const isActive = sess.id === activeSessionId;
 
@@ -5162,12 +5154,16 @@ export default function App() {
                         <span className="text-[9px] text-slate-500 font-mono">Mandatory for Cash Sale</span>
                       </div>
 
-                      {/* Cash Tender Warning & Live Calculation */}
+                      {/* Cash Tender Warning & Live Calculation (Integer-Paise Precision) */}
                       {(() => {
-                        const cashAmt = parseFloat(cashReceived);
-                        const isCashInvalid = isNaN(cashAmt) || cashAmt <= 0;
-                        const isCashShort = !isNaN(cashAmt) && cashAmt > 0 && cashAmt < billSummary.grandTotal;
-                        const shortAmt = billSummary.grandTotal - (isNaN(cashAmt) ? 0 : cashAmt);
+                        const parsedCash = parseFloat(cashReceived);
+                        const payableAmt = round2(billSummary.grandTotal);
+                        const payablePaise = toPaise(payableAmt);
+                        const cashPaise = !isNaN(parsedCash) && Number.isFinite(parsedCash) ? toPaise(parsedCash) : 0;
+                        const cashAmt = round2(parsedCash);
+                        const isCashInvalid = isNaN(parsedCash) || cashPaise <= 0;
+                        const isCashShort = !isNaN(parsedCash) && cashPaise > 0 && cashPaise < payablePaise;
+                        const shortAmt = round2((payablePaise - (isNaN(parsedCash) ? 0 : cashPaise)) / 100);
 
                         return (
                           <div className="space-y-1.5">
@@ -5176,7 +5172,7 @@ export default function App() {
                                 <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                                 <div className="text-[11px] leading-tight">
                                   <span className="font-bold block text-rose-300">Insufficient Cash Tendered!</span>
-                                  Received <span className="font-mono font-bold text-white">₹{cashAmt.toFixed(2)}</span> is less than payable <span className="font-mono font-bold text-white">₹{billSummary.grandTotal.toFixed(2)}</span>. Customer is short by <span className="font-mono font-black text-rose-300 underline">₹{shortAmt.toFixed(2)}</span>. Please collect the remaining cash before dispensing.
+                                  Received <span className="font-mono font-bold text-white">₹{cashAmt.toFixed(2)}</span> is less than payable <span className="font-mono font-bold text-white">₹{payableAmt.toFixed(2)}</span>. Customer is short by <span className="font-mono font-black text-rose-300 underline">₹{shortAmt.toFixed(2)}</span>. Please collect the remaining cash before dispensing.
                                 </div>
                               </div>
                             )}
@@ -5194,13 +5190,15 @@ export default function App() {
                         <input
                           ref={paymentCashInputRef}
                           type="number"
+                          step="0.01"
+                          min="0"
                           placeholder="0.00"
                           value={cashReceived}
                           onChange={(e) => setCashReceived(e.target.value)}
                           className={`w-full px-3 py-2 bg-slate-900 border rounded-xl text-lg font-bold font-mono focus:outline-none transition-colors ${
-                            parseFloat(cashReceived) >= billSummary.grandTotal
+                            !isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal)
                               ? 'border-emerald-500/80 text-emerald-400 focus:border-emerald-400'
-                              : parseFloat(cashReceived) > 0
+                              : !isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) > 0
                                 ? 'border-rose-500/80 text-rose-400 focus:border-rose-400'
                                 : 'border-slate-700 text-slate-100 focus:border-sky-500'
                           }`}
@@ -5212,32 +5210,32 @@ export default function App() {
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         <button
                           type="button"
-                          onClick={() => setCashReceived(billSummary.grandTotal.toFixed(2))}
+                          onClick={() => setCashReceived(round2(billSummary.grandTotal).toFixed(2))}
                           className="px-2 py-1 bg-emerald-950/60 hover:bg-emerald-800/80 text-emerald-300 hover:text-white rounded-lg text-[10px] font-mono font-bold border border-emerald-600/50 transition-colors"
                           title="Set tender to exact grand total"
                         >
-                          Exact (₹{billSummary.grandTotal.toFixed(0)})
+                          Exact (₹{round2(billSummary.grandTotal).toFixed(2)})
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCashReceived(String(Math.ceil(billSummary.grandTotal / 50) * 50))}
+                          onClick={() => setCashReceived(String(Math.ceil(round2(billSummary.grandTotal) / 50) * 50))}
                           className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors"
                         >
-                          Next ₹50 (₹{Math.ceil(billSummary.grandTotal / 50) * 50})
+                          Next ₹50 (₹{Math.ceil(round2(billSummary.grandTotal) / 50) * 50})
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCashReceived(String(Math.ceil(billSummary.grandTotal / 100) * 100))}
+                          onClick={() => setCashReceived(String(Math.ceil(round2(billSummary.grandTotal) / 100) * 100))}
                           className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors"
                         >
-                          Next ₹100 (₹{Math.ceil(billSummary.grandTotal / 100) * 100})
+                          Next ₹100 (₹{Math.ceil(round2(billSummary.grandTotal) / 100) * 100})
                         </button>
                         <button
                           type="button"
-                          onClick={() => setCashReceived(String(Math.ceil(billSummary.grandTotal / 500) * 500))}
+                          onClick={() => setCashReceived(String(Math.ceil(round2(billSummary.grandTotal) / 500) * 500))}
                           className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors"
                         >
-                          Next ₹500 (₹{Math.ceil(billSummary.grandTotal / 500) * 500})
+                          Next ₹500 (₹{Math.ceil(round2(billSummary.grandTotal) / 500) * 500})
                         </button>
                         <button
                           type="button"
@@ -5250,16 +5248,18 @@ export default function App() {
 
                       {/* Change Due vs Short Amount Dynamic Display */}
                       {(() => {
-                        const cashAmt = parseFloat(cashReceived);
-                        const isTendered = !isNaN(cashAmt) && cashAmt > 0;
-                        const isSufficient = isTendered && cashAmt >= billSummary.grandTotal;
-                        const diff = isTendered ? cashAmt - billSummary.grandTotal : 0;
+                        const parsedCash = parseFloat(cashReceived);
+                        const payablePaise = toPaise(billSummary.grandTotal);
+                        const cashPaise = !isNaN(parsedCash) && Number.isFinite(parsedCash) ? toPaise(parsedCash) : 0;
+                        const isTendered = !isNaN(parsedCash) && cashPaise > 0;
+                        const isSufficient = isTendered && cashPaise >= payablePaise;
+                        const diff = isTendered ? round2((cashPaise - payablePaise) / 100) : 0;
 
                         return (
                           <div className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${
-                            isSufficient 
-                              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300' 
-                              : isTendered 
+                            isSufficient
+                              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                              : isTendered
                                 ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
                                 : 'bg-slate-900/80 border-slate-800 text-slate-400'
                           }`}>
@@ -5274,7 +5274,7 @@ export default function App() {
                             <span className={`text-xl font-black font-mono ${
                               isSufficient ? 'text-amber-400' : isTendered ? 'text-rose-400' : 'text-slate-500'
                             }`}>
-                              ₹{isSufficient ? changeDue.toFixed(2) : Math.abs(diff).toFixed(2)}
+                              ₹{isSufficient ? Math.max(0, diff).toFixed(2) : Math.abs(diff).toFixed(2)}
                             </span>
                           </div>
                         );
@@ -5319,12 +5319,12 @@ export default function App() {
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          {(!cashReceived || parseFloat(cashReceived) >= billSummary.grandTotal) ? (
+                          {(!cashReceived || (!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal))) ? (
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                           ) : (
                             <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                           )}
-                          <span className={(!cashReceived || parseFloat(cashReceived) >= billSummary.grandTotal) ? 'text-slate-200' : 'text-rose-400 font-bold'}>
+                          <span className={(!cashReceived || (!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal))) ? 'text-slate-200' : 'text-rose-400 font-bold'}>
                             Cash Tender Valid
                           </span>
                         </div>

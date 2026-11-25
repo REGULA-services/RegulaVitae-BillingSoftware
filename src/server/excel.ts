@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { round2 } from './database';
 
 // ----------------------------------------------------
 // SHARED MASTER DETAILED EXCEL REPORT BUILDER
@@ -10,11 +11,11 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
 
   const periodLabel = reportData.periodLabel || reportData.dateRange || reportData.month || reportData.date || reportData.year || new Date().toISOString().split('T')[0];
   const fin = reportData.financials || {
-    grossSales: reportData.grossSales || reportData.totalSales || 0,
-    totalDiscounts: reportData.totalDiscounts || 0,
-    netSales: reportData.totalSales || 0,
-    cogs: (reportData.totalSales || 0) * 0.72,
-    grossProfit: (reportData.totalSales || 0) * 0.28,
+    grossSales: round2(reportData.grossSales || reportData.totalSales || 0),
+    totalDiscounts: round2(reportData.totalDiscounts || 0),
+    netSales: round2(reportData.totalSales || 0),
+    cogs: round2((reportData.totalSales || 0) * 0.72),
+    grossProfit: round2((reportData.totalSales || 0) * 0.28),
     profitMarginPercent: 28
   };
   const sm = reportData.stockMovement || {
@@ -82,11 +83,11 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" }
   };
 
-  finSheet.addRow(["Total MRP Value of Medicines Sold", fin.grossSales, "", "Total Bills Generated", reportData.billCount || allBills.length]);
-  finSheet.addRow(["Discounts Given to Patients", fin.totalDiscounts, "", "Paid Bills Completed", reportData.activeBillsCount || allBills.filter(b => b.status !== 'Cancelled').length]);
-  finSheet.addRow(["Total Money Collected from Patients", fin.netSales, "", "Average Amount per Bill", reportData.billCount > 0 ? (fin.netSales / reportData.billCount) : 0]);
-  finSheet.addRow(["Wholesale Cost of Medicines Sold", fin.cogs, "", "Cancelled Bills (Refunded)", reportData.cancelledBillsCount || allBills.filter(b => b.status === 'Cancelled').length]);
-  finSheet.addRow(["Net Clinic Profit (Collections minus Wholesale Cost)", fin.grossProfit, "", "Profit Margin Percentage", `${fin.profitMarginPercent}%`]);
+  finSheet.addRow(["Total MRP Value of Medicines Sold", round2(fin.grossSales), "", "Total Bills Generated", reportData.billCount || allBills.length]);
+  finSheet.addRow(["Discounts Given to Patients", round2(fin.totalDiscounts), "", "Paid Bills Completed", reportData.activeBillsCount || allBills.filter(b => b.status !== 'Cancelled').length]);
+  finSheet.addRow(["Total Money Collected from Patients", round2(fin.netSales), "", "Average Amount per Bill", reportData.billCount > 0 ? round2(fin.netSales / reportData.billCount) : 0]);
+  finSheet.addRow(["Wholesale Cost of Medicines Sold", round2(fin.cogs), "", "Cancelled Bills (Refunded)", reportData.cancelledBillsCount || allBills.filter(b => b.status === 'Cancelled').length]);
+  finSheet.addRow(["Net Clinic Profit (Collections minus Wholesale Cost)", round2(fin.grossProfit), "", "Profit Margin Percentage", `${round2(fin.profitMarginPercent)}%`]);
 
   for (let r = 6; r <= 10; r++) {
     const row = finSheet.getRow(r);
@@ -114,12 +115,12 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     type: "pattern", pattern: "solid", fgColor: { argb: "B45309" }
   };
 
-  const soldMrpVal = (sm as any).unitsSoldMrp || (sm.unitsSoldCost > 0 ? sm.unitsSoldCost * 1.35 : 0);
-  finSheet.addRow(["New Stock Received at Clinic (Refills)", sm.inwardUnits, sm.inwardPurchaseValuation, sm.inwardMrpValuation]);
-  finSheet.addRow(["Stock Sold to Patients", sm.unitsSold, sm.unitsSoldCost, soldMrpVal]);
+  const soldMrpVal = round2((sm as any).unitsSoldMrp || (sm.unitsSoldCost > 0 ? sm.unitsSoldCost * 1.35 : 0));
+  finSheet.addRow(["New Stock Received at Clinic (Refills)", sm.inwardUnits, round2(sm.inwardPurchaseValuation), round2(sm.inwardMrpValuation)]);
+  finSheet.addRow(["Stock Sold to Patients", sm.unitsSold, round2(sm.unitsSoldCost), soldMrpVal]);
   finSheet.addRow(["Stocks given as compliments to doctors/staff", sm.complimentaryUnits, 0, 0]);
-  finSheet.addRow(["Net Stock Movement (Received minus Dispensed)", sm.netStockDifferenceUnits, sm.netStockValuationDifference, sm.netStockValuationDifference * 1.35]);
-  finSheet.addRow(["Total Medicines Currently in Stock (Closing Balance)", sm.currentAvailableStockUnits, sm.currentStockValuationCost, sm.currentStockValuationMrp]);
+  finSheet.addRow(["Net Stock Movement (Received minus Dispensed)", sm.netStockDifferenceUnits, round2(sm.netStockValuationDifference), round2(sm.netStockValuationDifference * 1.35)]);
+  finSheet.addRow(["Total Medicines Currently in Stock (Closing Balance)", sm.currentAvailableStockUnits, round2(sm.currentStockValuationCost), round2(sm.currentStockValuationMrp)]);
 
   for (let r = 14; r <= 18; r++) {
     const row = finSheet.getRow(r);
@@ -147,9 +148,9 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     type: "pattern", pattern: "solid", fgColor: { argb: "334155" }
   };
 
-  finSheet.addRow(["Cash in Counter", pay.Cash || 0, "", "Doctor Room Direct Dispensing", reportData.modeA?.revenue || (fin.netSales * 0.65)]);
-  finSheet.addRow(["UPI / QR Code (Google Pay / PhonePe)", pay.GooglePay || 0, "", "Pharmacy Counter Dispensing", reportData.modeB?.revenue || (fin.netSales * 0.35)]);
-  finSheet.addRow(["Card Swipes (Credit / Debit Cards)", pay.BankCard || 0, "", "Total Amount Collected", fin.netSales]);
+  finSheet.addRow(["Cash in Counter", round2(pay.Cash || 0), "", "Doctor Room Direct Dispensing", round2(reportData.modeA?.revenue ?? (fin.netSales * 0.65))]);
+  finSheet.addRow(["UPI / QR Code (Google Pay / PhonePe)", round2(pay.GooglePay || 0), "", "Pharmacy Counter Dispensing", round2(reportData.modeB?.revenue ?? (fin.netSales * 0.35))]);
+  finSheet.addRow(["Card Swipes (Credit / Debit Cards)", round2(pay.BankCard || 0), "", "Total Amount Collected", round2(fin.netSales)]);
   finSheet.addRow(["Free Medicines Given (Complimentary)", `${sm.complimentaryUnits} units dispensed`, "", "Cost for Compliments", 0]);
 
   for (let r = 22; r <= 25; r++) {
@@ -174,12 +175,12 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
     type: "pattern", pattern: "solid", fgColor: { argb: "065F46" }
   };
 
-  const netCashflow = Number(fin.netSales || 0) - Number(sm.inwardPurchaseValuation || 0);
-  const totalStockAssets = Number(sm.currentStockValuationCost || 0);
+  const netCashflow = round2(Number(fin.netSales || 0) - Number(sm.inwardPurchaseValuation || 0));
+  const totalStockAssets = round2(Number(sm.currentStockValuationCost || 0));
   const healthVerdict = fin.netSales > 0 ? (fin.grossProfit > 0 ? "PROFITABLE & HEALTHY" : "BREAK-EVEN") : "READY FOR CLINICAL OPERATIONS";
 
-  finSheet.addRow(["Net Realized Sales (Inflow)", fin.netSales, "", "Operational Health Status", healthVerdict]);
-  finSheet.addRow(["Total Inward Stock Investment (Outflow)", sm.inwardPurchaseValuation, "", "Stock Inflow vs Outflow Ratio", sm.unitsSold > 0 ? `${(sm.inwardUnits / Math.max(1, sm.unitsSold)).toFixed(1)}x Refill Coverage` : "Initial Seeded"]);
+  finSheet.addRow(["Net Realized Sales (Inflow)", round2(fin.netSales), "", "Operational Health Status", healthVerdict]);
+  finSheet.addRow(["Total Inward Stock Investment (Outflow)", round2(sm.inwardPurchaseValuation), "", "Stock Inflow vs Outflow Ratio", sm.unitsSold > 0 ? `${(sm.inwardUnits / Math.max(1, sm.unitsSold)).toFixed(1)}x Refill Coverage` : "Initial Seeded"]);
   finSheet.addRow(["Net Operational Cashflow (Sales minus Inward Refills)", netCashflow, "", "Statutory GST Liability", `CGST: ₹${(gst.cgst || 0).toFixed(2)} | SGST: ₹${(gst.sgst || 0).toFixed(2)}`]);
   finSheet.addRow(["Total Clinic Drug Inventory Assets (At Cost)", totalStockAssets, "", "Pharmacy Audit Sign-off", "Verified Accurate per Drug Rules"]);
 
@@ -428,10 +429,10 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
       inw.expiry_date,
       qty,
       pPrice,
-      qty * pPrice,
-      mrp,
-      qty * mrp,
-      sPrice,
+      round2(qty * pPrice),
+      round2(mrp),
+      round2(qty * mrp),
+      round2(sPrice),
       inw.received_by || 'Admin'
     ]);
   });
@@ -525,19 +526,19 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   }
 
   (topProducts || []).forEach(p => {
-    const tot = Number(p.total || 0);
-    const cogs = Number(p.cogs || (tot * 0.72));
-    const profit = Number(p.profit || (tot - cogs));
-    const marginPct = tot > 0 ? Number(((profit / tot) * 100).toFixed(1)) : 0;
-    const mrpRevenue = tot * 1.15;
+    const tot = round2(p.total || 0);
+    const cogs = round2(p.cogs || round2(tot * 0.72));
+    const profit = round2(p.profit ?? (tot - cogs));
+    const marginPct = tot > 0 ? Number(((profit / tot) * 100).toFixed(2)) : 0;
+    const mrpRevenue = round2(tot * 1.15);
 
     prodSheet.addRow([
       p.name,
       p.quantity,
-      tot,
-      mrpRevenue,
-      cogs,
-      profit,
+      round2(tot),
+      round2(mrpRevenue),
+      round2(cogs),
+      round2(profit),
       `${marginPct}%`
     ]);
   });

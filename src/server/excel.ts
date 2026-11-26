@@ -64,7 +64,7 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   const tCell = finSheet.getCell("A1");
   tCell.value = `${clinicName} - ${reportTitle.toUpperCase()} (${periodLabel})`;
   tCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
-  tCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0F172A" } };
+  tCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "C25222" } };
   tCell.alignment = { vertical: "middle", horizontal: "center" };
 
   finSheet.addRow([]); // Blank row 3
@@ -74,13 +74,13 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   const sec1 = finSheet.getCell("A4");
   sec1.value = "1. CLINIC INCOME & SALES SUMMARY";
   sec1.font = { name: "Segoe UI", size: 11, bold: true, color: { argb: "FFFFFF" } };
-  sec1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
+  sec1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "EA580C" } };
 
   finSheet.addRow(["Sales Metric", "Amount (INR)", "", "Bill Counts & Status", "Count / Value"]);
   const hRow = finSheet.getRow(5);
   hRow.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
   hRow.getCell(1).fill = hRow.getCell(2).fill = hRow.getCell(4).fill = hRow.getCell(5).fill = {
-    type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" }
+    type: "pattern", pattern: "solid", fgColor: { argb: "C25222" }
   };
 
   finSheet.addRow(["Total MRP Value of Medicines Sold", round2(fin.grossSales), "", "Total Bills Generated", reportData.billCount || allBills.length]);
@@ -204,7 +204,7 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   const sTitle = stockSheet.getCell("A1");
   sTitle.value = `MASTER STOCK MANAGEMENT & INVENTORY LEDGER - ${periodLabel}`;
   sTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
-  sTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "1E293B" } };
+  sTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "C25222" } };
 
   stockSheet.addRow([]);
   const stockHeaders = [
@@ -293,7 +293,7 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   const salesTitle = salesSheet.getCell("A1");
   salesTitle.value = `ITEMIZED BILLING & DRUG DISPENSING REGISTER - ${periodLabel}`;
   salesTitle.font = { name: "Segoe UI", size: 13, bold: true, color: { argb: "FFFFFF" } };
-  salesTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" } };
+  salesTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "C25222" } };
 
   salesSheet.addRow([]);
   const salesHeaders = [
@@ -323,7 +323,7 @@ export async function buildDetailedFinancialWorkbook(reportData: any, reportTitl
   slHRow.font = { name: "Segoe UI", size: 9.5, bold: true, color: { argb: "FFFFFF" } };
   slHRow.height = 24;
   for (let c = 1; c <= salesHeaders.length; c++) {
-    slHRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
+    slHRow.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "EA580C" } };
     slHRow.getCell(c).alignment = { vertical: "middle", horizontal: "center" };
   }
 
@@ -612,7 +612,7 @@ export async function generateMedicineImportTemplate(clinicName: string = "MADRA
   const titleCell = sheet.getCell("A1");
   titleCell.value = `${safeName} - MEDICINE IMPORT & INVENTORY TEMPLATE`;
   titleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
-  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0284C7" } };
+  titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "EA580C" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
   sheet.getRow(1).height = 28;
 
@@ -620,8 +620,8 @@ export async function generateMedicineImportTemplate(clinicName: string = "MADRA
   sheet.mergeCells("A2:M2");
   const noteCell = sheet.getCell("A2");
   noteCell.value = "Instructions: Fill medicine & stock details. Note: 'MRP' is the printed retail maximum, and 'Price Sold At' is the rate charged by the clinic. Both must be specified. Valid GST rates: 0%, 5%, 12%, 18%.";
-  noteCell.font = { name: "Segoe UI", size: 9, italic: true, color: { argb: "475569" } };
-  noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F0F9FF" } };
+  noteCell.font = { name: "Segoe UI", size: 9, italic: true, color: { argb: "9A3412" } };
+  noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7ED" } };
   noteCell.alignment = { vertical: "middle", horizontal: "left" };
   sheet.getRow(2).height = 22;
 
@@ -648,13 +648,13 @@ export async function generateMedicineImportTemplate(clinicName: string = "MADRA
   headers.forEach((_, idx) => {
     const cell = headerRow.getCell(idx + 1);
     cell.font = { name: "Segoe UI", size: 10, bold: true, color: { argb: "FFFFFF" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0369A1" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "C25222" } };
     cell.alignment = { vertical: "middle", horizontal: "center" };
     cell.border = {
-      top: { style: "thin", color: { argb: "0284C7" } },
-      bottom: { style: "medium", color: { argb: "0C4A6E" } },
-      left: { style: "thin", color: { argb: "0284C7" } },
-      right: { style: "thin", color: { argb: "0284C7" } }
+      top: { style: "thin", color: { argb: "EA580C" } },
+      bottom: { style: "medium", color: { argb: "9A3412" } },
+      left: { style: "thin", color: { argb: "EA580C" } },
+      right: { style: "thin", color: { argb: "EA580C" } }
     };
   });
 

@@ -545,7 +545,13 @@ async function runTests() {
       try {
         await new Promise((resolve, reject) => {
           client.once('error', reject);
-          client.bind(0, primaryIp, () => resolve());
+          client.bind(0, primaryIp, () => {
+            try {
+              client.setMulticastInterface(primaryIp);
+              client.setMulticastLoopback(true);
+            } catch {}
+            resolve();
+          });
         });
 
         const aPacket = await new Promise((resolve, reject) => {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#EA580C</color>
+    <color name="colorPrimaryDark">#C25222</color>
+    <color name="colorAccent">#F97316</color>
+    <color name="clinicBackground">#FFFBF7</color>
+</resources>

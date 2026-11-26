@@ -2432,16 +2432,16 @@ export default function App() {
           <style>
             @page { size: A4; margin: 15mm; }
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; font-size: 12px; line-height: 1.4; }
-            .header { border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+            .header { border-bottom: 2px solid #c25222; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
             .clinic-name { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 2px; }
             .clinic-sub { font-size: 11px; color: #64748b; font-weight: 600; }
-            .grn-badge { background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 6px 12px; border-radius: 8px; font-weight: 800; text-align: right; }
-            .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 11px; }
+            .grn-badge { background: #fff7ed; border: 1px solid #fdba74; color: #c25222; padding: 6px 12px; border-radius: 8px; font-weight: 800; text-align: right; }
+            .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; background: #fffaf5; border: 1px solid #fed7aa; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 11px; }
             .info-item { display: flex; flex-direction: column; }
             .info-label { font-size: 9.5px; text-transform: uppercase; color: #64748b; font-weight: 700; margin-bottom: 2px; }
             .info-val { font-weight: 600; color: #0f172a; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
-            th { background: #0f172a; color: #ffffff; text-align: left; padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+            th { background: #c25222; color: #ffffff; text-align: left; padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
             td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
             tr:nth-child(even) { background: #f8fafc; }
             .text-right { text-align: right; }
@@ -3251,18 +3251,18 @@ export default function App() {
 
   if (!currentUser) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950 text-slate-100 p-4 font-sans select-none">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#FFF8F2] via-white to-orange-50 text-slate-900 p-4 font-sans select-none">
+        <div className="w-full max-w-md bg-white border-2 border-orange-200 rounded-2xl shadow-2xl shadow-orange-950/10 overflow-hidden">
           {/* Header Banner */}
-          <div className="bg-gradient-to-r from-sky-700 via-sky-600 to-cyan-500 p-6 text-white">
+          <div className="bg-gradient-to-r from-[#C25222] via-orange-600 to-amber-500 p-6 text-white">
             <div className={`flex items-center ${isMobileView ? 'justify-center' : 'space-x-3'}`}>
-              <div className="bg-white/20 backdrop-blur rounded-xl overflow-hidden w-12 h-12 flex-shrink-0 flex items-center justify-center">
-                <img src="./icon.png" alt="Clinic Logo" className="w-12 h-12 object-cover" />
+              <div className="bg-white p-1 rounded-xl overflow-hidden w-12 h-12 flex-shrink-0 flex items-center justify-center shadow-md ring-2 ring-white/40">
+                <img src="./icon.png" alt="Clinic Logo" className="w-full h-full object-cover rounded-lg" />
               </div>
               {!isMobileView && (
                 <div>
                   <h2 className="text-xl font-black tracking-tight">MADRAS ORTHO CLINIC SOFTWARE</h2>
-                  <p className="text-xs font-bold text-white/80">Mission for Cure — Select Account</p>
+                  <p className="text-xs font-bold text-white/90">Mission for Cure — Select Account</p>
                 </div>
               )}
             </div>
@@ -3270,14 +3270,14 @@ export default function App() {
 
           <form onSubmit={handleLogin} className="p-6 space-y-4">
             {loginError && (
-              <div className="flex items-center space-x-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs">
+              <div className="flex items-center space-x-2 p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 text-xs">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{loginError}</span>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Select User Account</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Select User Account</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -3287,8 +3287,8 @@ export default function App() {
                     setLoginError('');
                   }}
                   className={`flex items-center justify-center px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${loginForm.username === 'admin'
-                    ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-md shadow-amber-500/10'
-                    : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                    ? 'bg-orange-50 border-orange-500 text-[#C25222] shadow-md shadow-orange-500/10'
+                    : 'bg-orange-50/70 border-orange-200 text-slate-600 hover:bg-orange-50/70'
                     }`}
                 >
                   <Shield className="w-3.5 h-3.5 mr-2" />
@@ -3302,8 +3302,8 @@ export default function App() {
                     setLoginError('');
                   }}
                   className={`flex items-center justify-center px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${loginForm.username === 'employee'
-                    ? 'bg-blue-500/20 border-blue-500 text-blue-400 shadow-md shadow-blue-500/10'
-                    : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                    ? 'bg-teal-50 border-teal-500 text-teal-700 shadow-md shadow-teal-500/10'
+                    : 'bg-orange-50/70 border-orange-200 text-slate-600 hover:bg-orange-50/70'
                     }`}
                 >
                   <Users className="w-3.5 h-3.5 mr-2" />
@@ -3313,7 +3313,7 @@ export default function App() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type="password"
@@ -3323,7 +3323,7 @@ export default function App() {
                     if (isLoggingIn) setIsLoggingIn(false);
                   }}
                   placeholder={`Enter password for ${loginForm.username}...`}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  className="w-full pl-10 pr-4 py-3 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-slate-900 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                   autoFocus
                 />
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
@@ -3333,46 +3333,46 @@ export default function App() {
             <button
               type="submit"
               disabled={isLoggingIn || !loginForm.password.trim()}
-              className="w-full py-3.5 bg-gradient-to-r from-sky-600 to-cyan-500 hover:from-sky-700 hover:to-cyan-600 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-sky-500/20 active:scale-98 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              className="w-full py-3.5 bg-gradient-to-r from-[#C25222] via-orange-600 to-amber-500 hover:from-[#a8441b] hover:via-orange-700 hover:to-amber-600 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-orange-500/25 active:scale-98 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
               {isLoggingIn && loginForm.password.trim().length > 0 ? "Authenticating..." : `Login as ${loginForm.username.toUpperCase()}`}
             </button>
 
             {isFirstTimeEver && (
-              <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-[11px] text-slate-400 space-y-1">
-                <p className="font-bold text-slate-300">Default Passwords (First-Time Only):</p>
-                <p>• Admin: <code className="text-amber-400 bg-slate-900 px-1.5 py-0.5 rounded">admin123</code></p>
-                <p>• Employee: <code className="text-blue-400 bg-slate-900 px-1.5 py-0.5 rounded">employee123</code></p>
+              <div className="p-3 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-[11px] text-slate-600 space-y-1">
+                <p className="font-bold text-slate-700">Default Passwords (First-Time Only):</p>
+                <p>• Admin: <code className="text-amber-700 bg-white px-1.5 py-0.5 rounded">admin123</code></p>
+                <p>• Employee: <code className="text-teal-700 bg-white px-1.5 py-0.5 rounded">employee123</code></p>
               </div>
             )}
 
-            <div className="pt-1 border-t border-slate-800/80">
+            <div className="pt-1 border-t border-orange-200/80">
               <button
                 type="button"
                 onClick={() => {
                   setLoginServerUrl(getSavedClinicServerUrl() || getApiBaseUrl());
                   setShowLoginServerConfig(prev => !prev);
                 }}
-                className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-400 hover:text-sky-400 py-1 transition-colors"
+                className="w-full flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#C25222] py-1 transition-colors"
               >
                 <span className="flex items-center gap-1.5">
-                  <Wifi className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Clinic Server: <code className="text-slate-300 font-mono">{getApiBaseUrl()}</code></span>
+                  <Wifi className="w-3.5 h-3.5 text-[#C25222]" />
+                  <span>Clinic Server: <code className="text-slate-700 font-mono">{getApiBaseUrl()}</code></span>
                 </span>
                 <span>{showLoginServerConfig ? 'Hide' : 'Configure LAN'}</span>
               </button>
 
               {showLoginServerConfig && (
-                <div className="mt-2 p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                <div className="mt-2 p-3 bg-white border border-orange-200/80 rounded-xl space-y-2">
                   <input
                     type="text"
                     value={loginServerUrl}
                     onChange={(e) => setLoginServerUrl(e.target.value)}
                     placeholder="http://192.168.x.x:4848 or http://madrasorthoclinic.local:4848"
-                    className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-[11px] font-mono text-slate-100 focus:outline-none focus:border-sky-500"
+                    className="w-full px-2.5 py-1.5 bg-white border border-orange-200 rounded-lg text-[11px] font-mono text-slate-900 focus:outline-none focus:border-orange-300"
                   />
                   {loginServerStatus && (
-                    <div className={`text-[10px] px-2 py-1 rounded border ${loginServerStatus.ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+                    <div className={`text-[10px] px-2 py-1 rounded border ${loginServerStatus.ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700' : 'bg-rose-500/10 border-rose-500/30 text-rose-600'}`}>
                       {loginServerStatus.msg}
                     </div>
                   )}
@@ -3395,7 +3395,7 @@ export default function App() {
                           setLoginServerStatus({ ok: false, msg: 'Unreachable. Verify Wi-Fi and port 4848.' });
                         }
                       }}
-                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[11px] font-bold"
+                      className="px-2.5 py-1.5 bg-orange-50/70 hover:bg-orange-100 text-slate-800 rounded-lg text-[11px] font-bold"
                     >
                       Test Ping
                     </button>
@@ -3408,7 +3408,7 @@ export default function App() {
                         setAuthToken(null);
                         setLoginServerStatus({ ok: true, msg: `Saved server host: ${target}` });
                       }}
-                      className="flex-1 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[11px] font-bold"
+                      className="flex-1 py-1.5 bg-orange-600 hover:bg-orange-600 text-white rounded-lg text-[11px] font-bold"
                     >
                       Save Host
                     </button>
@@ -3422,7 +3422,7 @@ export default function App() {
                           setLoginServerUrl(autoUrl);
                           setLoginServerStatus({ ok: true, msg: `Reset to auto-detect (${autoUrl})` });
                         }}
-                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[11px] font-bold"
+                        className="px-2.5 py-1.5 bg-orange-50/70 hover:bg-orange-100 text-slate-600 rounded-lg text-[11px] font-bold"
                       >
                         Reset
                       </button>
@@ -3432,9 +3432,9 @@ export default function App() {
               )}
             </div>
           </form>
-          <div className="px-6 py-3 bg-slate-950/70 border-t border-slate-800/80 text-center space-y-0.5">
-            <div className="text-[11px] font-semibold text-slate-300">
-              © 2026 <span className="text-sky-400 font-bold">RegulaVitae</span>. All Rights Reserved.
+          <div className="px-6 py-3 bg-[#FFFBF7] border-t border-orange-200/80 text-center space-y-0.5">
+            <div className="text-[11px] font-semibold text-slate-700">
+              © 2026 <span className="text-[#C25222] font-bold">RegulaVitae</span>. All Rights Reserved.
             </div>
             <div className="text-[10px] text-slate-500">
               Developed &amp; Licensed by RegulaVitae · Clinical &amp; Pharmacy Software Systems
@@ -3457,22 +3457,22 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 font-sans text-slate-100 select-none overflow-hidden theme-pharmacy-blue">
+    <div className="flex flex-col h-screen bg-[#FFFBF7] font-sans text-slate-900 select-none overflow-hidden theme-clinic-orange-white">
 
       {/* ----------------- TOP NAVBAR PANEL ----------------- */}
-      <header className="flex items-center justify-between px-4 lg:px-6 py-2.5 lg:py-3 bg-slate-900 border-b border-slate-800 shadow-md">
+      <header className="flex items-center justify-between px-4 lg:px-6 py-2.5 lg:py-3 bg-white border-t-2 border-t-[#C25222] border-b-2 border-b-orange-200 shadow-sm">
         <div className="flex items-center space-x-3 lg:space-x-4">
           <div className="flex-shrink-0">
             <img
               src="./icon.png"
               alt="Clinic Logo"
-              className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl object-cover shadow-md shadow-sky-900/30"
+              className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl object-cover bg-white p-0.5 ring-1 ring-orange-200 shadow-sm"
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
 
           {/* Operating Mode Toggle (Mode A vs Mode B) */}
-          <div className="hidden md:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+          <div className="hidden md:flex items-center bg-orange-50/90 p-1 rounded-xl border border-orange-200 text-xs">
             <button
               onClick={() => {
                 setOperatingMode('CLINIC_DISPENSING');
@@ -3480,12 +3480,12 @@ export default function App() {
                 showToast("Operating in Mode A: Clinic Dispensing (TNCEA 1997 / Schedule K)", "info");
               }}
               className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${operatingMode === 'CLINIC_DISPENSING'
-                ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-gradient-to-r from-[#C25222] to-orange-600 text-white shadow-md shadow-orange-600/25'
+                : 'text-slate-600 hover:text-slate-800'
                 }`}
               title="Clinic Outpatient Dispensing under Tamil Nadu Clinical Establishments Act, 1997"
             >
-              <span className={`w-2 h-2 rounded-full ${operatingMode === 'CLINIC_DISPENSING' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${operatingMode === 'CLINIC_DISPENSING' ? 'bg-white animate-pulse' : 'bg-orange-300'}`}></span>
               Mode A: Clinic Dispensing
             </button>
             <button
@@ -3496,11 +3496,11 @@ export default function App() {
               }}
               className={`px-3 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${operatingMode === 'RETAIL_PHARMACY'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                : 'text-slate-400 hover:text-slate-200'
+                : 'text-slate-600 hover:text-slate-800'
                 }`}
               title="Retail Sale under Drugs and Cosmetics Rules Form 20B/21B and Section 42 of Pharmacy Act"
             >
-              <span className={`w-2 h-2 rounded-full ${operatingMode === 'RETAIL_PHARMACY' ? 'bg-white animate-pulse' : 'bg-slate-600'}`}></span>
+              <span className={`w-2 h-2 rounded-full ${operatingMode === 'RETAIL_PHARMACY' ? 'bg-white animate-pulse' : 'bg-orange-300'}`}></span>
               Mode B: Retail Pharmacy
             </button>
           </div>
@@ -3513,9 +3513,9 @@ export default function App() {
               setProductModalTab('manual');
               setShowProductCrudModal(true);
             }}
-            className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
+            className="flex items-center px-3 py-1.5 bg-orange-50/70 hover:bg-orange-100 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-orange-200 text-slate-800"
           >
-            <Edit className="w-3.5 h-3.5 mr-2 text-sky-400" />
+            <Edit className="w-3.5 h-3.5 mr-2 text-[#C25222]" />
             <span>Manage Medicines [CTRL+N]</span>
           </button>
 
@@ -3524,9 +3524,9 @@ export default function App() {
               setProductModalTab('excel');
               setShowProductCrudModal(true);
             }}
-            className="flex items-center px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-sky-500/30 text-sky-300"
+            className="flex items-center px-3 py-1.5 bg-orange-50 hover:bg-orange-50 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-orange-300 text-orange-700"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-sky-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-[#C25222]" />
             <span>Upload Excel</span>
           </button>
 
@@ -3537,9 +3537,9 @@ export default function App() {
                 setEditingEmployee({});
                 loadEmployees();
               }}
-              className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
+              className="flex items-center px-3 py-1.5 bg-orange-50/70 hover:bg-orange-100 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-orange-200 text-slate-800"
             >
-              <Users className="w-3.5 h-3.5 mr-2 text-purple-400" />
+              <Users className="w-3.5 h-3.5 mr-2 text-purple-600" />
               <span>Manage Employees</span>
             </button>
           )}
@@ -3550,19 +3550,19 @@ export default function App() {
                 setAdminProfileForm({ ...bakeryDetails });
                 setShowAdminProfileModal(true);
               }}
-              className="flex items-center px-3 py-1.5 bg-blue-950/60 hover:bg-blue-900/80 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-blue-700/60 text-blue-200"
+              className="flex items-center px-3 py-1.5 bg-teal-50 hover:bg-teal-100 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-teal-200 text-teal-800"
               title="Doctor Profile, Qualifications, Medical Council Reg & Clinic Licensure"
             >
-              <Stethoscope className="w-3.5 h-3.5 mr-2 text-cyan-400" />
+              <Stethoscope className="w-3.5 h-3.5 mr-2 text-teal-600" />
               <span>Doctor Profile & Licensure</span>
             </button>
           )}
 
           <button
             onClick={() => setShowAnalyticsModal(true)}
-            className="flex items-center px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-slate-700 text-slate-200"
+            className="flex items-center px-3 py-1.5 bg-orange-50/70 hover:bg-orange-100 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-orange-200 text-slate-800"
           >
-            <BarChart2 className="w-3.5 h-3.5 mr-2 text-emerald-400" />
+            <BarChart2 className="w-3.5 h-3.5 mr-2 text-emerald-700" />
             <span>Analytics Reports</span>
           </button>
 
@@ -3571,9 +3571,9 @@ export default function App() {
               fetchPatients();
               setShowPatientsModal(true);
             }}
-            className="flex items-center px-3 py-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-indigo-700/60 text-indigo-200"
+            className="flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 active:scale-95 transition-all text-xs font-semibold rounded-lg border border-indigo-200 text-indigo-800"
           >
-            <Users className="w-3.5 h-3.5 mr-2 text-indigo-400" />
+            <Users className="w-3.5 h-3.5 mr-2 text-indigo-600" />
             <span>Patients Database</span>
           </button>
 
@@ -3583,10 +3583,10 @@ export default function App() {
               fetchNotifications();
               setShowNotificationsModal(true);
             }}
-            className="relative p-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-lg border border-slate-700 text-slate-300 hover:text-white transition-colors"
+            className="relative p-1.5 bg-orange-50/70 hover:bg-orange-100 active:scale-95 rounded-lg border border-orange-200 text-slate-700 hover:text-[#C25222] transition-colors"
             title="Real-Time Expiry & Inventory Alerts"
           >
-            <Bell className="w-4 h-4 text-amber-400" />
+            <Bell className="w-4 h-4 text-amber-700" />
             {(() => {
               const smartCount = (notificationsData?.summary?.expiringSoonCount || 0) + (notificationsData?.summary?.lowStockCount || 0) + (notificationsData?.summary?.expiredCount || 0);
               if (smartCount <= 0) return null;
@@ -3600,25 +3600,25 @@ export default function App() {
 
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 text-slate-400 hover:text-slate-100 transition-colors"
+            className="p-1.5 bg-orange-50/70 hover:bg-orange-100 rounded-lg border border-orange-200 text-slate-600 hover:text-slate-900 transition-colors"
             title="Settings & Hardware Alignment"
           >
             <Settings className="w-4 h-4" />
           </button>
 
           {/* Logout Button */}
-          <div className="flex flex-col items-center justify-center pl-2.5 border-l border-slate-800 gap-0.5">
+          <div className="flex flex-col items-center justify-center pl-2.5 border-l border-orange-200/80 gap-0.5">
             <button
               onClick={handleLogout}
               title="Logout / Switch User"
-              className="flex items-center px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors active:scale-95"
+              className="flex items-center px-3 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20 rounded-lg text-xs font-semibold transition-colors active:scale-95"
             >
               <LogOut className="w-3.5 h-3.5 mr-1" />
               <span>Logout</span>
             </button>
             <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded leading-none ${currentUser?.role === 'admin'
-              ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
-              : 'text-slate-400 bg-slate-800 border border-slate-700'
+              ? 'text-amber-700 bg-amber-500/10 border border-amber-500/20'
+              : 'text-slate-600 bg-orange-50/70 border border-orange-200'
               }`}>
               {currentUser?.role === 'admin' ? 'admin' : 'employee'}
             </span>
@@ -3629,7 +3629,7 @@ export default function App() {
         <div className="flex lg:hidden items-center space-x-2">
           <button
             onClick={createNewBill}
-            className="flex items-center px-2.5 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 active:scale-95 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-bold transition-all"
+            className="flex items-center px-2.5 py-1.5 bg-orange-50 hover:bg-orange-50 active:scale-95 text-[#C25222] border border-orange-300 rounded-xl text-xs font-bold transition-all"
           >
             <Plus className="w-3.5 h-3.5 mr-1 stroke-[3]" />
             <span>New Rx</span>
@@ -3641,10 +3641,10 @@ export default function App() {
               fetchNotifications();
               setShowNotificationsModal(true);
             }}
-            className="relative p-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 rounded-xl text-xs transition-all"
+            className="relative p-2 bg-orange-50/70 hover:bg-orange-100 active:scale-95 text-slate-800 border border-orange-200 rounded-xl text-xs transition-all"
             title="Real-Time Alerts"
           >
-            <Bell className="w-4 h-4 text-amber-400" />
+            <Bell className="w-4 h-4 text-amber-700" />
             {(() => {
               const smartCount = (notificationsData?.summary?.expiringSoonCount || 0) + (notificationsData?.summary?.lowStockCount || 0) + (notificationsData?.summary?.expiredCount || 0);
               if (smartCount <= 0) return null;
@@ -3658,10 +3658,10 @@ export default function App() {
 
           <button
             onClick={() => setShowMobileNav(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 active:scale-95 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50/70 active:scale-95 text-slate-800 border border-orange-200 rounded-xl text-xs font-bold transition-all"
             aria-label="Open Navigation Menu"
           >
-            <Menu className="w-4 h-4 text-sky-400" />
+            <Menu className="w-4 h-4 text-[#C25222]" />
             <span className="text-[11px]">Menu</span>
           </button>
         </div>
@@ -3671,41 +3671,41 @@ export default function App() {
       <main className="flex flex-col lg:flex-row flex-1 overflow-hidden p-2 lg:p-3 gap-2 lg:gap-3">
 
         {/* === LEFT PANEL: Categories & Visual Products Grid === */}
-        <section className={`flex flex-col w-full lg:w-5/12 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'menu' ? 'flex flex-1' : 'hidden lg:flex'}`}>
+        <section className={`flex flex-col w-full lg:w-5/12 bg-white rounded-2xl border border-orange-200/80 shadow-xl overflow-hidden ${mobileTab === 'menu' ? 'flex flex-1' : 'hidden lg:flex'}`}>
 
           {/* Catalogue Search Header */}
-          <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
+          <div className="p-3 bg-white border-b border-orange-200/80 flex items-center gap-2">
             <div className="relative flex-1">
               <input
                 type="text"
                 value={catalogueSearch}
                 onChange={(e) => setCatalogueSearch(e.target.value)}
                 placeholder="Search 550+ medicines, categories..."
-                className="w-full pl-8 pr-7 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+                className="w-full pl-8 pr-7 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-300 transition-colors"
               />
               <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
               {catalogueSearch && (
                 <button
                   onClick={() => setCatalogueSearch('')}
-                  className="absolute right-2 top-2 text-slate-400 hover:text-white p-0.5"
+                  className="absolute right-2 top-2 text-slate-600 hover:text-[#C25222] p-0.5"
                   title="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-            <span className="text-[10px] font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2.5 py-2 rounded-xl whitespace-nowrap">
+            <span className="text-[10px] font-bold text-[#C25222] bg-orange-50 border border-orange-300 px-2.5 py-2 rounded-xl whitespace-nowrap">
               {visibleGridProducts.length} Meds
             </span>
           </div>
 
           {/* Quick Categories bar with FIXED Add Category button */}
-          <div className="flex items-center p-2 gap-2 bg-slate-900/90 border-b border-slate-800 flex-shrink-0">
+          <div className="flex items-center p-2 gap-2 bg-white border-b border-orange-200/80 flex-shrink-0">
             {currentUser?.role === 'admin' && (
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(true)}
-                className="px-3 py-1.5 text-xs font-black rounded-xl transition-all flex-shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center gap-1.5 shadow-md shadow-sky-500/20 active:scale-95"
+                className="px-3 py-1.5 text-xs font-black rounded-xl transition-all flex-shrink-0 bg-gradient-to-r from-[#C25222] to-orange-500 hover:from-[#a8441b] hover:to-orange-600 text-white flex items-center gap-1.5 shadow-md shadow-orange-500/20 active:scale-95"
                 title="Create custom category (Always Visible)"
               >
                 <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -3718,8 +3718,8 @@ export default function App() {
               <button
                 onClick={() => setSelectedCategory('All')}
                 className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === 'All'
-                  ? 'bg-sky-600 text-white font-black shadow-md shadow-sky-600/30'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-orange-600 text-white font-black shadow-md shadow-orange-500/20'
+                  : 'bg-orange-50/70 text-slate-700 hover:bg-orange-100 hover:text-white'
                   }`}
               >
                 All Medicines
@@ -3729,8 +3729,8 @@ export default function App() {
                   key={c}
                   onClick={() => setSelectedCategory(c)}
                   className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0 ${selectedCategory === c
-                    ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20 scale-105'
-                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    ? 'bg-orange-600 text-white font-black shadow-md shadow-orange-500/20 scale-105'
+                    : 'bg-orange-50/70 text-slate-700 hover:bg-orange-100 hover:text-white'
                     }`}
                 >
                   {c}
@@ -3743,17 +3743,17 @@ export default function App() {
           <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
             {visibleGridProducts.length === 0 ? (
               <div className="col-span-full py-16 flex flex-col items-center justify-center text-center text-slate-500 space-y-3">
-                <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600">
+                <div className="w-16 h-16 rounded-2xl bg-white border border-orange-200/80 flex items-center justify-center text-slate-600">
                   <Package className="w-8 h-8" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-300">No medicines found in "{selectedCategory}"</h4>
+                  <h4 className="text-sm font-bold text-slate-700">No medicines found in "{selectedCategory}"</h4>
                   <p className="text-xs text-slate-500 mt-1">Try selecting another category or clearing your search query.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setSelectedCategory('All'); setCatalogueSearch(''); }}
-                  className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-bold transition-all"
+                  className="px-4 py-2 bg-orange-50 hover:bg-orange-50 text-[#C25222] border border-orange-300 rounded-xl text-xs font-bold transition-all"
                 >
                   View All Medicines ({products.length})
                 </button>
@@ -3780,61 +3780,61 @@ export default function App() {
                   <div
                     key={p.id}
                     className={`flex flex-col justify-between p-3.5 rounded-2xl border text-left transition-all shadow-sm ${isExpired
-                      ? 'bg-rose-950/20 border-rose-900/50 text-slate-500 opacity-75'
+                      ? 'bg-rose-50 border-rose-200 text-slate-500 opacity-75'
                       : isOutOfStock
-                        ? 'bg-slate-950/40 border-slate-900 text-slate-600 opacity-60'
-                        : 'bg-slate-800/40 border-slate-800/90 hover:border-sky-500/50 hover:bg-slate-800/70'
+                        ? 'bg-[#FFFBF7] border-orange-200 text-slate-600 opacity-60'
+                        : 'bg-orange-50/70 border-orange-200/80 hover:border-orange-300 hover:bg-orange-50/70'
                       }`}
                   >
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1.5 flex-wrap">
-                        <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-400 border border-sky-500/20 truncate max-w-[130px]">
+                        <span className="text-[9px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded-md bg-orange-50 text-[#C25222] border border-orange-300 truncate max-w-[130px]">
                           {p.category}
                         </span>
                         <div className="flex items-center gap-1">
                           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${isExpired
-                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            ? 'bg-rose-500/15 text-rose-600 border-rose-500/30'
                             : isOutOfStock
-                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                              ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
                               : availStock <= 15
-                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                ? 'bg-amber-500/10 text-amber-700 border-amber-500/20'
+                                : 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
                             }`}>
                             Stk: {availStock}
                           </span>
-                          <span className="text-[9px] uppercase font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                          <span className="text-[9px] uppercase font-bold text-slate-600 bg-white px-1.5 py-0.5 rounded border border-orange-200/80">
                             {p.quantity_type}
                           </span>
                         </div>
                       </div>
-                      <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 line-clamp-2 leading-snug">
                         {p.name}
                       </h4>
                       {p.expiry_date && (
-                        <span className={`text-[9px] font-mono mt-1 block ${isExpired ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
+                        <span className={`text-[9px] font-mono mt-1 block ${isExpired ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
                           Exp: {String(p.expiry_date).substring(0, 10)} {isExpired ? '(EXPIRED)' : ''}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-end justify-between mt-3 pt-2.5 border-t border-slate-800/70">
+                    <div className="flex items-end justify-between mt-3 pt-2.5 border-t border-orange-200/80">
                       <div className="flex flex-col">
                         <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <span className="text-sm font-bold font-mono text-emerald-400 leading-none">
+                          <span className="text-sm font-bold font-mono text-emerald-700 leading-none">
                             ₹{sellingVal.toFixed(2)}
                           </span>
                           {hasConcession && (
-                            <span className="text-[10px] text-slate-400 line-through font-mono">
+                            <span className="text-[10px] text-slate-600 line-through font-mono">
                               MRP ₹{mrpVal.toFixed(2)}
                             </span>
                           )}
                         </div>
                         {hasConcession && (
-                          <span className="text-[9px] font-bold text-emerald-400/90 mt-0.5">
+                          <span className="text-[9px] font-bold text-emerald-700 mt-0.5">
                             Save ₹{(mrpVal - sellingVal).toFixed(2)}
                           </span>
                         )}
-                        <span className="text-[8.5px] text-amber-400/80 font-medium">
+                        <span className="text-[8.5px] text-amber-700 font-medium">
                           {p.tax_percent}% GST
                         </span>
                       </div>
@@ -3843,10 +3843,10 @@ export default function App() {
                         onClick={() => addItemToBill(p, 1)}
                         disabled={isExpired || isOutOfStock}
                         className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center space-x-1 active:scale-95 transition-all ${isExpired
-                          ? 'bg-rose-950/40 text-rose-400 border border-rose-800/80 cursor-not-allowed text-[10px]'
+                          ? 'bg-rose-50 text-rose-600 border border-rose-200 cursor-not-allowed text-[10px]'
                           : isOutOfStock
-                            ? 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed text-[10px]'
-                            : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 font-black'
+                            ? 'bg-slate-100 text-slate-600 border border-slate-200 cursor-not-allowed text-[10px]'
+                            : 'bg-gradient-to-r from-[#C25222] to-orange-500 hover:from-[#a8441b] hover:to-orange-600 text-white shadow-sm shadow-orange-500/20 font-black'
                           }`}
                       >
                         {isExpired ? (
@@ -3868,12 +3868,12 @@ export default function App() {
         </section>
 
         {/* === CENTER PANEL: Current Active Ticket Details === */}
-        <section className={`flex flex-col w-full lg:flex-1 bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'ticket' ? 'flex flex-1' : 'hidden lg:flex'}`}>
+        <section className={`flex flex-col w-full lg:flex-1 bg-white rounded-xl border border-orange-200/80 shadow-xl overflow-hidden ${mobileTab === 'ticket' ? 'flex flex-1' : 'hidden lg:flex'}`}>
 
           {/* Header & Scanning Bar */}
-          <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-3">
+          <div className="p-3 bg-white border-b border-orange-200/80 flex items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
-              <span className="px-2 py-0.5 bg-slate-800 rounded text-xs font-bold text-bakery-400 border border-slate-700">
+              <span className="px-2 py-0.5 bg-orange-50/70 rounded text-xs font-bold text-orange-600 border border-orange-200">
                 Bill #{activeSession?.billNumber || 0}
               </span>
               {activeSession?.holdStatus && (
@@ -3898,7 +3898,7 @@ export default function App() {
                   onFocus={() => setIsSearchFocused(true)}
                   onBlur={() => setTimeout(() => setIsSearchFocused(false), 120)}
                   placeholder="Scan barcode or type to search... [F2]"
-                  className="w-full pl-9 pr-8 py-1.5 bg-slate-950 border border-slate-800 text-xs rounded-md placeholder-slate-500 text-slate-200 focus:border-bakery-500 focus:outline-none transition-colors"
+                  className="w-full pl-9 pr-8 py-1.5 bg-[#FFFBF7] border border-orange-200/80 text-xs rounded-md placeholder-slate-400 text-slate-800 focus:border-bakery-500 focus:outline-none transition-colors"
                   autoComplete="off"
                 />
                 <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
@@ -3906,7 +3906,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => { setSearchQuery(''); setIsSearchFocused(false); barcodeInputRef.current?.focus(); }}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                    className="absolute right-3 top-2.5 text-slate-600 hover:text-[#C25222]"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -3915,9 +3915,9 @@ export default function App() {
 
               {/* Inline Dropdown Suggestions */}
               {isSearchFocused && filteredSearchProducts.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl shadow-slate-950/80 z-50 overflow-hidden max-h-72 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-orange-200 rounded-lg shadow-2xl shadow-orange-950/15 z-50 overflow-hidden max-h-72 overflow-y-auto">
                   {/* Hint row */}
-                  <div className="px-3 py-1.5 border-b border-slate-800 flex items-center justify-between">
+                  <div className="px-3 py-1.5 border-b border-orange-200/80 flex items-center justify-between">
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{filteredSearchProducts.length} match{filteredSearchProducts.length !== 1 ? 'es' : ''} found</span>
                     <span className="text-[9px] text-slate-600">↑↓ Navigate · Enter to add</span>
                   </div>
@@ -3945,33 +3945,33 @@ export default function App() {
                         }}
                         onMouseEnter={() => setSearchSelectedIndex(idx)}
                         className={`flex items-center justify-between px-3 py-2 cursor-pointer transition-colors ${isExp || isOos
-                          ? 'opacity-60 bg-slate-950/40 hover:bg-slate-900 border-l-2 border-rose-500/40'
+                          ? 'opacity-60 bg-[#FFFBF7] hover:bg-white border-l-2 border-rose-500/40'
                           : searchSelectedIndex === idx
                             ? 'bg-bakery-500/20 border-l-2 border-bakery-500'
-                            : 'hover:bg-slate-800 border-l-2 border-transparent'
+                            : 'hover:bg-orange-50/70 border-l-2 border-transparent'
                           }`}
                       >
                         <div className="flex flex-col min-w-0">
-                          <span className={`text-xs font-semibold truncate ${isExp ? 'text-rose-400 line-through' : (isOos ? 'text-slate-400' : (searchSelectedIndex === idx ? 'text-bakery-300' : 'text-slate-200'))
+                          <span className={`text-xs font-semibold truncate ${isExp ? 'text-rose-600 line-through' : (isOos ? 'text-slate-600' : (searchSelectedIndex === idx ? 'text-[#C25222]' : 'text-slate-800'))
                             }`}>
                             {p.name}
                           </span>
                           <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
                             <span>{p.category}</span>
-                            <span className={`px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
+                            <span className={`px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-600 bg-rose-500/10' : (isOos ? 'text-rose-600 bg-rose-500/10' : 'text-emerald-700 bg-emerald-500/10')}`}>
                               Stk: {p.available_stock ?? (isOos ? 0 : 50)}
                             </span>
-                            {isExp && <span className="text-rose-400 font-bold uppercase text-[9px]">(Expired)</span>}
+                            {isExp && <span className="text-rose-600 font-bold uppercase text-[9px]">(Expired)</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                          <span className="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono uppercase">{p.quantity_type}</span>
+                          <span className="text-[9px] bg-orange-50/70 text-slate-600 px-1.5 py-0.5 rounded font-mono uppercase">{p.quantity_type}</span>
                           <div className="flex flex-col items-end">
-                            <span className={`text-xs font-bold font-mono ${searchSelectedIndex === idx ? 'text-emerald-300' : 'text-emerald-400'}`}>
+                            <span className={`text-xs font-bold font-mono ${searchSelectedIndex === idx ? 'text-emerald-700' : 'text-emerald-700'}`}>
                               ₹{sellingVal.toFixed(2)}
                             </span>
                             {mrpVal > sellingVal && (
-                              <span className="text-[9px] text-slate-400 line-through font-mono">
+                              <span className="text-[9px] text-slate-600 line-through font-mono">
                                 MRP ₹{mrpVal.toFixed(2)}
                               </span>
                             )}
@@ -3995,49 +3995,49 @@ export default function App() {
                   {activeSession.items.map((item, idx) => (
                     <div
                       key={item.product_id}
-                      className="p-3.5 bg-slate-800/60 border border-slate-700/80 rounded-2xl flex flex-col gap-2.5 shadow-sm"
+                      className="p-3.5 bg-orange-50/70 border border-orange-200 rounded-2xl flex flex-col gap-2.5 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold text-white block leading-snug">
+                          <span className="text-xs font-bold text-slate-900 block leading-snug">
                             {item.product_name}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                          <span className="text-[10px] text-slate-600 font-mono mt-0.5 block">
                             ₹{item.rate.toFixed(2)} / unit {item.tax_percent > 0 ? `· ${item.tax_percent}% GST` : ''}
                           </span>
                         </div>
                         <button
                           onClick={() => deleteItemFromBill(idx)}
-                          className="p-2 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-xl transition-colors active:scale-90"
+                          className="p-2 hover:bg-rose-500/20 text-slate-600 hover:text-rose-600 rounded-xl transition-colors active:scale-90"
                           title="Remove item"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
+                      <div className="flex items-center justify-between pt-2 border-t border-orange-200">
                         {/* Stepper with touch-friendly 36px buttons */}
-                        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl overflow-hidden p-0.5">
+                        <div className="flex items-center bg-[#FFFBF7] border border-orange-200/80 rounded-xl overflow-hidden p-0.5">
                           <button
                             onClick={() => updateItemQuantity(idx, Math.max(1, item.quantity - 1))}
-                            className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-90 text-white font-black rounded-lg text-sm"
+                            className="w-9 h-9 flex items-center justify-center bg-orange-50/70 hover:bg-orange-100 active:scale-90 text-slate-900 font-black rounded-lg text-sm"
                           >
                             -
                           </button>
-                          <span className="w-10 text-center font-mono font-bold text-sm text-sky-400">
+                          <span className="w-10 text-center font-mono font-bold text-sm text-[#C25222]">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => updateItemQuantity(idx, item.quantity + 1)}
-                            className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 active:scale-90 text-white font-black rounded-lg text-sm"
+                            className="w-9 h-9 flex items-center justify-center bg-orange-50/70 hover:bg-orange-100 active:scale-90 text-slate-900 font-black rounded-lg text-sm"
                           >
                             +
                           </button>
                         </div>
 
                         <div className="text-right">
-                          <span className="text-[9px] uppercase font-bold text-slate-400 block leading-none">Total</span>
-                          <span className="text-sm font-bold font-mono text-emerald-400">
+                          <span className="text-[9px] uppercase font-bold text-slate-600 block leading-none">Total</span>
+                          <span className="text-sm font-bold font-mono text-emerald-700">
                             ₹{item.total.toFixed(2)}
                           </span>
                         </div>
@@ -4049,7 +4049,7 @@ export default function App() {
                 {/* Desktop High-Speed Table */}
                 <table className="hidden lg:table w-full text-left border-collapse">
                   <thead>
-                    <tr className="text-[10px] uppercase font-bold text-slate-400 border-b border-slate-800 pb-2">
+                    <tr className="text-[10px] uppercase font-bold text-slate-600 border-b border-orange-200/80 pb-2">
                       <th className="py-2">Product Name</th>
                       <th className="py-2 text-right">Qty</th>
                       <th className="py-2 text-right">Price</th>
@@ -4067,25 +4067,25 @@ export default function App() {
                             return { ...s, selectedItemIndex: idx };
                           }));
                         }}
-                        className={`text-xs border-b border-slate-800/40 hover:bg-slate-800/20 cursor-pointer ${activeSession.selectedItemIndex === idx ? 'bg-slate-800/40' : ''
+                        className={`text-xs border-b border-orange-200/80 hover:bg-orange-50/70 cursor-pointer ${activeSession.selectedItemIndex === idx ? 'bg-orange-50/70' : ''
                           }`}
                       >
-                        <td className="py-2.5 font-semibold text-white">{item.product_name}</td>
+                        <td className="py-2.5 font-semibold text-slate-900">{item.product_name}</td>
                         <td className="py-2.5 text-right">
                           <input
                             type="number"
                             value={item.quantity}
                             min="1"
                             onChange={(e) => updateItemQuantity(idx, Number(e.target.value))}
-                            className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-800 text-right font-mono rounded text-slate-200 focus:border-sky-500"
+                            className="w-12 px-1 py-0.5 bg-[#FFFBF7] border border-orange-200/80 text-right font-mono rounded text-slate-800 focus:border-orange-300"
                           />
                         </td>
-                        <td className="py-2.5 text-right font-mono text-slate-400">₹{item.rate.toFixed(2)}</td>
-                        <td className="py-2.5 text-right font-mono font-bold text-emerald-400">₹{item.total.toFixed(2)}</td>
+                        <td className="py-2.5 text-right font-mono text-slate-600">₹{item.rate.toFixed(2)}</td>
+                        <td className="py-2.5 text-right font-mono font-bold text-emerald-700">₹{item.total.toFixed(2)}</td>
                         <td className="py-2.5 text-center">
                           <button
                             onClick={() => deleteItemFromBill(idx)}
-                            className="p-1 hover:bg-slate-800 text-slate-500 hover:text-rose-400 rounded transition-colors"
+                            className="p-1 hover:bg-orange-50/70 text-slate-500 hover:text-rose-600 rounded transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -4098,25 +4098,25 @@ export default function App() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-600 gap-2 p-6 text-center">
                 <ShoppingBag className="w-12 h-12 stroke-[1.2] text-slate-700" />
-                <span className="text-sm font-semibold text-slate-400">Active bill is currently empty</span>
+                <span className="text-sm font-semibold text-slate-600">Active bill is currently empty</span>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-slate-600">Select medicines from catalogue or scan barcode</span>
               </div>
             )}
           </div>
 
           {/* Ticket Summary Calculations Footer */}
-          <div className="p-4 bg-slate-900 border-t border-slate-800 flex flex-col gap-3">
-            <div className="grid grid-cols-3 gap-4">
+          <div className="p-4 bg-white border-t border-orange-200/80 flex flex-col gap-3">
+            <div className="grid grid-cols-12 gap-3 items-start">
 
               {/* Discount inputs */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Discount (%)</label>
+              <div className="col-span-4 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-1">
+                  <label className="text-[10px] font-bold text-slate-600 uppercase whitespace-nowrap">Discount (%)</label>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => handleSetDiscount(5)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${activeSession?.discountPercent === 5 ? 'bg-amber-500 text-slate-950 shadow-md ring-1 ring-amber-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                      className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${activeSession?.discountPercent === 5 ? 'bg-orange-600 text-white shadow-md ring-1 ring-orange-400' : 'bg-orange-50/70 text-slate-700 hover:bg-orange-100'}`}
                       title="Set 5% persistent discount on all bills"
                     >
                       5%
@@ -4124,7 +4124,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => handleSetDiscount(10)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${activeSession?.discountPercent === 10 ? 'bg-amber-500 text-slate-950 shadow-md ring-1 ring-amber-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
+                      className={`px-2 py-0.5 rounded text-[10px] font-black transition-all ${activeSession?.discountPercent === 10 ? 'bg-orange-600 text-white shadow-md ring-1 ring-orange-400' : 'bg-orange-50/70 text-slate-700 hover:bg-orange-100'}`}
                       title="Set 10% persistent discount on all bills"
                     >
                       10%
@@ -4133,7 +4133,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => handleSetDiscount(0)}
-                        className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800/80 text-slate-400 hover:text-rose-400"
+                        className="px-1.5 py-0.5 rounded text-[10px] bg-orange-50/70 text-slate-600 hover:text-rose-600"
                         title="Clear discount (0%)"
                       >
                         ✕
@@ -4150,12 +4150,12 @@ export default function App() {
                     const percent = Math.min(100, Math.max(0, Number(e.target.value)));
                     handleSetDiscount(percent);
                   }}
-                  className="px-2 py-1 bg-slate-950 border border-slate-800 text-xs rounded text-slate-200"
+                  className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 text-xs rounded text-slate-800"
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Discount Amount (₹)</label>
+              <div className="col-span-3 flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-600 uppercase whitespace-nowrap">Disc. Amt (₹)</label>
                 <input
                   type="number"
                   placeholder="0.00"
@@ -4167,31 +4167,31 @@ export default function App() {
                       return { ...s, discountAmount: amt, discountPercent: 0 };
                     }));
                   }}
-                  className="px-2 py-1 bg-slate-950 border border-slate-800 text-xs rounded text-slate-200"
+                  className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 text-xs rounded text-slate-800"
                 />
               </div>
 
               {/* Quick totals list with GST breakdown */}
-              <div className="flex flex-col justify-end text-right font-mono text-xs text-slate-400 space-y-1">
-                <div className="flex justify-between">
-                  <span>Subtotal (excl. GST):</span>
-                  <span>₹{billSummary.subtotal.toFixed(2)}</span>
+              <div className="col-span-5 flex flex-col justify-end font-mono text-[11px] text-slate-600 space-y-1 pl-2 border-l border-orange-100">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="whitespace-nowrap">Subtotal (excl. GST):</span>
+                  <span className="font-bold text-slate-800 shrink-0">₹{billSummary.subtotal.toFixed(2)}</span>
                 </div>
                 {billSummary.discount > 0 && (
-                  <div className="flex justify-between text-rose-400">
+                  <div className="flex items-center justify-between gap-2 text-rose-600">
                     <span>Discount:</span>
-                    <span>-₹{billSummary.discount.toFixed(2)}</span>
+                    <span className="font-bold shrink-0">-₹{billSummary.discount.toFixed(2)}</span>
                   </div>
                 )}
                 {billSummary.tax > 0 && (
                   <>
-                    <div className="flex justify-between text-amber-400">
+                    <div className="flex items-center justify-between gap-2 text-amber-700">
                       <span>CGST:</span>
-                      <span>+₹{(billSummary.cgst || 0).toFixed(2)}</span>
+                      <span className="font-semibold shrink-0">+₹{(billSummary.cgst || 0).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-amber-400">
+                    <div className="flex items-center justify-between gap-2 text-amber-700">
                       <span>SGST:</span>
-                      <span>+₹{(billSummary.sgst || 0).toFixed(2)}</span>
+                      <span className="font-semibold shrink-0">+₹{(billSummary.sgst || 0).toFixed(2)}</span>
                     </div>
                   </>
                 )}
@@ -4199,17 +4199,17 @@ export default function App() {
             </div>
 
             {/* Total Balance Actions panel */}
-            <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 mt-1">
+            <div className="flex items-center justify-between border-t border-orange-200/80 pt-3 mt-1">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase block leading-none">Total (incl. GST)</span>
-                <span className="text-2xl font-bold font-mono text-emerald-400">₹{billSummary.grandTotal.toFixed(2)}</span>
-                {billSummary.tax > 0 && <span className="text-[10px] text-amber-400 font-mono block">GST: ₹{billSummary.tax.toFixed(2)}</span>}
+                <span className="text-[10px] font-bold text-slate-600 uppercase block leading-none">Total (incl. GST)</span>
+                <span className="text-2xl font-bold font-mono text-emerald-700">₹{billSummary.grandTotal.toFixed(2)}</span>
+                {billSummary.tax > 0 && <span className="text-[10px] text-amber-700 font-mono block">GST: ₹{billSummary.tax.toFixed(2)}</span>}
               </div>
 
               <div className="flex space-x-2">
                 <button
                   onClick={toggleHold}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-xs font-bold rounded-lg border border-slate-700 text-slate-200"
+                  className="px-4 py-2 bg-orange-50/70 hover:bg-orange-100 active:scale-95 transition-all text-xs font-bold rounded-lg border border-orange-200 text-slate-800"
                 >
                   Hold Bill [F5]
                 </button>
@@ -4222,7 +4222,7 @@ export default function App() {
                       showToast("Active bill is empty.", "error");
                     }
                   }}
-                  className="px-5 py-2 bg-bakery-500 text-slate-950 hover:bg-bakery-400 active:scale-95 transition-all text-xs font-black rounded-lg shadow-lg shadow-bakery-500/20"
+                  className="px-5 py-2 bg-gradient-to-r from-[#C25222] via-orange-600 to-amber-500 text-white hover:from-[#a8441b] hover:via-orange-700 hover:to-amber-600 active:scale-95 transition-all text-xs font-black rounded-lg shadow-lg shadow-orange-500/25"
                 >
                   Pay & Print [F7]
                 </button>
@@ -4232,12 +4232,12 @@ export default function App() {
         </section>
 
         {/* === RIGHT PANEL: Active Customer Sessions List / Queue === */}
-        <section className={`flex flex-col w-full lg:w-3/12 bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden ${mobileTab === 'queue' ? 'flex flex-1' : 'hidden lg:flex'}`}>
-          <div className="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest">Active Queue</span>
+        <section className={`flex flex-col w-full lg:w-3/12 bg-white rounded-xl border border-orange-200/80 shadow-xl overflow-hidden ${mobileTab === 'queue' ? 'flex flex-1' : 'hidden lg:flex'}`}>
+          <div className="p-3 bg-white border-b border-orange-200/80 flex items-center justify-between">
+            <span className="text-xs font-bold text-[#C25222] uppercase tracking-widest">Active Queue</span>
             <button
               onClick={createNewBill}
-              className="p-1 hover:bg-slate-800 text-slate-300 hover:text-white rounded border border-slate-700/60"
+              className="p-1 hover:bg-orange-50/70 text-slate-700 hover:text-[#C25222] rounded border border-orange-200"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -4265,12 +4265,12 @@ export default function App() {
                     barcodeInputRef.current?.focus();
                   }}
                   className={`p-3 rounded-lg border text-left cursor-pointer transition-all relative flex flex-col gap-1.5 ${isActive
-                    ? 'bg-slate-800 border-bakery-500 shadow-md shadow-bakery-500/5'
-                    : 'bg-slate-950/40 border-slate-800/80 hover:bg-slate-900 hover:border-slate-700'
+                    ? 'bg-orange-50/70 border-bakery-500 shadow-md shadow-bakery-500/5'
+                    : 'bg-[#FFFBF7] border-orange-200/80 hover:bg-white hover:border-orange-200'
                     }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold ${isActive ? 'text-sky-400' : 'text-slate-400'}`}>
+                    <span className={`text-xs font-bold ${isActive ? 'text-[#C25222]' : 'text-slate-600'}`}>
                       Rx #{sess.billNumber}
                     </span>
                     <button
@@ -4278,25 +4278,25 @@ export default function App() {
                         e.stopPropagation();
                         closeSession(sess.id);
                       }}
-                      className="p-0.5 hover:bg-slate-700 rounded text-slate-500 hover:text-rose-400 transition-colors"
+                      className="p-0.5 hover:bg-orange-100 rounded text-slate-500 hover:text-rose-600 transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-medium text-slate-400 font-mono">
+                    <span className="text-[10px] font-medium text-slate-600 font-mono">
                       {sess.items.length} {sess.items.length === 1 ? 'item' : 'items'}
                     </span>
-                    <span className="text-xs font-bold font-mono text-emerald-400">
+                    <span className="text-xs font-bold font-mono text-emerald-700">
                       ₹{total.toFixed(2)}
                     </span>
                   </div>
 
                   {/* Status badges */}
-                  <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-orange-200/80">
                     <div className="flex items-center space-x-1">
-                      <span className="text-[9px] font-bold text-slate-400 bg-slate-900 px-1 py-0.5 rounded font-mono">
+                      <span className="text-[9px] font-bold text-slate-600 bg-white px-1 py-0.5 rounded font-mono">
                         ALT+{idx + 1}
                       </span>
                       {sess.holdStatus && (
@@ -4306,7 +4306,7 @@ export default function App() {
                       )}
                     </div>
                     {isActive && (
-                      <span className="text-[9px] uppercase font-extrabold text-sky-400 tracking-wider">ACTIVE</span>
+                      <span className="text-[9px] uppercase font-extrabold text-[#C25222] tracking-wider">ACTIVE</span>
                     )}
                   </div>
                 </div>
@@ -4314,7 +4314,7 @@ export default function App() {
             })}
           </div>
 
-          <div className="p-3 bg-slate-950 border-t border-slate-800/80 text-[10px] text-slate-500 font-mono flex flex-col gap-1">
+          <div className="p-3 bg-[#FFFBF7] border-t border-orange-200/80 text-[10px] text-slate-500 font-mono flex flex-col gap-1">
             <div className="flex justify-between">
               <span>F1: New Bill</span>
               <span>ALT + X: Close Tab</span>
@@ -4329,24 +4329,24 @@ export default function App() {
       </main>
 
       {/* ----------------- DESKTOP DEVELOPER COPYRIGHT FOOTER ----------------- */}
-      <footer className="hidden lg:flex items-center justify-between px-5 py-1 bg-slate-900/95 border-t border-slate-800/90 text-[10px] text-slate-400 shrink-0">
+      <footer className="hidden lg:flex items-center justify-between px-5 py-1 bg-white border-t border-orange-200/80 text-[10px] text-slate-600 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-300">Clinical &amp; Pharmacy POS Suite v1.0.0</span>
+          <span className="font-semibold text-slate-700">Clinical &amp; Pharmacy POS Suite v1.0.0</span>
           <span className="text-slate-600">•</span>
           <span>TNCEA &amp; D&amp;C Compliant Architecture</span>
         </div>
         <div>
-          &copy; 2026 <span className="font-bold text-sky-400">RegulaVitae</span>. All Rights Reserved &nbsp;·&nbsp; Developed by <span className="font-semibold text-slate-200">RegulaVitae</span>
+          &copy; 2026 <span className="font-bold text-[#C25222]">RegulaVitae</span>. All Rights Reserved &nbsp;·&nbsp; Developed by <span className="font-semibold text-orange-700">RegulaVitae</span>
         </div>
       </footer>
 
       {/* ----------------- MOBILE BOTTOM TAB NAVIGATION BAR (CLEAN & SPACIOUS) ----------------- */}
-      <nav aria-label="Mobile Navigation" className="lg:hidden flex items-center justify-around bg-slate-900/95 backdrop-blur-md border-t border-slate-800/90 py-2.5 px-4 shadow-2xl flex-shrink-0 z-40">
+      <nav aria-label="Mobile Navigation" className="lg:hidden flex items-center justify-around bg-white backdrop-blur-md border-t border-orange-200/80 py-2.5 px-4 shadow-2xl flex-shrink-0 z-40">
         <button
           onClick={() => setMobileTab('menu')}
           className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all active:scale-95 ${mobileTab === 'menu'
-            ? 'text-sky-400 font-bold bg-sky-500/10'
-            : 'text-slate-400 hover:text-slate-200'
+            ? 'text-[#C25222] font-bold bg-orange-50'
+            : 'text-slate-600 hover:text-slate-800'
             }`}
         >
           <ShoppingBag className="w-5 h-5" />
@@ -4356,14 +4356,14 @@ export default function App() {
         <button
           onClick={() => setMobileTab('ticket')}
           className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all relative active:scale-95 ${mobileTab === 'ticket'
-            ? 'text-sky-400 font-bold bg-sky-500/10'
-            : 'text-slate-400 hover:text-slate-200'
+            ? 'text-[#C25222] font-bold bg-orange-50'
+            : 'text-slate-600 hover:text-slate-800'
             }`}
         >
           <CreditCard className="w-5 h-5" />
           <span className="text-[11px] font-semibold tracking-wide">Current Bill</span>
           {activeSession && activeSession.items.length > 0 && (
-            <span className="absolute -top-0.5 right-1.5 bg-sky-500 text-slate-950 text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm">
+            <span className="absolute -top-0.5 right-1.5 bg-orange-600 text-white text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-orange-200 shadow-sm">
               {activeSession.items.length}
             </span>
           )}
@@ -4372,14 +4372,14 @@ export default function App() {
         <button
           onClick={() => setMobileTab('queue')}
           className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition-all relative active:scale-95 ${mobileTab === 'queue'
-            ? 'text-sky-400 font-bold bg-sky-500/10'
-            : 'text-slate-400 hover:text-slate-200'
+            ? 'text-[#C25222] font-bold bg-orange-50'
+            : 'text-slate-600 hover:text-slate-800'
             }`}
         >
           <Users className="w-5 h-5" />
           <span className="text-[11px] font-semibold tracking-wide">Queue</span>
           {sessions.length > 0 && (
-            <span className="absolute -top-0.5 right-1.5 bg-slate-700 text-slate-200 text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-slate-900 shadow-sm">
+            <span className="absolute -top-0.5 right-1.5 bg-orange-100 text-slate-800 text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center border-2 border-orange-200 shadow-sm">
               {sessions.length}
             </span>
           )}
@@ -4388,16 +4388,16 @@ export default function App() {
 
       {/* ----------------- SMART FUZZY PRODUCT SEARCH SEARCH MODAL ----------------- */}
       {showSearchModal && filteredSearchProducts.length > 0 && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-xl shadow-2xl flex flex-col max-h-[500px]">
-            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-              <span className="text-sm font-bold text-white flex items-center">
-                <Search className="w-4 h-4 mr-2 text-bakery-400" />
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-white border border-orange-200/80 rounded-xl w-full max-w-xl shadow-2xl flex flex-col max-h-[500px]">
+            <div className="p-4 bg-white border-b border-orange-200/80 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-900 flex items-center">
+                <Search className="w-4 h-4 mr-2 text-orange-600" />
                 Product Search Suggestions
               </span>
               <button
                 onClick={() => setShowSearchModal(false)}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                className="p-1 hover:bg-orange-50/70 rounded text-slate-600 hover:text-[#C25222]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -4422,37 +4422,37 @@ export default function App() {
                       }
                     }}
                     className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border ${isExp || isOos
-                      ? 'bg-slate-950/40 border-rose-500/30 opacity-60'
+                      ? 'bg-[#FFFBF7] border-rose-500/30 opacity-60'
                       : searchSelectedIndex === idx
-                        ? 'bg-slate-800 border-bakery-500'
-                        : 'bg-slate-950/20 border-transparent hover:bg-slate-800'
+                        ? 'bg-orange-50/70 border-bakery-500'
+                        : 'bg-[#FFFBF7] border-transparent hover:bg-orange-50/70'
                       }`}
                   >
                     <div>
-                      <span className={`text-xs font-bold block ${isExp ? 'text-rose-400 line-through' : 'text-white'}`}>
+                      <span className={`text-xs font-bold block ${isExp ? 'text-rose-600 line-through' : 'text-slate-900'}`}>
                         {p.name}
                       </span>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-slate-500 uppercase">{p.category}</span>
-                        <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-400 bg-rose-500/10' : (isOos ? 'text-rose-400 bg-rose-500/10' : 'text-emerald-400 bg-emerald-500/10')}`}>
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isExp ? 'text-rose-600 bg-rose-500/10' : (isOos ? 'text-rose-600 bg-rose-500/10' : 'text-emerald-700 bg-emerald-500/10')}`}>
                           Stk: {p.available_stock ?? (isOos ? 0 : 50)}
                         </span>
-                        {isExp && <span className="text-[9px] text-rose-400 font-bold uppercase">(Expired)</span>}
+                        {isExp && <span className="text-[9px] text-rose-600 font-bold uppercase">(Expired)</span>}
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-xs font-bold text-emerald-400 block font-mono">₹{sellingVal.toFixed(2)}</span>
+                      <span className="text-xs font-bold text-emerald-700 block font-mono">₹{sellingVal.toFixed(2)}</span>
                       {mrpVal > sellingVal && (
-                        <span className="text-[9px] text-slate-400 line-through font-mono block">MRP ₹{mrpVal.toFixed(2)}</span>
+                        <span className="text-[9px] text-slate-600 line-through font-mono block">MRP ₹{mrpVal.toFixed(2)}</span>
                       )}
-                      <span className="text-[9px] px-1 bg-slate-800 rounded text-slate-400 uppercase font-semibold">{p.quantity_type}</span>
+                      <span className="text-[9px] px-1 bg-orange-50/70 rounded text-slate-600 uppercase font-semibold">{p.quantity_type}</span>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="p-3 bg-slate-950 text-[10px] text-slate-500 font-mono flex justify-between border-t border-slate-800">
+            <div className="p-3 bg-[#FFFBF7] text-[10px] text-slate-500 font-mono flex justify-between border-t border-orange-200/80">
               <span>ENTER: Add Selected Item</span>
               <span>ESC: Cancel Search</span>
             </div>
@@ -4462,38 +4462,38 @@ export default function App() {
 
       {/* ----------------- DETAILED PAYMENT METHOD MODAL ----------------- */}
       {showPaymentModal && activeSession && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 bg-white backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white border border-orange-200/80 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
 
             {/* Modal Header */}
-            <div className="px-5 py-4 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+            <div className="px-5 py-4 bg-white border-b border-orange-200/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700">
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <h3 className="text-base font-bold text-white leading-tight">Billing Checkout & Dispensing</h3>
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                    <h3 className="text-base font-bold text-slate-900 leading-tight">Billing Checkout & Dispensing</h3>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-orange-50 text-[#C25222] border border-orange-300">
                       Bill #{activeSession.billNumber}
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-50/70 text-slate-700">
                       {activeSession.items.length} Item(s)
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Statutory dispensing compliance & financial settlement</p>
+                  <p className="text-[11px] text-slate-600">Statutory dispensing compliance & financial settlement</p>
                 </div>
               </div>
 
               {/* Operating Mode Selector in Header */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-slate-950 p-1 border border-slate-800 rounded-xl">
+                <div className="flex items-center bg-[#FFFBF7] p-1 border border-orange-200/80 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setOperatingMode('CLINIC_DISPENSING')}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${operatingMode === 'CLINIC_DISPENSING'
-                      ? 'bg-sky-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-white'
                       }`}
                   >
                     <Building2 className="w-3.5 h-3.5" />
@@ -4503,8 +4503,8 @@ export default function App() {
                     type="button"
                     onClick={() => setOperatingMode('RETAIL_PHARMACY')}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${operatingMode === 'RETAIL_PHARMACY'
-                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-[#C25222]'
                       }`}
                   >
                     <Store className="w-3.5 h-3.5" />
@@ -4514,7 +4514,7 @@ export default function App() {
 
                 <button
                   onClick={() => setShowPaymentModal(false)}
-                  className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
+                  className="p-2 hover:bg-orange-50/70 rounded-xl text-slate-600 hover:text-[#C25222] transition-colors"
                   aria-label="Close modal"
                 >
                   <X className="w-5 h-5" />
@@ -4530,13 +4530,13 @@ export default function App() {
 
                 {/* CDS Clinical Decision Support Alert Card */}
                 {clinicalAlerts.alerts && clinicalAlerts.alerts.length > 0 && (
-                  <div className="p-4 bg-slate-950 border border-rose-900/80 rounded-2xl space-y-3">
+                  <div className="p-4 bg-[#FFFBF7] border border-rose-200 rounded-2xl space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-rose-400 text-xs">
+                      <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-rose-600 text-xs">
                         <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
                         <span>Clinical Decision Support (CDS) Alerts ({clinicalAlerts.alerts.length})</span>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-rose-950 text-rose-300 border border-rose-800">
+                      <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">
                         Attention Required
                       </span>
                     </div>
@@ -4546,18 +4546,18 @@ export default function App() {
                         <div
                           key={idx}
                           className={`p-3 rounded-xl border text-xs leading-relaxed ${alert.severity === 'CRITICAL'
-                            ? 'bg-rose-950/60 border-rose-800/80 text-rose-200'
-                            : 'bg-amber-950/60 border-amber-800/80 text-amber-200'
+                            ? 'bg-rose-50 border-rose-200 text-rose-800'
+                            : 'bg-amber-50 border-amber-200 text-amber-800'
                             }`}
                         >
                           <div className="font-bold flex items-center justify-between text-[11px]">
                             <span>{alert.title}</span>
-                            <span className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-bold bg-slate-900/80">
+                            <span className="text-[9px] uppercase px-1.5 py-0.5 rounded font-mono font-bold bg-white">
                               {alert.severity}
                             </span>
                           </div>
-                          <div className="mt-1 text-slate-300 text-[11px]">{alert.message}</div>
-                          <div className="text-[10px] text-sky-300 mt-1.5 font-medium flex items-center gap-1">
+                          <div className="mt-1 text-slate-700 text-[11px]">{alert.message}</div>
+                          <div className="text-[10px] text-orange-700 mt-1.5 font-medium flex items-center gap-1">
                             <span className="font-bold">Recommendation:</span> {alert.recommendation}
                           </div>
                         </div>
@@ -4565,8 +4565,8 @@ export default function App() {
                     </div>
 
                     {clinicalAlerts.critical && clinicalAlerts.critical.length > 0 && (
-                      <div className="pt-3 border-t border-rose-900/60">
-                        <label className="text-[11px] font-bold text-rose-300 uppercase block mb-1.5">
+                      <div className="pt-3 border-t border-rose-200">
+                        <label className="text-[11px] font-bold text-rose-700 uppercase block mb-1.5">
                           Clinical Override Rationale * (Mandatory for Contraindications)
                         </label>
                         <input
@@ -4574,7 +4574,7 @@ export default function App() {
                           placeholder="e.g. Post-operative acute refractory flare under close clinical monitoring"
                           value={cdsOverrideReason}
                           onChange={(e) => setCdsOverrideReason(e.target.value)}
-                          className="w-full px-3 py-2 bg-slate-900 border border-rose-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-rose-400 font-medium"
+                          className="w-full px-3 py-2 bg-white border border-rose-700/80 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-rose-400 font-medium"
                         />
                       </div>
                     )}
@@ -4582,18 +4582,18 @@ export default function App() {
                 )}
 
                 {/* Patient & Prescriber Statutory Details Card */}
-                <div className="p-4 bg-slate-950/80 border border-slate-800/90 rounded-2xl flex flex-col gap-3.5">
-                  <div className="flex justify-between items-center border-b border-slate-800/80 pb-2.5">
-                    <span className="font-bold text-slate-200 flex items-center gap-2 uppercase tracking-wide text-xs">
-                      <FileText className="w-4 h-4 text-sky-400" />
+                <div className="p-4 bg-white border border-orange-200/80 rounded-2xl flex flex-col gap-3.5">
+                  <div className="flex justify-between items-center border-b border-orange-200/80 pb-2.5">
+                    <span className="font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wide text-xs">
+                      <FileText className="w-4 h-4 text-[#C25222]" />
                       Patient & Prescription Record (Rule 65 / TNCEA 1997)
                     </span>
                     {activeSession.items.some(it => String(it.schedule || '').toUpperCase().includes('SCHEDULE')) ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-950 text-red-300 border border-red-700/60 animate-pulse">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-red-300 border border-red-700/60 animate-pulse">
                         Schedule H / H1 Rx Mandatory
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[10px] text-slate-400 bg-slate-900 border border-slate-800">
+                      <span className="px-2 py-0.5 rounded text-[10px] text-slate-600 bg-white border border-orange-200/80">
                         Retail Cash Memo
                       </span>
                     )}
@@ -4601,23 +4601,23 @@ export default function App() {
 
                   {/* Mode A (Clinic Dispensing) Specific Box */}
                   {operatingMode === 'CLINIC_DISPENSING' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-sky-950/30 rounded-xl border border-sky-900/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-orange-50 rounded-xl border border-orange-200">
                       <div>
-                        <label className="text-[10px] font-bold text-sky-300 uppercase block mb-1">Clinic Patient MRN / ID *</label>
+                        <label className="text-[10px] font-bold text-orange-700 uppercase block mb-1">Clinic Patient MRN / ID *</label>
                         <input
                           type="text"
                           placeholder="e.g. MOC-2026-0042"
                           value={clinicPatientId}
                           onChange={(e) => setClinicPatientId(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-900 border border-sky-700 rounded-lg text-sky-200 font-mono text-xs focus:outline-none focus:border-sky-400 font-bold"
+                          className="w-full px-3 py-1.5 bg-white border border-orange-300 rounded-lg text-orange-800 font-mono text-xs focus:outline-none focus:border-sky-400 font-bold"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-sky-300 uppercase block mb-1">Dispensing Mode</label>
+                        <label className="text-[10px] font-bold text-orange-700 uppercase block mb-1">Dispensing Mode</label>
                         <select
                           value={dispensingMode}
                           onChange={(e: any) => setDispensingMode(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-900 border border-sky-700 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-sky-400"
+                          className="w-full px-3 py-1.5 bg-white border border-orange-300 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-sky-400"
                         >
                           <option value="Attached Pharmacist">Attached Pharmacist</option>
                           <option value="Doctor Direct Dispensing">Doctor Direct Dispensing</option>
@@ -4628,9 +4628,9 @@ export default function App() {
                   )}
 
                   {/* Patient Lookup & Disambiguation Selector */}
-                  <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                  <div className="p-3.5 bg-white border border-orange-200/80 rounded-xl space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <label className="text-[10px] font-bold text-[#C25222] uppercase tracking-wider flex items-center gap-1.5">
                         <Users className="w-3.5 h-3.5" />
                         Patient Database Lookup & Name Disambiguation
                       </label>
@@ -4640,7 +4640,7 @@ export default function App() {
                           fetchPatients();
                           setShowPatientsModal(true);
                         }}
-                        className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1"
+                        className="text-[10px] text-[#C25222] hover:text-orange-700 font-bold flex items-center gap-1"
                       >
                         <Plus className="w-3 h-3" /> Register New Patient
                       </button>
@@ -4661,19 +4661,19 @@ export default function App() {
                               fetchPatients();
                               setIsPatientDropdownOpen(true);
                             }}
-                            className="w-full pl-8 pr-9 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-medium"
+                            className="w-full pl-8 pr-9 py-2 bg-[#FFFBF7] border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-300 font-medium"
                           />
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                          <Search className="w-3.5 h-3.5 text-slate-600 absolute left-2.5 top-2.5" />
                           <button
                             type="button"
                             onClick={() => {
                               fetchPatients();
                               setIsPatientDropdownOpen(!isPatientDropdownOpen);
                             }}
-                            className="absolute right-2 top-2 p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
+                            className="absolute right-2 top-2 p-0.5 text-slate-600 hover:text-[#C25222] rounded hover:bg-orange-50/70"
                             title="Toggle patients list"
                           >
-                            <ChevronDown className={`w-4 h-4 transition-transform ${isPatientDropdownOpen ? 'rotate-180 text-sky-400' : ''}`} />
+                            <ChevronDown className={`w-4 h-4 transition-transform ${isPatientDropdownOpen ? 'rotate-180 text-[#C25222]' : ''}`} />
                           </button>
                         </div>
                         <button
@@ -4682,10 +4682,10 @@ export default function App() {
                             fetchPatients();
                             setIsPatientDropdownOpen(!isPatientDropdownOpen);
                           }}
-                          className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-700 shrink-0"
+                          className="px-2.5 py-2 bg-orange-50/70 hover:bg-orange-100 text-slate-700 hover:text-[#C25222] rounded-lg text-[10px] font-bold flex items-center gap-1 border border-orange-200 shrink-0"
                           title="Click to view all patients"
                         >
-                          <Users className="w-3 h-3 text-sky-400" />
+                          <Users className="w-3 h-3 text-[#C25222]" />
                           <span>All Patients ({patientsList.length})</span>
                         </button>
                         {selectedPatientObj && (
@@ -4700,7 +4700,7 @@ export default function App() {
                               setCheckoutPatientAge('');
                               setClinicPatientId('');
                             }}
-                            className="px-2 py-2 text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg border border-slate-700"
+                            className="px-2 py-2 text-[10px] bg-orange-50/70 hover:bg-orange-100 text-slate-600 hover:text-[#C25222] rounded-lg border border-orange-200"
                           >
                             Clear
                           </button>
@@ -4709,10 +4709,10 @@ export default function App() {
 
                       {/* Disambiguation Dropdown Menu */}
                       {isPatientDropdownOpen && (
-                        <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
-                          <div className="p-1.5 bg-slate-950/80 border-b border-slate-800 text-[10px] font-bold uppercase text-slate-400 px-3 flex justify-between items-center">
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-orange-200 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                          <div className="p-1.5 bg-white border-b border-orange-200/80 text-[10px] font-bold uppercase text-slate-600 px-3 flex justify-between items-center">
                             <span>Registered Patient Directory ({patientsList.length})</span>
-                            <span className="text-[9px] text-sky-400 font-mono">Select to autofill patient & doctor</span>
+                            <span className="text-[9px] text-[#C25222] font-mono">Select to autofill patient & doctor</span>
                           </div>
 
                           {patientsList.filter((p: any) => {
@@ -4727,7 +4727,7 @@ export default function App() {
                               (p.attending_doctor || '').toLowerCase().includes(q)
                             );
                           }).length === 0 ? (
-                            <div className="p-3 text-xs text-slate-400 text-center">
+                            <div className="p-3 text-xs text-slate-600 text-center">
                               No matching registered patient found. You can enter details manually below or click "+ Register New Patient".
                             </div>
                           ) : (
@@ -4746,38 +4746,38 @@ export default function App() {
                               <div
                                 key={p.id || p.patient_id}
                                 onClick={() => selectPatientInCheckout(p)}
-                                className="p-2.5 hover:bg-slate-800/90 border-b border-slate-800 cursor-pointer transition-colors flex items-center justify-between gap-2"
+                                className="p-2.5 hover:bg-orange-50/70 border-b border-orange-200/80 cursor-pointer transition-colors flex items-center justify-between gap-2"
                               >
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-white text-xs">{p.name}</span>
-                                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-sky-950 text-sky-300 border border-sky-800 rounded">
+                                    <span className="font-bold text-slate-900 text-xs">{p.name}</span>
+                                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-orange-50 text-orange-700 border border-orange-200 rounded">
                                       {p.patient_id}
                                     </span>
                                     {p.gender && (
-                                      <span className="text-[10px] text-slate-400">
+                                      <span className="text-[10px] text-slate-600">
                                         {p.gender}, {p.age ? `${p.age}y` : ''}
                                       </span>
                                     )}
                                     {p.is_example ? (
-                                      <span className="text-[8px] font-bold uppercase px-1 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                      <span className="text-[8px] font-bold uppercase px-1 py-0.2 rounded bg-amber-500/10 text-amber-700 border border-amber-500/20">
                                         Example
                                       </span>
                                     ) : null}
                                   </div>
-                                  <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
-                                    {p.guardian_name && <span className="text-slate-300 font-semibold">{p.guardian_name}</span>}
+                                  <div className="text-[10px] text-slate-600 mt-0.5 flex items-center gap-2 flex-wrap">
+                                    {p.guardian_name && <span className="text-slate-700 font-semibold">{p.guardian_name}</span>}
                                     {p.phone && <span>📞 {p.phone}</span>}
                                     {p.city && <span>📍 {p.city}</span>}
-                                    {p.attending_doctor && <span className="text-sky-300">👨‍⚕️ {p.attending_doctor}</span>}
+                                    {p.attending_doctor && <span className="text-orange-700">👨‍⚕️ {p.attending_doctor}</span>}
                                     {p.known_allergies && p.known_allergies.toLowerCase() !== 'none reported' && (
-                                      <span className="text-rose-400 font-semibold bg-rose-950/60 px-1 rounded">
+                                      <span className="text-rose-600 font-semibold bg-rose-50 px-1 rounded">
                                         ⚠️ Allergy: {p.known_allergies}
                                       </span>
                                     )}
                                   </div>
                                 </div>
-                                <span className="text-[10px] font-semibold text-sky-400 shrink-0">
+                                <span className="text-[10px] font-semibold text-[#C25222] shrink-0">
                                   Select →
                                 </span>
                               </div>
@@ -4789,16 +4789,16 @@ export default function App() {
 
                     {/* Active Patient Disambiguation Details Card */}
                     {selectedPatientObj && (
-                      <div className="p-2.5 bg-sky-950/20 border border-sky-800/40 rounded-lg text-xs space-y-1">
+                      <div className="p-2.5 bg-orange-50 border border-orange-200 rounded-lg text-xs space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-sky-300">
+                          <span className="font-bold text-orange-700">
                             Selected: {selectedPatientObj.name} ({selectedPatientObj.patient_id})
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-600">
                             {selectedPatientObj.guardian_name || ''}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-300 flex items-center gap-3 flex-wrap">
+                        <div className="text-[11px] text-slate-700 flex items-center gap-3 flex-wrap">
                           <span>Age: {selectedPatientObj.age} ({selectedPatientObj.gender})</span>
                           <span>Phone: {selectedPatientObj.phone}</span>
                           <span>Area: {selectedPatientObj.city || selectedPatientObj.address}</span>
@@ -4810,8 +4810,8 @@ export default function App() {
 
                     {/* Patient Allergy Warning Banner */}
                     {patientAllergyAlert && (
-                      <div className="p-2.5 bg-rose-950/70 border border-rose-700 rounded-lg text-xs text-rose-200 font-bold flex items-center gap-2 animate-pulse">
-                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                      <div className="p-2.5 bg-rose-50 border border-rose-700 rounded-lg text-xs text-rose-800 font-bold flex items-center gap-2 animate-pulse">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                         <span>{patientAllergyAlert}</span>
                       </div>
                     )}
@@ -4820,33 +4820,33 @@ export default function App() {
                   {/* Patient Info Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
                     <div className="sm:col-span-6">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Patient Full Name (Optional - Walk-in)</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Patient Full Name (Optional - Walk-in)</label>
                       <input
                         type="text"
                         placeholder="e.g. K. Ramesh"
                         value={checkoutPatientName}
                         onChange={(e) => setCheckoutPatientName(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500 font-medium"
+                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-orange-300 font-medium"
                       />
                     </div>
 
                     <div className="sm:col-span-3">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Age</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Age</label>
                       <input
                         type="number"
                         placeholder="45"
                         value={checkoutPatientAge}
                         onChange={(e) => setCheckoutPatientAge(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500"
+                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-orange-300"
                       />
                     </div>
 
                     <div className="sm:col-span-3">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Gender</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Gender</label>
                       <select
                         value={checkoutPatientGender}
                         onChange={(e) => setCheckoutPatientGender(e.target.value)}
-                        className="w-full px-2 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500"
+                        className="w-full px-2 py-2 bg-white border border-orange-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-orange-300"
                       >
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -4855,36 +4855,36 @@ export default function App() {
                     </div>
 
                     <div className="sm:col-span-6">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Contact Phone Number</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Contact Phone Number</label>
                       <input
                         type="tel"
                         placeholder="+91 98401 XXXXX"
                         value={checkoutPatientPhone}
                         onChange={(e) => setCheckoutPatientPhone(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500 font-mono"
+                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-orange-300 font-mono"
                       />
                     </div>
 
                     <div className="sm:col-span-6">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Patient Address / Locality</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Patient Address / Locality</label>
                       <input
                         type="text"
                         placeholder="e.g. Anna Nagar, Chennai"
                         value={checkoutPatientAddress}
                         onChange={(e) => setCheckoutPatientAddress(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500 font-medium"
+                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-orange-300 font-medium"
                       />
                     </div>
 
                     {/* Prescribing Doctor Dropdown Combo Box */}
-                    <div className="sm:col-span-12 p-3 bg-slate-900/90 border border-slate-800 rounded-xl space-y-2">
+                    <div className="sm:col-span-12 p-3 bg-white border border-orange-200/80 rounded-xl space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <label className="text-[10px] font-bold text-[#C25222] uppercase tracking-wider flex items-center gap-1.5">
                           <Stethoscope className="w-3.5 h-3.5" />
                           Prescribing Doctor & Medical Council Registration *
                         </label>
                         {selectedDoctorObj ? (
-                          <span className="text-[9px] text-sky-300 font-mono font-bold bg-sky-950/80 px-2 py-0.5 rounded border border-sky-800">
+                          <span className="text-[9px] text-orange-700 font-mono font-bold bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
                             {selectedDoctorObj.specialty}
                           </span>
                         ) : (
@@ -4905,35 +4905,35 @@ export default function App() {
                                 setIsDoctorDropdownOpen(true);
                               }}
                               onFocus={() => setIsDoctorDropdownOpen(true)}
-                              className="w-full pl-8 pr-9 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-medium"
+                              className="w-full pl-8 pr-9 py-2 bg-[#FFFBF7] border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-300 font-medium"
                             />
-                            <Stethoscope className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                            <Stethoscope className="w-3.5 h-3.5 text-slate-600 absolute left-2.5 top-2.5" />
                             <button
                               type="button"
                               onClick={() => setIsDoctorDropdownOpen(!isDoctorDropdownOpen)}
-                              className="absolute right-2 top-2 p-0.5 text-slate-400 hover:text-white rounded hover:bg-slate-800"
+                              className="absolute right-2 top-2 p-0.5 text-slate-600 hover:text-[#C25222] rounded hover:bg-orange-50/70"
                               title="Toggle clinic doctors list"
                             >
-                              <ChevronDown className={`w-4 h-4 transition-transform ${isDoctorDropdownOpen ? 'rotate-180 text-sky-400' : ''}`} />
+                              <ChevronDown className={`w-4 h-4 transition-transform ${isDoctorDropdownOpen ? 'rotate-180 text-[#C25222]' : ''}`} />
                             </button>
                           </div>
 
                           <button
                             type="button"
                             onClick={() => setIsDoctorDropdownOpen(!isDoctorDropdownOpen)}
-                            className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-700 shrink-0"
+                            className="px-2.5 py-2 bg-orange-50/70 hover:bg-orange-100 text-slate-700 hover:text-[#C25222] rounded-lg text-[10px] font-bold flex items-center gap-1 border border-orange-200 shrink-0"
                           >
-                            <Users className="w-3 h-3 text-sky-400" />
+                            <Users className="w-3 h-3 text-[#C25222]" />
                             <span>Clinic Doctors ({CLINIC_DOCTORS.length})</span>
                           </button>
                         </div>
 
                         {/* Prescribing Doctor Dropdown Menu */}
                         {isDoctorDropdownOpen && (
-                          <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto">
-                            <div className="p-1.5 bg-slate-950/80 border-b border-slate-800 text-[10px] font-bold uppercase text-slate-400 px-3 flex justify-between items-center">
+                          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-orange-200 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto">
+                            <div className="p-1.5 bg-white border-b border-orange-200/80 text-[10px] font-bold uppercase text-slate-600 px-3 flex justify-between items-center">
                               <span>Clinic Doctors Directory</span>
-                              <span className="text-[9px] text-sky-400 font-mono">Select to autofill TNMC Reg</span>
+                              <span className="text-[9px] text-[#C25222] font-mono">Select to autofill TNMC Reg</span>
                             </div>
 
                             {CLINIC_DOCTORS.filter(d => {
@@ -4949,22 +4949,22 @@ export default function App() {
                               <div
                                 key={dIdx}
                                 onClick={() => selectDoctorInCheckout(d)}
-                                className="p-2.5 hover:bg-slate-800/90 border-b border-slate-800/60 cursor-pointer transition-colors flex items-center justify-between gap-2"
+                                className="p-2.5 hover:bg-orange-50/70 border-b border-orange-200/80 cursor-pointer transition-colors flex items-center justify-between gap-2"
                               >
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-white text-xs">{d.name}</span>
-                                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-sky-950 text-sky-300 border border-sky-800 rounded font-bold">
+                                    <span className="font-bold text-slate-900 text-xs">{d.name}</span>
+                                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-orange-50 text-orange-700 border border-orange-200 rounded font-bold">
                                       {d.reg_no}
                                     </span>
                                   </div>
-                                  <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
-                                    <span className="text-slate-300 font-medium">{d.specialty}</span>
+                                  <div className="text-[10px] text-slate-600 mt-0.5 flex items-center gap-2">
+                                    <span className="text-slate-700 font-medium">{d.specialty}</span>
                                     <span>·</span>
-                                    <span className="text-slate-400 font-mono">{d.degrees}</span>
+                                    <span className="text-slate-600 font-mono">{d.degrees}</span>
                                   </div>
                                 </div>
-                                <span className="text-[10px] font-semibold text-sky-400 shrink-0">
+                                <span className="text-[10px] font-semibold text-[#C25222] shrink-0">
                                   Select →
                                 </span>
                               </div>
@@ -4976,9 +4976,9 @@ export default function App() {
                                 setIsDoctorDropdownOpen(false);
                                 setDoctorSearchQuery('');
                               }}
-                              className="p-2.5 hover:bg-slate-800/80 cursor-pointer text-xs text-slate-400 hover:text-white flex items-center gap-2 border-t border-slate-800 bg-slate-950/40"
+                              className="p-2.5 hover:bg-orange-50/70 cursor-pointer text-xs text-slate-600 hover:text-[#C25222] flex items-center gap-2 border-t border-orange-200/80 bg-[#FFFBF7]"
                             >
-                              <Plus className="w-3.5 h-3.5 text-sky-400" />
+                              <Plus className="w-3.5 h-3.5 text-[#C25222]" />
                               <span>External / Other Doctor (Type doctor name & TNMC reg manually)</span>
                             </div>
                           </div>
@@ -4988,45 +4988,45 @@ export default function App() {
                       {/* Doctor Details Summary Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Doctor Name *</label>
+                          <label className="text-[9px] font-bold text-slate-600 uppercase block mb-1">Doctor Name *</label>
                           <input
                             type="text"
                             value={checkoutDoctorName}
                             onChange={(e) => setCheckoutDoctorName(e.target.value)}
                             placeholder="Dr. Arjun Sharma, MS (Ortho)"
-                            className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-slate-100 text-xs focus:outline-none focus:border-sky-500 font-medium"
+                            className="w-full px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded-lg text-slate-900 text-xs focus:outline-none focus:border-orange-300 font-medium"
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Doctor TNMC / NMC Reg. No *</label>
+                          <label className="text-[9px] font-bold text-slate-600 uppercase block mb-1">Doctor TNMC / NMC Reg. No *</label>
                           <input
                             type="text"
                             value={checkoutDoctorRegNo}
                             onChange={(e) => setCheckoutDoctorRegNo(e.target.value)}
                             placeholder="TNMC/2012/94821"
-                            className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sky-400 font-mono text-xs focus:outline-none focus:border-sky-500 font-bold"
+                            className="w-full px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded-lg text-[#C25222] font-mono text-xs focus:outline-none focus:border-orange-300 font-bold"
                           />
                         </div>
                       </div>
                     </div>
 
                     <div className="sm:col-span-6">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Dispensing Pharmacist *</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Dispensing Pharmacist *</label>
                       <input
                         type="text"
                         value={checkoutPharmacistName}
                         onChange={(e) => setCheckoutPharmacistName(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-sky-500 font-medium"
+                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-slate-900 text-xs focus:outline-none focus:border-orange-300 font-medium"
                       />
                     </div>
 
                     <div className="sm:col-span-6">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pharmacist TNSPC Reg. No *</label>
+                      <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Pharmacist TNSPC Reg. No *</label>
                       <input
                         type="text"
                         value={checkoutPharmacistRegNo}
                         onChange={(e) => setCheckoutPharmacistRegNo(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-xl text-sky-400 font-mono text-xs focus:outline-none focus:border-sky-500 font-bold"
+                        className="w-full px-3 py-2 bg-white border border-orange-200 rounded-xl text-[#C25222] font-mono text-xs focus:outline-none focus:border-orange-300 font-bold"
                       />
                     </div>
                   </div>
@@ -5039,14 +5039,14 @@ export default function App() {
 
                 {/* Admin Feature: Complimentary / Doctor Free Health Dispense Toggle */}
                 {currentUser?.role === 'admin' && (
-                  <div className="p-3 bg-slate-950 border border-amber-500/30 rounded-2xl flex items-center justify-between shadow-sm">
+                  <div className="p-3 bg-[#FFFBF7] border border-amber-500/30 rounded-2xl flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-700">
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-white block">Free Health Dispense (₹0 Cost)</span>
-                        <span className="text-[10px] text-slate-400">Doctor / Staff internal welfare</span>
+                        <span className="text-xs font-bold text-slate-900 block">Free Health Dispense (₹0 Cost)</span>
+                        <span className="text-[10px] text-slate-600">Doctor / Staff internal welfare</span>
                       </div>
                     </div>
                     <button
@@ -5059,8 +5059,8 @@ export default function App() {
                         }
                       }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${isComplimentaryCheckout
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 scale-105'
-                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:text-white'
+                        ? 'bg-amber-500 text-slate-900 border-amber-400 shadow-md shadow-amber-500/20 scale-105'
+                        : 'bg-white text-slate-700 border-orange-200 hover:text-[#C25222]'
                         }`}
                     >
                       {isComplimentaryCheckout ? 'Active (₹0)' : 'Enable'}
@@ -5069,80 +5069,80 @@ export default function App() {
                 )}
 
                 {/* Grand Total Summary Card */}
-                <div className="p-5 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl flex flex-col shadow-inner">
+                <div className="p-5 bg-gradient-to-br from-[#FFFBF7] via-white to-orange-50/60 border border-orange-200/80 rounded-2xl flex flex-col shadow-inner">
                   <div className="flex items-center justify-center gap-2 mb-1">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block text-center">
                       {isComplimentaryCheckout ? 'Complimentary Dispense Valuation' : 'Grand Total Payable (incl. GST)'}
                     </span>
                     {isComplimentaryCheckout && (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-700 border border-amber-500/40">
                         Zero Cost Dispense
                       </span>
                     )}
                   </div>
                   <div className="text-center my-2">
-                    <span className={`text-4xl sm:text-5xl font-black font-mono tracking-tight ${isComplimentaryCheckout ? 'text-amber-400' : 'text-emerald-400'
+                    <span className={`text-4xl sm:text-5xl font-black font-mono tracking-tight ${isComplimentaryCheckout ? 'text-amber-700' : 'text-emerald-700'
                       }`}>
                       ₹{isComplimentaryCheckout ? '0.00' : billSummary.grandTotal.toFixed(2)}
                     </span>
                     {isComplimentaryCheckout && (
-                      <div className="text-[10px] text-amber-300/80 font-mono mt-1">
+                      <div className="text-[10px] text-amber-700 font-mono mt-1">
                         (Inventory MRP: ₹{billSummary.grandTotal.toFixed(2)} · Absorbed as Clinic Health Cost)
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-2 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-xs font-mono">
-                    <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] text-slate-400 block font-sans uppercase">Base</span>
-                      <span className="text-slate-200 font-bold">₹{isComplimentaryCheckout ? '0.00' : billSummary.subtotal.toFixed(2)}</span>
+                  <div className="mt-2 pt-3 border-t border-orange-200/80 grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                    <div className="p-2 bg-white rounded-xl border border-orange-200/80">
+                      <span className="text-[10px] text-slate-600 block font-sans uppercase">Base</span>
+                      <span className="text-slate-800 font-bold">₹{isComplimentaryCheckout ? '0.00' : billSummary.subtotal.toFixed(2)}</span>
                     </div>
-                    <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] text-slate-400 block font-sans uppercase">GST</span>
-                      <span className="text-amber-400 font-bold">₹{isComplimentaryCheckout ? '0.00' : billSummary.tax.toFixed(2)}</span>
+                    <div className="p-2 bg-white rounded-xl border border-orange-200/80">
+                      <span className="text-[10px] text-slate-600 block font-sans uppercase">GST</span>
+                      <span className="text-amber-700 font-bold">₹{isComplimentaryCheckout ? '0.00' : billSummary.tax.toFixed(2)}</span>
                     </div>
-                    <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800/60">
-                      <span className="text-[10px] text-slate-400 block font-sans uppercase">{isComplimentaryCheckout ? 'Waived' : 'Disc'}</span>
-                      <span className="text-rose-400 font-bold">₹{isComplimentaryCheckout ? billSummary.grandTotal.toFixed(2) : billSummary.discount.toFixed(2)}</span>
+                    <div className="p-2 bg-white rounded-xl border border-orange-200/80">
+                      <span className="text-[10px] text-slate-600 block font-sans uppercase">{isComplimentaryCheckout ? 'Waived' : 'Disc'}</span>
+                      <span className="text-rose-600 font-bold">₹{isComplimentaryCheckout ? billSummary.grandTotal.toFixed(2) : billSummary.discount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
 
                 {isComplimentaryCheckout ? (
                   /* Complimentary Doctor/Staff Health Dispense Details & Trigger */
-                  <div className="p-4 bg-amber-950/30 border border-amber-600/50 rounded-2xl flex flex-col gap-3">
+                  <div className="p-4 bg-amber-50 border border-amber-600/50 rounded-2xl flex flex-col gap-3">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-amber-400" />
-                      <span className="text-xs font-bold text-amber-200">Doctor / Staff Health Dispense</span>
+                      <Sparkles className="w-4 h-4 text-amber-700" />
+                      <span className="text-xs font-bold text-amber-800">Doctor / Staff Health Dispense</span>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">Recipient (Doctor / Staff / Employee Name) *</label>
+                      <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">Recipient (Doctor / Staff / Employee Name) *</label>
                       <input
                         type="text"
                         placeholder="e.g. Dr. Meera Chandran / Nurse Ramesh"
                         value={complimentaryRecipient}
                         onChange={(e) => setComplimentaryRecipient(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-amber-600/60 rounded-xl text-amber-100 placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 font-medium"
+                        className="w-full px-3 py-2 bg-white border border-amber-600/60 rounded-xl text-amber-100 placeholder-slate-400 text-xs focus:outline-none focus:border-amber-400 font-medium"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-amber-300 uppercase block mb-1">Clinical Health Purpose / Notes</label>
+                      <label className="text-[10px] font-bold text-amber-700 uppercase block mb-1">Clinical Health Purpose / Notes</label>
                       <input
                         type="text"
                         placeholder="e.g. Post-op joint recovery / Acute migraine relief / Staff health"
                         value={complimentaryReason}
                         onChange={(e) => setComplimentaryReason(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-900 border border-amber-600/60 rounded-xl text-amber-100 placeholder-slate-500 text-xs focus:outline-none focus:border-amber-400 font-medium"
+                        className="w-full px-3 py-2 bg-white border border-amber-600/60 rounded-xl text-amber-100 placeholder-slate-400 text-xs focus:outline-none focus:border-amber-400 font-medium"
                       />
                     </div>
-                    <div className="p-2.5 bg-slate-950/60 rounded-xl border border-amber-700/30 text-[11px] text-amber-200/90 leading-relaxed">
+                    <div className="p-2.5 bg-[#FFFBF7] rounded-xl border border-amber-700/30 text-[11px] text-amber-800 leading-relaxed">
                       <strong>Zero Cost Dispensing:</strong> No cost or money will be deducted or charged for this medicine. Only the available inventory quantity will decrease.
                     </div>
 
                     <button
                       type="button"
                       onClick={() => completeBilling('Complimentary')}
-                      className="w-full py-4 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 mt-1"
+                      className="w-full py-4 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-900 font-black text-xs uppercase tracking-wider rounded-2xl transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 mt-1"
                     >
                       <Sparkles className="w-4 h-4 text-slate-950" />
                       <span>Authorize Free Health Dispense (₹0.00 · Decrement Stock Only)</span>
@@ -5151,10 +5151,10 @@ export default function App() {
                 ) : (
                   <>
                     {/* Cash Tender & Change Due Calculator Card */}
-                    <div className="p-4 bg-slate-950/80 border border-slate-800/90 rounded-2xl flex flex-col gap-3">
+                    <div className="p-4 bg-white border border-orange-200/80 rounded-2xl flex flex-col gap-3">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-                          <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
+                        <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                          <DollarSign className="w-3.5 h-3.5 text-emerald-700" />
                           <span>Cash Tendered by Customer (₹) *</span>
                         </label>
                         <span className="text-[9px] text-slate-500 font-mono">Mandatory for Cash Sale</span>
@@ -5174,17 +5174,17 @@ export default function App() {
                         return (
                           <div className="space-y-1.5">
                             {isCashShort && (
-                              <div className="p-2.5 bg-rose-950/80 border border-rose-600 rounded-xl flex items-start gap-2 text-rose-200 animate-pulse">
-                                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                              <div className="p-2.5 bg-rose-50 border border-rose-600 rounded-xl flex items-start gap-2 text-rose-800 animate-pulse">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                                 <div className="text-[11px] leading-tight">
-                                  <span className="font-bold block text-rose-300">Insufficient Cash Tendered!</span>
-                                  Received <span className="font-mono font-bold text-white">₹{cashAmt.toFixed(2)}</span> is less than payable <span className="font-mono font-bold text-white">₹{payableAmt.toFixed(2)}</span>. Customer is short by <span className="font-mono font-black text-rose-300 underline">₹{shortAmt.toFixed(2)}</span>. Please collect the remaining cash before dispensing.
+                                  <span className="font-bold block text-rose-700">Insufficient Cash Tendered!</span>
+                                  Received <span className="font-mono font-bold text-slate-900">₹{cashAmt.toFixed(2)}</span> is less than payable <span className="font-mono font-bold text-slate-900">₹{payableAmt.toFixed(2)}</span>. Customer is short by <span className="font-mono font-black text-rose-700 underline">₹{shortAmt.toFixed(2)}</span>. Please collect the remaining cash before dispensing.
                                 </div>
                               </div>
                             )}
                             {isCashInvalid && (
-                              <div className="p-2 bg-amber-950/40 border border-amber-700/50 rounded-xl flex items-center gap-2 text-amber-200 text-[10px]">
-                                <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <div className="p-2 bg-amber-50 border border-amber-700/50 rounded-xl flex items-center gap-2 text-amber-800 text-[10px]">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                                 <span>Enter exact or greater amount received from customer or use quick tender chips below.</span>
                               </div>
                             )}
@@ -5201,11 +5201,11 @@ export default function App() {
                           placeholder="0.00"
                           value={cashReceived}
                           onChange={(e) => setCashReceived(e.target.value)}
-                          className={`w-full px-3 py-2 bg-slate-900 border rounded-xl text-lg font-bold font-mono focus:outline-none transition-colors ${!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal)
-                            ? 'border-emerald-500/80 text-emerald-400 focus:border-emerald-400'
+                          className={`w-full px-3 py-2 bg-white border rounded-xl text-lg font-bold font-mono focus:outline-none transition-colors ${!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal)
+                            ? 'border-emerald-500/80 text-emerald-700 focus:border-emerald-400'
                             : !isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) > 0
-                              ? 'border-rose-500/80 text-rose-400 focus:border-rose-400'
-                              : 'border-slate-700 text-slate-100 focus:border-sky-500'
+                              ? 'border-rose-500/80 text-rose-600 focus:border-rose-400'
+                              : 'border-orange-200 text-slate-900 focus:border-orange-300'
                             }`}
                         />
                         <span className="absolute right-3 top-2.5 text-xs text-slate-500 font-mono font-bold">INR (₹)</span>
@@ -5216,7 +5216,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setCashReceived(round2(billSummary.grandTotal).toFixed(2))}
-                          className="px-2 py-1 bg-emerald-950/60 hover:bg-emerald-800/80 text-emerald-300 hover:text-white rounded-lg text-[10px] font-mono font-bold border border-emerald-600/50 transition-colors"
+                          className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-[#C25222] rounded-lg text-[10px] font-mono font-bold border border-emerald-600/50 transition-colors"
                           title="Set tender to exact grand total"
                         >
                           Exact (₹{round2(billSummary.grandTotal).toFixed(2)})
@@ -5224,28 +5224,28 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setCashReceived(String(Math.ceil(round2(billSummary.grandTotal) / 50) * 50))}
-                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors"
+                          className="px-2 py-1 bg-orange-50/70 hover:bg-orange-100 text-slate-700 hover:text-[#C25222] rounded-lg text-[10px] font-mono border border-orange-200 transition-colors"
                         >
                           Next ₹50 (₹{Math.ceil(round2(billSummary.grandTotal) / 50) * 50})
                         </button>
                         <button
                           type="button"
                           onClick={() => setCashReceived(String(Math.ceil(round2(billSummary.grandTotal) / 100) * 100))}
-                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors"
+                          className="px-2 py-1 bg-orange-50/70 hover:bg-orange-100 text-slate-700 hover:text-[#C25222] rounded-lg text-[10px] font-mono border border-orange-200 transition-colors"
                         >
                           Next ₹100 (₹{Math.ceil(round2(billSummary.grandTotal) / 100) * 100})
                         </button>
                         <button
                           type="button"
                           onClick={() => setCashReceived(String(Math.ceil(round2(billSummary.grandTotal) / 500) * 500))}
-                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors"
+                          className="px-2 py-1 bg-orange-50/70 hover:bg-orange-100 text-slate-700 hover:text-[#C25222] rounded-lg text-[10px] font-mono border border-orange-200 transition-colors"
                         >
                           Next ₹500 (₹{Math.ceil(round2(billSummary.grandTotal) / 500) * 500})
                         </button>
                         <button
                           type="button"
                           onClick={() => setCashReceived("2000")}
-                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 hover:text-white rounded-lg text-[10px] font-mono border border-purple-800/40 transition-colors"
+                          className="px-2 py-1 bg-orange-50/70 hover:bg-orange-100 text-purple-700 hover:text-[#C25222] rounded-lg text-[10px] font-mono border border-purple-800/40 transition-colors"
                         >
                           ₹2000
                         </button>
@@ -5262,20 +5262,20 @@ export default function App() {
 
                         return (
                           <div className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${isSufficient
-                            ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                             : isTendered
-                              ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
-                              : 'bg-slate-900/80 border-slate-800 text-slate-400'
+                              ? 'bg-rose-50 border-rose-200 text-rose-700'
+                              : 'bg-white border-orange-200/80 text-slate-600'
                             }`}>
                             <div className="flex flex-col">
                               <span className="text-[10px] font-bold uppercase tracking-wider">
                                 {isSufficient ? 'Change Due to Customer' : isTendered ? 'Short Amount (Deficit)' : 'Change / Balance'}
                               </span>
-                              <span className="text-[9px] text-slate-400">
+                              <span className="text-[9px] text-slate-600">
                                 {isSufficient ? 'Return to patient upon receipt' : isTendered ? 'Additional cash required' : 'Enter cash amount above'}
                               </span>
                             </div>
-                            <span className={`text-xl font-black font-mono ${isSufficient ? 'text-amber-400' : isTendered ? 'text-rose-400' : 'text-slate-500'
+                            <span className={`text-xl font-black font-mono ${isSufficient ? 'text-amber-700' : isTendered ? 'text-rose-600' : 'text-slate-500'
                               }`}>
                               ₹{isSufficient ? Math.max(0, diff).toFixed(2) : Math.abs(diff).toFixed(2)}
                             </span>
@@ -5285,49 +5285,49 @@ export default function App() {
                     </div>
 
                     {/* Dispensing Readiness & Compliance Checklist */}
-                    <div className="p-3 bg-slate-950/80 border border-slate-800/90 rounded-xl space-y-1.5 text-[11px]">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <div className="p-3 bg-white border border-orange-200/80 rounded-xl space-y-1.5 text-[11px]">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center justify-between">
                         <span>Statutory Dispensing Checklist</span>
-                        <span className="text-sky-400 font-mono text-[9px]">D&C Rules & TN 2018</span>
+                        <span className="text-[#C25222] font-mono text-[9px]">D&C Rules & TN 2018</span>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-[10px]">
                         <div className="flex items-center gap-1.5">
                           {(checkoutPatientName.trim() || activeSession.patientName) ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                           ) : (
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                           )}
-                          <span className={(checkoutPatientName.trim() || activeSession.patientName) ? 'text-slate-200' : 'text-slate-400'}>
+                          <span className={(checkoutPatientName.trim() || activeSession.patientName) ? 'text-slate-800' : 'text-slate-600'}>
                             Patient (Optional)
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {(checkoutDoctorName.trim() && checkoutDoctorRegNo.trim()) ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                           ) : (
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                           )}
-                          <span className={(checkoutDoctorName.trim() && checkoutDoctorRegNo.trim()) ? 'text-slate-200' : 'text-amber-400'}>
+                          <span className={(checkoutDoctorName.trim() && checkoutDoctorRegNo.trim()) ? 'text-slate-800' : 'text-amber-700'}>
                             Doctor & TNMC Reg
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {(checkoutPharmacistName.trim() && checkoutPharmacistRegNo.trim()) ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                           ) : (
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                           )}
-                          <span className={(checkoutPharmacistName.trim() && checkoutPharmacistRegNo.trim()) ? 'text-slate-200' : 'text-amber-400'}>
+                          <span className={(checkoutPharmacistName.trim() && checkoutPharmacistRegNo.trim()) ? 'text-slate-800' : 'text-amber-700'}>
                             Pharmacist & TNSPC Reg
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           {(!cashReceived || (!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal))) ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                           ) : (
-                            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           )}
-                          <span className={(!cashReceived || (!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal))) ? 'text-slate-200' : 'text-rose-400 font-bold'}>
+                          <span className={(!cashReceived || (!isNaN(parseFloat(cashReceived)) && toPaise(parseFloat(cashReceived)) >= toPaise(billSummary.grandTotal))) ? 'text-slate-800' : 'text-rose-600 font-bold'}>
                             Cash Tender Valid
                           </span>
                         </div>
@@ -5336,7 +5336,7 @@ export default function App() {
 
                     {/* Direct Payment Channel Action Buttons */}
                     <div className="flex flex-col gap-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
                         Authorize Payment & Complete Dispensing [C / G / K]
                       </span>
 
@@ -5344,31 +5344,31 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => completeBilling('Cash')}
-                          className="flex flex-col items-center justify-center p-3.5 bg-slate-800/80 hover:bg-emerald-600 border border-emerald-500/30 hover:border-emerald-400 rounded-2xl active:scale-95 transition-all group shadow-md"
+                          className="flex flex-col items-center justify-center p-3.5 bg-emerald-50 hover:bg-emerald-600 border border-emerald-300 hover:border-emerald-600 rounded-2xl active:scale-95 transition-all group shadow-sm"
                         >
-                          <DollarSign className="w-5 h-5 text-emerald-400 group-hover:text-slate-950 mb-1 transition-colors" />
-                          <span className="text-xs font-black font-mono text-white group-hover:text-slate-950 transition-colors">[C] Cash</span>
-                          <span className="text-[9px] text-slate-400 group-hover:text-slate-900/80 transition-colors">Physical</span>
+                          <DollarSign className="w-5 h-5 text-emerald-600 group-hover:text-[#C25222] mb-1 transition-colors" />
+                          <span className="text-xs font-black font-mono text-emerald-900 group-hover:text-[#C25222] transition-colors">[C] Cash</span>
+                          <span className="text-[9px] text-emerald-700 group-hover:text-emerald-100 transition-colors">Physical</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => completeBilling('Google Pay')}
-                          className="flex flex-col items-center justify-center p-3.5 bg-slate-800/80 hover:bg-sky-500 border border-sky-500/30 hover:border-sky-400 rounded-2xl active:scale-95 transition-all group shadow-md"
+                          className="flex flex-col items-center justify-center p-3.5 bg-orange-50 hover:bg-orange-600 border border-orange-300 hover:border-orange-600 rounded-2xl active:scale-95 transition-all group shadow-sm"
                         >
-                          <Smartphone className="w-5 h-5 text-sky-400 group-hover:text-slate-950 mb-1 transition-colors" />
-                          <span className="text-xs font-black font-mono text-white group-hover:text-slate-950 transition-colors">[G] UPI</span>
-                          <span className="text-[9px] text-slate-400 group-hover:text-slate-900/80 transition-colors">G-Pay / QR</span>
+                          <Smartphone className="w-5 h-5 text-[#C25222] group-hover:text-[#C25222] mb-1 transition-colors" />
+                          <span className="text-xs font-black font-mono text-[#7C2D12] group-hover:text-[#C25222] transition-colors">[G] UPI</span>
+                          <span className="text-[9px] text-orange-700 group-hover:text-orange-100 transition-colors">G-Pay / QR</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => completeBilling('Bank Card')}
-                          className="flex flex-col items-center justify-center p-3.5 bg-slate-800/80 hover:bg-purple-600 border border-purple-500/30 hover:border-purple-400 rounded-2xl active:scale-95 transition-all group shadow-md"
+                          className="flex flex-col items-center justify-center p-3.5 bg-violet-50 hover:bg-violet-600 border border-violet-300 hover:border-violet-600 rounded-2xl active:scale-95 transition-all group shadow-sm"
                         >
-                          <CreditCard className="w-5 h-5 text-purple-400 group-hover:text-white mb-1 transition-colors" />
-                          <span className="text-xs font-black font-mono text-white transition-colors">[K] Card</span>
-                          <span className="text-[9px] text-slate-400 group-hover:text-slate-200 transition-colors">POS EDC</span>
+                          <CreditCard className="w-5 h-5 text-violet-600 group-hover:text-[#C25222] mb-1 transition-colors" />
+                          <span className="text-xs font-black font-mono text-violet-900 group-hover:text-[#C25222] transition-colors">[K] Card</span>
+                          <span className="text-[9px] text-violet-700 group-hover:text-violet-100 transition-colors">POS EDC</span>
                         </button>
                       </div>
                     </div>
@@ -5380,13 +5380,13 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3 bg-slate-950 text-[10px] text-slate-400 font-mono flex flex-wrap justify-between items-center gap-2 border-t border-slate-800 flex-shrink-0">
+            <div className="px-5 py-3 bg-[#FFFBF7] text-[10px] text-slate-600 font-mono flex flex-wrap justify-between items-center gap-2 border-t border-orange-200/80 flex-shrink-0">
               <div className="flex items-center space-x-2">
                 <span>Hotkeys:</span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-200 font-bold">C Cash</span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-200 font-bold">G UPI</span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-200 font-bold">K Card</span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-200 font-bold">ESC Cancel</span>
+                <span className="px-1.5 py-0.5 rounded bg-white border border-orange-200/80 text-slate-800 font-bold">C Cash</span>
+                <span className="px-1.5 py-0.5 rounded bg-white border border-orange-200/80 text-slate-800 font-bold">G UPI</span>
+                <span className="px-1.5 py-0.5 rounded bg-white border border-orange-200/80 text-slate-800 font-bold">K Card</span>
+                <span className="px-1.5 py-0.5 rounded bg-white border border-orange-200/80 text-slate-800 font-bold">ESC Cancel</span>
               </div>
               <span className="text-slate-500">Statutory record verified · Tamil Nadu Clinical Establishments & D&C Rules compliant</span>
             </div>
@@ -5397,26 +5397,26 @@ export default function App() {
 
       {/* ----------------- MOBILE NAVIGATION SHEET DRAWER ----------------- */}
       {showMobileNav && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/80 backdrop-blur-sm lg:hidden transition-opacity">
+        <div className="fixed inset-0 z-50 flex justify-end bg-white backdrop-blur-sm lg:hidden transition-opacity">
           {/* Overlay click to dismiss */}
           <div className="absolute inset-0" onClick={() => setShowMobileNav(false)} />
 
           {/* Drawer Content */}
-          <div className="relative w-5/6 max-w-sm h-full bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col p-5 z-10 overflow-y-auto">
+          <div className="relative w-5/6 max-w-sm h-full bg-white border-l border-orange-200/80 shadow-2xl flex flex-col p-5 z-10 overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-4 border-b border-orange-200/80">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 text-slate-950 font-black text-lg">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#C25222] to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-black text-lg">
                   +
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-white leading-tight">Madras Ortho Clinic</h3>
-                  <span className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">Mission for Cure</span>
+                  <h3 className="text-sm font-black text-slate-900 leading-tight">Madras Ortho Clinic</h3>
+                  <span className="text-[10px] text-[#C25222] font-bold uppercase tracking-wider">Mission for Cure</span>
                 </div>
               </div>
               <button
                 onClick={() => setShowMobileNav(false)}
-                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-colors"
+                className="p-2 hover:bg-orange-50/70 text-slate-600 hover:text-[#C25222] rounded-xl transition-colors"
                 aria-label="Close menu"
               >
                 <X className="w-5 h-5" />
@@ -5424,19 +5424,19 @@ export default function App() {
             </div>
 
             {/* User Info Card */}
-            <div className="my-4 p-3 bg-slate-950/70 border border-slate-800/80 rounded-2xl flex items-center justify-between">
+            <div className="my-4 p-3 bg-[#FFFBF7] border border-orange-200/80 rounded-2xl flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-orange-50 border border-orange-300 flex items-center justify-center text-[#C25222] font-bold text-xs">
                   {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-white leading-tight">{currentUser?.name || 'Staff User'}</div>
-                  <div className="text-[10px] text-slate-400 font-medium">@{currentUser?.username || 'user'}</div>
+                  <div className="text-xs font-bold text-slate-900 leading-tight">{currentUser?.name || 'Staff User'}</div>
+                  <div className="text-[10px] text-slate-600 font-medium">@{currentUser?.username || 'user'}</div>
                 </div>
               </div>
               <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${currentUser?.role === 'admin'
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                ? 'bg-amber-500/20 text-amber-700 border border-amber-500/30'
+                : 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30'
                 }`}>
                 {currentUser?.role === 'admin' ? 'admin' : 'employee'}
               </span>
@@ -5452,18 +5452,18 @@ export default function App() {
                   setShowProductCrudModal(true);
                   setProductModalTab('list');
                 }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 group-hover:bg-sky-500 group-hover:text-slate-950 transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-300 flex items-center justify-center text-[#C25222] group-hover:bg-orange-600 group-hover:text-white transition-colors">
                     <Database className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-white block">Medicines Database</span>
-                    <span className="text-[10px] text-slate-400">557+ preloaded & manual entry</span>
+                    <span className="text-xs font-bold text-slate-900 block">Medicines Database</span>
+                    <span className="text-[10px] text-slate-600">557+ preloaded & manual entry</span>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-[#C25222] transition-colors" />
               </button>
 
               <button
@@ -5472,18 +5472,18 @@ export default function App() {
                   setShowProductCrudModal(true);
                   setProductModalTab('excel');
                 }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500 group-hover:text-slate-950 transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                     <FileSpreadsheet className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-white block">Upload Excel Sheet</span>
-                    <span className="text-[10px] text-slate-400">Intelligent bulk medicine import</span>
+                    <span className="text-xs font-bold text-slate-900 block">Upload Excel Sheet</span>
+                    <span className="text-[10px] text-slate-600">Intelligent bulk medicine import</span>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-700 transition-colors" />
               </button>
 
               <button
@@ -5491,18 +5491,18 @@ export default function App() {
                   setShowMobileNav(false);
                   setShowAnalyticsModal(true);
                 }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
                     <BarChart2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-white block">Sales & Reports</span>
-                    <span className="text-[10px] text-slate-400">Daily, weekly & yearly revenue</span>
+                    <span className="text-xs font-bold text-slate-900 block">Sales & Reports</span>
+                    <span className="text-[10px] text-slate-600">Daily, weekly & yearly revenue</span>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-600 transition-colors" />
               </button>
 
               <button
@@ -5511,18 +5511,18 @@ export default function App() {
                   fetchPatients();
                   setShowPatientsModal(true);
                 }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
                     <Users className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-white block">Patient Database</span>
-                    <span className="text-[10px] text-slate-400">MRN profiles, disambiguation & history</span>
+                    <span className="text-xs font-bold text-slate-900 block">Patient Database</span>
+                    <span className="text-[10px] text-slate-600">MRN profiles, disambiguation & history</span>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-600 transition-colors" />
               </button>
 
 
@@ -5533,18 +5533,18 @@ export default function App() {
                     setShowMobileNav(false);
                     setShowEmployeeCrudModal(true);
                   }}
-                  className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                  className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 group-hover:bg-purple-500 group-hover:text-white transition-colors">
                       <Users className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-white block">Staff Management</span>
-                      <span className="text-[10px] text-slate-400">Pharmacists & billing clerks</span>
+                      <span className="text-xs font-bold text-slate-900 block">Staff Management</span>
+                      <span className="text-[10px] text-slate-600">Pharmacists & billing clerks</span>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-purple-600 transition-colors" />
                 </button>
               )}
 
@@ -5555,18 +5555,18 @@ export default function App() {
                     setAdminProfileForm({ ...bakeryDetails });
                     setShowAdminProfileModal(true);
                   }}
-                  className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                  className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-teal-600 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
                       <Stethoscope className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-white block">Doctor Profile & Licensure</span>
-                      <span className="text-[10px] text-slate-400">Doctor degrees, council reg & clinic licenses</span>
+                      <span className="text-xs font-bold text-slate-900 block">Doctor Profile & Licensure</span>
+                      <span className="text-[10px] text-slate-600">Doctor degrees, council reg & clinic licenses</span>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-teal-600 transition-colors" />
                 </button>
               )}
 
@@ -5575,18 +5575,18 @@ export default function App() {
                   setShowMobileNav(false);
                   setShowSettingsModal(true);
                 }}
-                className="flex items-center justify-between p-3.5 bg-slate-800/60 hover:bg-slate-800 active:scale-[0.98] border border-slate-700/60 rounded-2xl text-left transition-all group"
+                className="flex items-center justify-between p-3.5 bg-orange-50/70 hover:bg-orange-50/70 active:scale-[0.98] border border-orange-200 rounded-2xl text-left transition-all group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-700 group-hover:bg-amber-500 group-hover:text-[#C25222] transition-colors">
                     <Settings className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-white block">Settings & Printers</span>
-                    <span className="text-[10px] text-slate-400">Thermal receipt, WiFi & Bluetooth</span>
+                    <span className="text-xs font-bold text-slate-900 block">Settings & Printers</span>
+                    <span className="text-[10px] text-slate-600">Thermal receipt, WiFi & Bluetooth</span>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-700 transition-colors" />
               </button>
 
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 mt-3">Account</span>
@@ -5597,10 +5597,10 @@ export default function App() {
                     setShowMobileNav(false);
                     setChangePasswordModal(true);
                   }}
-                  className="flex items-center space-x-3 p-3 bg-slate-950/50 hover:bg-slate-800 rounded-xl text-left transition-all border border-slate-800"
+                  className="flex items-center space-x-3 p-3 bg-[#FFFBF7] hover:bg-orange-50/70 rounded-xl text-left transition-all border border-orange-200/80"
                 >
-                  <KeyRound className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-medium text-slate-300">Change Password</span>
+                  <KeyRound className="w-4 h-4 text-slate-600" />
+                  <span className="text-xs font-medium text-slate-700">Change Password</span>
                 </button>
               )}
 
@@ -5618,7 +5618,7 @@ export default function App() {
                     }
                   });
                 }}
-                className="flex items-center space-x-3 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-left transition-all text-rose-400"
+                className="flex items-center space-x-3 p-3 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-left transition-all text-rose-600"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="text-xs font-bold">Sign Out</span>
@@ -5626,9 +5626,9 @@ export default function App() {
             </div>
 
             {/* Clinic Info Footer */}
-            <div className="pt-4 border-t border-slate-800 text-center">
+            <div className="pt-4 border-t border-orange-200/80 text-center">
               <div className="text-[10px] text-slate-500 font-medium">Madras Ortho Clinic Software v2.5</div>
-              <div className="text-[9px] text-emerald-400 font-semibold mt-0.5">557 Preloaded Formulations · Offline Ready</div>
+              <div className="text-[9px] text-emerald-700 font-semibold mt-0.5">557 Preloaded Formulations · Offline Ready</div>
             </div>
           </div>
         </div>
@@ -5636,35 +5636,35 @@ export default function App() {
 
       {/* ----------------- MEDICINE MANAGEMENT MODAL (MANUAL & EXCEL IMPORT) ----------------- */}
       {showProductCrudModal && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl h-[92vh] max-h-[720px] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white border border-orange-200/80 rounded-2xl w-full max-w-5xl shadow-2xl h-[92vh] max-h-[720px] flex flex-col overflow-hidden">
 
             {/* Modal Header */}
-            <div className="p-4 sm:px-6 bg-slate-900/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+            <div className="p-4 sm:px-6 bg-white border-b border-orange-200/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-300 flex items-center justify-center text-[#C25222]">
                   <Database className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white leading-tight">Medicine & Inventory Management</h3>
-                  <p className="text-[11px] text-slate-400">557+ Pre-loaded Formulations · Manual Entry · Intelligent Excel Upload</p>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">Medicine & Inventory Management</h3>
+                  <p className="text-[11px] text-slate-600">557+ Pre-loaded Formulations · Manual Entry · Intelligent Excel Upload</p>
                 </div>
               </div>
 
               {/* Segmented Tab Controls */}
-              <div className="flex items-center bg-slate-950 p-1 border border-slate-800 rounded-xl">
+              <div className="flex items-center bg-[#FFFBF7] p-1 border border-orange-200/80 rounded-xl">
                 {currentUser?.role === 'admin' && (
                   <button
                     type="button"
                     onClick={() => setProductModalTab('manual')}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'manual'
-                      ? 'bg-sky-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-orange-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-white'
                       }`}
                   >
                     <PlusCircle className="w-3.5 h-3.5" />
                     <span>Manual Entry</span>
-                    <span className={`text-[9px] font-black uppercase px-1 rounded ${productModalTab === 'manual' ? 'bg-slate-950 text-sky-300' : 'bg-sky-500/20 text-sky-400'
+                    <span className={`text-[9px] font-black uppercase px-1 rounded ${productModalTab === 'manual' ? 'bg-[#FFFBF7] text-orange-700' : 'bg-orange-50 text-[#C25222]'
                       }`}>Admin</span>
                   </button>
                 )}
@@ -5674,13 +5674,13 @@ export default function App() {
                     type="button"
                     onClick={() => setProductModalTab('excel')}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'excel'
-                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-emerald-500 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-[#C25222]'
                       }`}
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" />
                     <span>Upload Excel</span>
-                    <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${productModalTab === 'excel' ? 'bg-slate-950 text-emerald-300' : 'bg-emerald-500/20 text-emerald-400'
+                    <span className={`text-[9px] font-black uppercase px-1 py-0.2 rounded ${productModalTab === 'excel' ? 'bg-[#FFFBF7] text-emerald-700' : 'bg-emerald-500/20 text-emerald-700'
                       }`}>Admin</span>
                   </button>
                 )}
@@ -5690,7 +5690,7 @@ export default function App() {
                   onClick={() => setProductModalTab('list')}
                   className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'list'
                     ? 'bg-indigo-500 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-[#C25222]'
                     }`}
                 >
                   <Database className="w-3.5 h-3.5" />
@@ -5705,13 +5705,13 @@ export default function App() {
                       fetchInwardRecords();
                     }}
                     className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${productModalTab === 'inward'
-                      ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-amber-500 text-slate-900 font-black shadow-sm'
+                      : 'text-slate-600 hover:text-[#C25222]'
                       }`}
                   >
                     <Package className="w-3.5 h-3.5" />
                     <span>Inward Stock</span>
-                    <span className={`text-[9px] font-black uppercase px-1 rounded ${productModalTab === 'inward' ? 'bg-slate-950 text-amber-300' : 'bg-amber-500/20 text-amber-400'
+                    <span className={`text-[9px] font-black uppercase px-1 rounded ${productModalTab === 'inward' ? 'bg-[#FFFBF7] text-amber-700' : 'bg-amber-500/20 text-amber-700'
                       }`}>Admin</span>
                   </button>
                 )}
@@ -5722,7 +5722,7 @@ export default function App() {
                   setShowProductCrudModal(false);
                   setEditingProduct(null);
                 }}
-                className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors"
+                className="p-1.5 hover:bg-orange-50/70 rounded-xl text-slate-600 hover:text-[#C25222] transition-colors"
                 aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
@@ -5737,10 +5737,10 @@ export default function App() {
                 <div className="max-w-2xl mx-auto">
                   <div className="mb-4 flex items-center justify-between">
                     <div>
-                      <h4 className="text-sm font-bold text-white">
+                      <h4 className="text-sm font-bold text-slate-900">
                         {editingProduct?.id ? `Edit Medicine: ${editingProduct.name}` : 'Register New Medicine Manually'}
                       </h4>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-600">
                         {editingProduct?.id ? 'Update prices, GST rates, or SKU codes.' : 'Add custom orthopaedic medicines, ointments, or braces to the active catalogue.'}
                       </p>
                     </div>
@@ -5748,7 +5748,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setEditingProduct(null)}
-                        className="px-2.5 py-1 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg"
+                        className="px-2.5 py-1 text-xs font-semibold bg-orange-50/70 hover:bg-orange-100 text-slate-700 rounded-lg"
                       >
                         Cancel Edit
                       </button>
@@ -5756,15 +5756,15 @@ export default function App() {
                   </div>
 
                   {currentUser?.role !== 'admin' && (
-                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold mb-4">
-                      <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-700 text-xs font-semibold mb-4">
+                      <Lock className="w-4 h-4 flex-shrink-0 text-amber-700" />
                       <span>View Only Mode: Admin login required to save or modify medicines.</span>
                     </div>
                   )}
 
-                  <form onSubmit={saveProduct} className="flex flex-col gap-4 bg-slate-950/60 p-5 rounded-2xl border border-slate-800">
+                  <form onSubmit={saveProduct} className="flex flex-col gap-4 bg-[#FFFBF7] p-5 rounded-2xl border border-orange-200/80">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Medicine / Product Name *</label>
+                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Medicine / Product Name *</label>
                       <input
                         type="text"
                         required
@@ -5772,19 +5772,19 @@ export default function App() {
                         placeholder="e.g. Aceclofenac 100mg + Paracetamol 325mg"
                         value={editingProduct?.name || ''}
                         onChange={(e) => setEditingProduct(prev => ({ ...prev, name: e.target.value }))}
-                        className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                        className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-orange-300 disabled:opacity-50"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center justify-between">
-                          <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Category *</label>
+                          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Category *</label>
                           {currentUser?.role === 'admin' && (
                             <button
                               type="button"
                               onClick={() => setShowAddCategoryModal(true)}
-                              className="text-[10px] text-sky-400 hover:text-sky-300 font-bold flex items-center gap-1"
+                              className="text-[10px] text-[#C25222] hover:text-orange-700 font-bold flex items-center gap-1"
                             >
                               <Plus className="w-3 h-3" /> New
                             </button>
@@ -5798,7 +5798,7 @@ export default function App() {
                           placeholder="Select or enter categories (comma-separated for multiple)..."
                           value={editingProduct?.category || ''}
                           onChange={(e) => setEditingProduct(prev => ({ ...prev, category: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                          className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-orange-300 disabled:opacity-50"
                         />
                         <datalist id="category-suggestions">
                           {categories.map(c => (
@@ -5807,7 +5807,7 @@ export default function App() {
                         </datalist>
 
                         {/* Interactive Category Chips for Multi-Category Assignment */}
-                        <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto p-1.5 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                        <div className="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto p-1.5 bg-[#FFFBF7] rounded-xl border border-orange-200/80">
                           {categories.filter(c => c !== 'All').map(cat => {
                             const activeCats = (editingProduct?.category || '').split(',').map(s => s.trim()).filter(Boolean);
                             const isSelected = activeCats.some(c => c.toLowerCase() === cat.toLowerCase());
@@ -5826,8 +5826,8 @@ export default function App() {
                                   setEditingProduct(prev => prev ? ({ ...prev, category: updated.join(', ') }) : prev);
                                 }}
                                 className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all border ${isSelected
-                                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-xs'
-                                  : 'bg-slate-800/80 text-slate-400 border-slate-750 hover:border-slate-600 hover:text-slate-200'
+                                  ? 'bg-orange-50 text-orange-700 border-orange-300 shadow-xs'
+                                  : 'bg-orange-50/70 text-slate-600 border-orange-200 hover:border-slate-600 hover:text-slate-800'
                                   }`}
                                 title={isSelected ? `Click to remove from "${cat}"` : `Click to add to "${cat}"`}
                               >
@@ -5839,12 +5839,12 @@ export default function App() {
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Packaging / Unit Type *</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Packaging / Unit Type *</label>
                         <select
                           disabled={currentUser?.role !== 'admin'}
                           value={editingProduct?.quantity_type || 'strip'}
                           onChange={(e: any) => setEditingProduct(prev => ({ ...prev, quantity_type: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                          className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-orange-300 disabled:opacity-50"
                         >
                           <option value="strip">strip (tablets/capsules)</option>
                           <option value="pcs">pcs (individual item / brace)</option>
@@ -5859,7 +5859,7 @@ export default function App() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">MRP (₹ Printed) *</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">MRP (₹ Printed) *</label>
                         <div className="relative">
                           <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
                           <input
@@ -5870,13 +5870,13 @@ export default function App() {
                             placeholder="0.00"
                             value={editingProduct?.mrp !== undefined ? editingProduct.mrp : (editingProduct?.price !== undefined ? editingProduct.price : '')}
                             onChange={(e) => setEditingProduct(prev => ({ ...prev, mrp: Number(e.target.value) }))}
-                            className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-orange-300 disabled:opacity-50"
                           />
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Price Sold At (₹ Clinic Rate) *</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Price Sold At (₹ Clinic Rate) *</label>
                         <div className="relative">
                           <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
                           <input
@@ -5887,13 +5887,13 @@ export default function App() {
                             placeholder="0.00"
                             value={editingProduct?.price !== undefined ? editingProduct.price : ''}
                             onChange={(e) => setEditingProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
-                            className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50 font-bold text-emerald-400"
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-orange-300 disabled:opacity-50 font-bold text-emerald-700"
                           />
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Cost of Purchase (₹ Cost)</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Cost of Purchase (₹ Cost)</label>
                         <div className="relative">
                           <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-500">₹</span>
                           <input
@@ -5903,7 +5903,7 @@ export default function App() {
                             placeholder="0.00"
                             value={editingProduct?.purchase_price !== undefined ? editingProduct.purchase_price : ''}
                             onChange={(e) => setEditingProduct(prev => ({ ...prev, purchase_price: Number(e.target.value) }))}
-                            className="w-full pl-8 pr-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-orange-300 disabled:opacity-50"
                           />
                         </div>
                       </div>
@@ -5911,12 +5911,12 @@ export default function App() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">GST Tax Rate *</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">GST Tax Rate *</label>
                         <select
                           disabled={currentUser?.role !== 'admin'}
                           value={editingProduct?.tax_percent !== undefined ? editingProduct.tax_percent : 5}
                           onChange={(e) => setEditingProduct(prev => ({ ...prev, tax_percent: Number(e.target.value) }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500 disabled:opacity-50"
+                          className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-orange-300 disabled:opacity-50"
                         >
                           <option value={0}>0% (Exempt Medicines)</option>
                           <option value={5}>5% (Essential Pharma & Life-saving)</option>
@@ -5927,32 +5927,32 @@ export default function App() {
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Barcode (Optional)</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Barcode (Optional)</label>
                         <input
                           type="text"
                           disabled={currentUser?.role !== 'admin'}
                           placeholder="Barcode scan"
                           value={editingProduct?.barcode || ''}
                           onChange={(e) => setEditingProduct(prev => ({ ...prev, barcode: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50 font-mono"
+                          className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-orange-300 disabled:opacity-50 font-mono"
                         />
                       </div>
 
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">SKU Code (Optional)</label>
+                        <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">SKU Code (Optional)</label>
                         <input
                           type="text"
                           disabled={currentUser?.role !== 'admin'}
                           placeholder="Item SKU"
                           value={editingProduct?.sku || ''}
                           onChange={(e) => setEditingProduct(prev => ({ ...prev, sku: e.target.value }))}
-                          className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 disabled:opacity-50 font-mono"
+                          className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-600 focus:outline-none focus:border-orange-300 disabled:opacity-50 font-mono"
                         />
                       </div>
                     </div>
 
                     {/* Initial Opening Stock Setup Toggle (Optional for clinic onboarding) */}
-                    <div className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                    <div className="p-3.5 bg-white border border-orange-200/80 rounded-xl space-y-3">
                       <label className="flex items-center gap-2.5 cursor-pointer select-none">
                         <input
                           type="checkbox"
@@ -5963,50 +5963,50 @@ export default function App() {
                               setEditingProduct(prev => ({ ...prev, available_stock: 0, batch_number: '', expiry_date: '' }));
                             }
                           }}
-                          className="rounded text-sky-500 focus:ring-sky-500 w-4 h-4 bg-slate-950 border-slate-700"
+                          className="rounded text-orange-600 focus:ring-orange-500 w-4 h-4 bg-[#FFFBF7] border-orange-200"
                         />
                         <div>
-                          <span className="text-xs font-bold text-slate-200 block">
+                          <span className="text-xs font-bold text-slate-800 block">
                             Add Initial Opening Stock (Optional for Initial Clinic Setup)
                           </span>
-                          <span className="text-[10px] text-slate-400 block">
+                          <span className="text-[10px] text-slate-600 block">
                             Leave unchecked if incoming stock will be recorded later via Inward Stock applications.
                           </span>
                         </div>
                       </label>
 
                       {(hasOpeningStock || (editingProduct?.available_stock !== undefined && editingProduct.available_stock > 0)) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-800">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-orange-200/80">
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Opening Quantity (Units)</label>
+                            <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Opening Quantity (Units)</label>
                             <input
                               type="number"
                               min="0"
                               placeholder="e.g. 50"
                               value={editingProduct?.available_stock !== undefined ? editingProduct.available_stock : ''}
                               onChange={(e) => setEditingProduct(prev => ({ ...prev, available_stock: Number(e.target.value) }))}
-                              className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                              className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-orange-300"
                             />
                           </div>
 
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Batch Number</label>
+                            <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Batch Number</label>
                             <input
                               type="text"
                               placeholder="e.g. BTH-2026-099"
                               value={editingProduct?.batch_number || ''}
                               onChange={(e) => setEditingProduct(prev => ({ ...prev, batch_number: e.target.value }))}
-                              className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                              className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-orange-300"
                             />
                           </div>
 
                           <div className="flex flex-col gap-1.5">
-                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Expiry Date</label>
+                            <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Expiry Date</label>
                             <input
                               type="date"
                               value={editingProduct?.expiry_date ? String(editingProduct.expiry_date).substring(0, 10) : ''}
                               onChange={(e) => setEditingProduct(prev => ({ ...prev, expiry_date: e.target.value }))}
-                              className="px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-sky-500"
+                              className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-orange-300"
                             />
                           </div>
                         </div>
@@ -6015,9 +6015,9 @@ export default function App() {
 
                     {/* Stock Status - Fully Automatic Detection */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Stock Status (Automatic Detection)</label>
-                      <div className="px-3.5 py-2.5 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
-                        <span className={`font-bold flex items-center gap-2 ${Number(editingProduct?.available_stock || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Stock Status (Automatic Detection)</label>
+                      <div className="px-3.5 py-2.5 bg-white border border-orange-200/80 rounded-xl flex items-center justify-between text-xs">
+                        <span className={`font-bold flex items-center gap-2 ${Number(editingProduct?.available_stock || 0) > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
                           <span className={`w-2 h-2 rounded-full ${Number(editingProduct?.available_stock || 0) > 0 ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
                           {Number(editingProduct?.available_stock || 0) > 0 ? `Available (${editingProduct?.available_stock} Units in Stock)` : 'Out of Stock (0 Units Available)'}
                         </span>
@@ -6027,11 +6027,11 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-3 pt-3 border-t border-slate-800">
+                    <div className="flex items-center space-x-3 pt-3 border-t border-orange-200/80">
                       <button
                         type="submit"
                         disabled={currentUser?.role !== 'admin'}
-                        className="flex-1 py-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black rounded-xl text-xs tracking-wider uppercase transition-all shadow-lg shadow-sky-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
+                        className="flex-1 py-3 bg-orange-600 hover:bg-[#C25222] text-white font-black rounded-xl text-xs tracking-wider uppercase transition-all shadow-lg shadow-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.99]"
                       >
                         {editingProduct?.id ? 'Update Medicine' : 'Save Medicine to Database'}
                       </button>
@@ -6041,7 +6041,7 @@ export default function App() {
                           setEditingProduct(null);
                           setProductModalTab('list');
                         }}
-                        className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                        className="px-4 py-3 bg-orange-50/70 hover:bg-orange-100 text-slate-700 font-bold rounded-xl text-xs transition-colors"
                       >
                         Cancel
                       </button>
@@ -6055,13 +6055,13 @@ export default function App() {
                 <div className="max-w-3xl mx-auto flex flex-col gap-6">
 
                   {/* Informational Hero Card */}
-                  <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-slate-900 to-sky-500/10 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-white to-sky-500/10 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
-                        <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-                        <h4 className="text-sm font-bold text-white">Intelligent Excel Medicine Importer</h4>
+                        <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
+                        <h4 className="text-sm font-bold text-slate-900">Intelligent Excel Medicine Importer</h4>
                       </div>
-                      <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                      <p className="text-xs text-slate-700 max-w-xl leading-relaxed">
                         Upload Excel spreadsheets (.xlsx, .xls) or CSV files with your clinic’s custom medicines.
                         The system cross-checks medicine names (case-insensitive) against the 550+ existing database items.
                       </p>
@@ -6070,7 +6070,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleDownloadTemplate}
-                      className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95"
+                      className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-700 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all whitespace-nowrap active:scale-95"
                     >
                       <Download className="w-4 h-4" />
                       <span>Download Template (.xlsx)</span>
@@ -6078,8 +6078,8 @@ export default function App() {
                   </div>
 
                   {currentUser?.role !== 'admin' && (
-                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-400 text-xs font-semibold">
-                      <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                    <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center space-x-2 text-amber-700 text-xs font-semibold">
+                      <Lock className="w-4 h-4 flex-shrink-0 text-amber-700" />
                       <span>Admin access required to import medicines into database.</span>
                     </div>
                   )}
@@ -6093,10 +6093,10 @@ export default function App() {
                       }
                     }}
                     className={`relative border-2 border-dashed rounded-2xl p-8 sm:p-12 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${excelParsing
-                      ? 'border-sky-500 bg-sky-500/5 cursor-wait'
+                      ? 'border-orange-300 bg-orange-50 cursor-wait'
                       : currentUser?.role !== 'admin'
-                        ? 'border-slate-800 bg-slate-950/40 opacity-50 cursor-not-allowed'
-                        : 'border-slate-700 hover:border-emerald-500 bg-slate-950/50 hover:bg-emerald-500/5 group'
+                        ? 'border-orange-200/80 bg-[#FFFBF7] opacity-50 cursor-not-allowed'
+                        : 'border-orange-200 hover:border-emerald-500 bg-[#FFFBF7] hover:bg-emerald-500/5 group'
                       }`}
                   >
                     <input
@@ -6114,22 +6114,22 @@ export default function App() {
 
                     {excelParsing ? (
                       <div className="flex flex-col items-center space-y-3">
-                        <RefreshCw className="w-10 h-10 text-sky-400 animate-spin" />
-                        <span className="text-sm font-bold text-white">Analyzing & Verifying Spreadsheet...</span>
-                        <span className="text-xs text-slate-400">Comparing medicine names with database formulations...</span>
+                        <RefreshCw className="w-10 h-10 text-[#C25222] animate-spin" />
+                        <span className="text-sm font-bold text-slate-900">Analyzing & Verifying Spreadsheet...</span>
+                        <span className="text-xs text-slate-600">Comparing medicine names with database formulations...</span>
                       </div>
                     ) : (
                       <>
-                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform mb-3">
+                        <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-700 group-hover:scale-110 transition-transform mb-3">
                           <UploadCloud className="w-8 h-8" />
                         </div>
-                        <h5 className="text-sm font-bold text-white mb-1">
+                        <h5 className="text-sm font-bold text-slate-900 mb-1">
                           Click to browse or drag & drop Excel / CSV file
                         </h5>
-                        <p className="text-xs text-slate-400 max-w-sm mb-3">
+                        <p className="text-xs text-slate-600 max-w-sm mb-3">
                           Supports Microsoft Excel (.xlsx, .xls) and CSV sheets with medicine name, category, MRP, and GST.
                         </p>
-                        <span className="inline-flex items-center px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg text-[10px] text-slate-400 font-mono">
+                        <span className="inline-flex items-center px-3 py-1 bg-white border border-orange-200/80 rounded-lg text-[10px] text-slate-600 font-mono">
                           Format: Name, Category, Price, GST, Quantity_Type
                         </span>
                       </>
@@ -6138,14 +6138,14 @@ export default function App() {
 
                   {/* Parse Results Status Card (if file was selected and processed) */}
                   {excelFileName && !excelParsing && (
-                    <div className="p-5 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col gap-4">
-                      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                    <div className="p-5 bg-[#FFFBF7] border border-orange-200/80 rounded-2xl flex flex-col gap-4">
+                      <div className="flex items-center justify-between border-b border-orange-200/80 pb-3">
                         <div className="flex items-center space-x-2.5">
-                          <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                          <span className="text-xs font-bold text-white">{excelFileName}</span>
-                          <span className="text-[10px] text-slate-400">({excelParsedMedicines.length} rows processed)</span>
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                          <span className="text-xs font-bold text-slate-900">{excelFileName}</span>
+                          <span className="text-[10px] text-slate-600">({excelParsedMedicines.length} rows processed)</span>
                         </div>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                           Verified
                         </span>
                       </div>
@@ -6154,12 +6154,12 @@ export default function App() {
                       {excelConflicts.length > 0 ? (
                         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                           <div className="flex items-start space-x-3">
-                            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                            <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
                             <div>
-                              <div className="text-xs font-bold text-amber-300">
+                              <div className="text-xs font-bold text-amber-700">
                                 {excelConflicts.length} Potential Duplicate Medicine(s) Detected
                               </div>
-                              <p className="text-[11px] text-amber-200/80 leading-relaxed">
+                              <p className="text-[11px] text-amber-800 leading-relaxed">
                                 {excelNewItems.length} new medicine(s) will be added directly. {excelConflicts.length} medicine(s) already exist in the database.
                               </p>
                             </div>
@@ -6169,14 +6169,14 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => setShowConflictModal(true)}
-                              className="flex-1 sm:flex-none px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap"
+                              className="flex-1 sm:flex-none px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap"
                             >
                               Review & Resolve ({excelConflicts.length})
                             </button>
                             <button
                               type="button"
                               onClick={() => executeExcelImport(excelNewItems, false)}
-                              className="flex-1 sm:flex-none px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-colors whitespace-nowrap"
+                              className="flex-1 sm:flex-none px-3.5 py-2 bg-orange-50/70 hover:bg-orange-100 text-slate-700 font-semibold text-xs rounded-xl transition-colors whitespace-nowrap"
                             >
                               Skip Duplicates & Import ({excelNewItems.length})
                             </button>
@@ -6186,9 +6186,9 @@ export default function App() {
                         /* Case 2: Clean File -> No Duplicates -> Direct 1-Click Import */
                         <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                           <div className="flex items-center space-x-3">
-                            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                            <CheckCircle className="w-5 h-5 text-emerald-700 flex-shrink-0" />
                             <div>
-                              <div className="text-xs font-bold text-emerald-300">
+                              <div className="text-xs font-bold text-emerald-700">
                                 All {excelNewItems.length} Medicines are Clean & Ready
                               </div>
                               <p className="text-[11px] text-emerald-200/80">
@@ -6201,7 +6201,7 @@ export default function App() {
                             type="button"
                             disabled={isBatchImporting}
                             onClick={() => executeExcelImport(excelNewItems, false)}
-                            className="w-full sm:w-auto px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
+                            className="w-full sm:w-auto px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
                           >
                             {isBatchImporting ? 'Importing...' : `Import All ${excelNewItems.length} Medicines Now`}
                           </button>
@@ -6211,24 +6211,24 @@ export default function App() {
                   )}
 
                   {/* Excel Structure Guidance */}
-                  <div className="bg-slate-950/40 border border-slate-800/80 rounded-2xl p-4 sm:p-5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">Excel Column Reference</span>
+                  <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 sm:p-5">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block mb-2">Excel Column Reference</span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <strong className="text-white block">Name *</strong>
-                        <span className="text-[10px] text-slate-400">Medicine & formulation</span>
+                      <div className="p-2.5 bg-white rounded-xl border border-orange-200/80">
+                        <strong className="text-slate-900 block">Name *</strong>
+                        <span className="text-[10px] text-slate-600">Medicine & formulation</span>
                       </div>
-                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <strong className="text-white block">Category *</strong>
-                        <span className="text-[10px] text-slate-400">e.g. NSAIDs, Injections</span>
+                      <div className="p-2.5 bg-white rounded-xl border border-orange-200/80">
+                        <strong className="text-slate-900 block">Category *</strong>
+                        <span className="text-[10px] text-slate-600">e.g. NSAIDs, Injections</span>
                       </div>
-                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <strong className="text-white block">Price *</strong>
-                        <span className="text-[10px] text-slate-400">MRP in Indian Rupees (₹)</span>
+                      <div className="p-2.5 bg-white rounded-xl border border-orange-200/80">
+                        <strong className="text-slate-900 block">Price *</strong>
+                        <span className="text-[10px] text-slate-600">MRP in Indian Rupees (₹)</span>
                       </div>
-                      <div className="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800">
-                        <strong className="text-white block">GST_Percent *</strong>
-                        <span className="text-[10px] text-slate-400">0, 5, 12, or 18</span>
+                      <div className="p-2.5 bg-white rounded-xl border border-orange-200/80">
+                        <strong className="text-slate-900 block">GST_Percent *</strong>
+                        <span className="text-[10px] text-slate-600">0, 5, 12, or 18</span>
                       </div>
                     </div>
                   </div>
@@ -6245,13 +6245,13 @@ export default function App() {
                         placeholder="Search 550+ medicines by name, category, or barcode..."
                         value={crudSearch}
                         onChange={(e) => setCrudSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                        className="w-full pl-9 pr-4 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-300"
                       />
                       <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs font-mono font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                      <span className="text-xs font-mono font-bold text-[#C25222] bg-orange-50 border border-orange-300 px-3 py-1.5 rounded-xl whitespace-nowrap">
                         {products.filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase())).length} of {products.length} Items
                       </span>
                       {currentUser?.role === 'admin' && (
@@ -6261,7 +6261,7 @@ export default function App() {
                             setEditingProduct(null);
                             setProductModalTab('manual');
                           }}
-                          className="px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl transition-all flex items-center space-x-1"
+                          className="px-3 py-1.5 bg-orange-600 hover:bg-[#C25222] text-white font-bold text-xs rounded-xl transition-all flex items-center space-x-1"
                         >
                           <Plus className="w-3.5 h-3.5 stroke-[3]" />
                           <span>Add New</span>
@@ -6270,10 +6270,10 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950/40">
+                  <div className="flex-1 overflow-y-auto border border-orange-200/80 rounded-2xl bg-[#FFFBF7]">
                     <table className="w-full text-left border-collapse text-xs">
-                      <thead className="sticky top-0 bg-slate-900 border-b border-slate-800 z-10">
-                        <tr className="text-[10px] uppercase font-bold text-slate-400">
+                      <thead className="sticky top-0 bg-white border-b border-orange-200/80 z-10">
+                        <tr className="text-[10px] uppercase font-bold text-slate-600">
                           <th className="py-2.5 px-3">Medicine Name</th>
                           <th className="py-2.5 px-3">Category</th>
                           <th className="py-2.5 px-3">Unit</th>
@@ -6286,7 +6286,7 @@ export default function App() {
                           <th className="py-2.5 px-3 text-right w-24">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-800/40">
+                      <tbody className="divide-y divide-orange-100">
                         {products
                           .filter(p => !crudSearch || p.name.toLowerCase().includes(crudSearch.toLowerCase()) || p.category.toLowerCase().includes(crudSearch.toLowerCase()))
                           .sort((a, b) => {
@@ -6302,9 +6302,9 @@ export default function App() {
                             const isOos = Boolean(p.status === 'Out of Stock' || p.is_out_of_stock || availStk <= 0);
 
                             return (
-                              <tr key={p.id} className="hover:bg-slate-900/60 transition-colors">
-                                <td className="py-2 px-3 font-semibold text-white">
-                                  <div className={isExp ? 'line-through text-rose-400' : ''}>{p.name}</div>
+                              <tr key={p.id} className="hover:bg-white transition-colors">
+                                <td className="py-2 px-3 font-semibold text-slate-900">
+                                  <div className={isExp ? 'line-through text-rose-600' : ''}>{p.name}</div>
                                   {p.barcode && <div className="text-[9px] text-slate-500 font-mono">{p.barcode}</div>}
                                 </td>
                                 <td className="py-2 px-3">
@@ -6312,7 +6312,7 @@ export default function App() {
                                     <select
                                       value={p.category}
                                       onChange={(e) => updateProductCategory(p.id, e.target.value)}
-                                      className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-sky-300 font-medium focus:outline-none focus:border-sky-500 max-w-[155px] truncate cursor-pointer hover:border-sky-500/50"
+                                      className="bg-white border border-orange-200 rounded-lg px-2 py-1 text-xs text-orange-700 font-medium focus:outline-none focus:border-orange-300 max-w-[155px] truncate cursor-pointer hover:border-orange-300"
                                       title="Click to change medicine category"
                                     >
                                       {Array.from(new Set([
@@ -6333,36 +6333,36 @@ export default function App() {
                                       ))}
                                     </select>
                                   ) : (
-                                    <span className="text-slate-400">{p.category}</span>
+                                    <span className="text-slate-600">{p.category}</span>
                                   )}
                                 </td>
-                                <td className="py-2 px-3 text-slate-400 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
-                                <td className="py-2 px-3 text-right font-mono text-slate-400">₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)}</td>
-                                <td className="py-2 px-3 text-right font-mono font-bold text-emerald-400">₹{Number(p.price || 0).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-slate-600 font-mono text-[11px]">{p.quantity_type || 'strip'}</td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-600">₹{Number(p.mrp !== undefined && p.mrp !== null && !isNaN(Number(p.mrp)) ? p.mrp : (p.price || 0)).toFixed(2)}</td>
+                                <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">₹{Number(p.price || 0).toFixed(2)}</td>
                                 <td className="py-2 px-3 text-center font-mono">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : (availStk <= 15 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${isOos ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' : (availStk <= 15 ? 'bg-amber-500/10 text-amber-700 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20')
                                     }`}>
                                     {availStk}
                                   </span>
                                 </td>
                                 <td className="py-2 px-3 text-center font-mono text-[11px]">
-                                  <span className={isExp ? 'text-rose-400 font-bold' : 'text-slate-400'}>
+                                  <span className={isExp ? 'text-rose-600 font-bold' : 'text-slate-600'}>
                                     {p.expiry_date ? String(p.expiry_date).substring(0, 10) : '2028-12-31'}
                                   </span>
                                 </td>
-                                <td className="py-2 px-3 text-right font-mono text-slate-400">{p.tax_percent}%</td>
+                                <td className="py-2 px-3 text-right font-mono text-slate-600">{p.tax_percent}%</td>
                                 <td className="py-2 px-3 text-center">
                                   <div className="flex flex-col items-center gap-1">
-                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${isExp ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : (isOos ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20')
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${isExp ? 'bg-rose-500/20 text-rose-600 border border-rose-500/30' : (isOos ? 'bg-rose-500/10 text-rose-600 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20')
                                       }`}>
                                       {isExp ? 'Expired' : (isOos ? 'Out of Stock' : 'In Stock')}
                                     </span>
                                     {p.is_example ? (
-                                      <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                      <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-700 border border-amber-500/30">
                                         Demo Item
                                       </span>
                                     ) : (
-                                      <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                      <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-orange-50 text-orange-700 border border-orange-300">
                                         Clinic Drug
                                       </span>
                                     )}
@@ -6394,10 +6394,10 @@ export default function App() {
                                           });
                                           setProductModalTab('inward');
                                         }}
-                                        className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition-colors"
+                                        className="p-1.5 hover:bg-orange-50/70 text-slate-600 hover:text-amber-700 rounded-lg transition-colors"
                                         title="Record Monthly Inward Stock"
                                       >
-                                        <Package className="w-3.5 h-3.5 text-amber-400" />
+                                        <Package className="w-3.5 h-3.5 text-amber-700" />
                                       </button>
                                     )}
                                     <button
@@ -6405,7 +6405,7 @@ export default function App() {
                                         setEditingProduct(p);
                                         setProductModalTab('manual');
                                       }}
-                                      className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-sky-400 rounded-lg transition-colors"
+                                      className="p-1.5 hover:bg-orange-50/70 text-slate-600 hover:text-[#C25222] rounded-lg transition-colors"
                                       title="Edit medicine"
                                     >
                                       <Edit className="w-3.5 h-3.5" />
@@ -6413,7 +6413,7 @@ export default function App() {
                                     {p.is_example ? (
                                       <button
                                         onClick={() => deleteProduct(p.id)}
-                                        className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-rose-400 rounded-lg transition-colors"
+                                        className="p-1.5 hover:bg-orange-50/70 text-slate-600 hover:text-rose-600 rounded-lg transition-colors"
                                         title="Delete Demo Medicine"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -6440,21 +6440,21 @@ export default function App() {
               {/* TAB 4: MONTHLY INWARD STOCK INTAKE (ADMIN ONLY) */}
               {productModalTab === 'inward' && (
                 <div className="flex flex-col gap-5 max-w-4xl mx-auto">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-orange-200/80 pb-3">
                     <div>
-                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                        <Package className="w-4 h-4 text-amber-400" />
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <Package className="w-4 h-4 text-amber-700" />
                         <span>Monthly Medicine Inward Stock Intake</span>
-                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">Admin Only</span>
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Admin Only</span>
                       </h4>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-600">
                         Manually log monthly medicine batches received by the clinic, update inventory quantities, and register expiry dates.
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={fetchInwardRecords}
-                      className="self-start sm:self-auto px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs flex items-center gap-1.5 font-bold"
+                      className="self-start sm:self-auto px-3 py-1.5 bg-orange-50/70 hover:bg-orange-100 text-slate-700 rounded-xl text-xs flex items-center gap-1.5 font-bold"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Refresh</span>
@@ -6462,56 +6462,56 @@ export default function App() {
                   </div>
 
                   {currentUser?.role !== 'admin' ? (
-                    <div className="p-4 bg-amber-950/40 border border-amber-800/80 rounded-2xl text-amber-200 text-xs">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs">
                       Admin privileges required to record monthly inward stock medicines.
                     </div>
                   ) : (
-                    <form onSubmit={handleRecordInwardStock} className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 space-y-5">
+                    <form onSubmit={handleRecordInwardStock} className="bg-[#FFFBF7] p-5 rounded-2xl border border-orange-200/80 space-y-5">
                       {/* Consignment Header: Supplier & Invoice Information */}
-                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs bg-slate-900/60 p-4 rounded-xl border border-slate-800/70">
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs bg-white p-4 rounded-xl border border-orange-200/80">
                         <div className="sm:col-span-4 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-amber-300 uppercase">Supplier / Wholesaler *</label>
+                          <label className="text-[10px] font-bold text-amber-700 uppercase">Supplier / Wholesaler *</label>
                           <input
                             type="text"
                             required
                             placeholder="e.g. Apex Pharma Wholesale, MedPlus Depot"
                             value={inwardConsignment.supplier_name}
                             onChange={(e) => setInwardConsignment(prev => ({ ...prev, supplier_name: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 font-semibold"
+                            className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-400 font-semibold"
                           />
                         </div>
 
                         <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-amber-300 uppercase">Invoice / DC Number *</label>
+                          <label className="text-[10px] font-bold text-amber-700 uppercase">Invoice / DC Number *</label>
                           <input
                             type="text"
                             required
                             placeholder="e.g. INV-2026-8491"
                             value={inwardConsignment.invoice_number}
                             onChange={(e) => setInwardConsignment(prev => ({ ...prev, invoice_number: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400 font-semibold"
+                            className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-amber-400 font-semibold"
                           />
                         </div>
 
                         <div className="sm:col-span-2 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-amber-300 uppercase">Date Received *</label>
+                          <label className="text-[10px] font-bold text-amber-700 uppercase">Date Received *</label>
                           <input
                             type="date"
                             required
                             value={inwardConsignment.received_date}
                             onChange={(e) => setInwardConsignment(prev => ({ ...prev, received_date: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+                            className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:border-amber-400"
                           />
                         </div>
 
                         <div className="sm:col-span-3 flex flex-col gap-1.5">
-                          <label className="text-[10px] font-bold text-amber-300 uppercase">Consignment Notes / Rack</label>
+                          <label className="text-[10px] font-bold text-amber-700 uppercase">Consignment Notes / Rack</label>
                           <input
                             type="text"
                             placeholder="e.g. Monthly refill, Shelf A-1"
                             value={inwardConsignment.notes}
                             onChange={(e) => setInwardConsignment(prev => ({ ...prev, notes: e.target.value }))}
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400"
+                            className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-400"
                           />
                         </div>
                       </div>
@@ -6528,11 +6528,11 @@ export default function App() {
                       {/* Multi-Medicine Inward Stock Items Table */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                             Medicines In This Inward Stock Consignment ({inwardConsignment.items.length})
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-600">
                             Type medicine name to select or auto-register new medicines.
                           </span>
                         </div>
@@ -6542,17 +6542,17 @@ export default function App() {
                           {inwardConsignment.items.map((it, idx) => {
                             const lineTotal = Number(it.quantity || 0) * Number(it.purchase_price || 0);
                             return (
-                              <div key={it.id} className="p-4 bg-slate-900/80 border border-slate-800 rounded-2xl space-y-3.5 hover:border-amber-500/40 transition-all shadow-md">
+                              <div key={it.id} className="p-4 bg-white border border-orange-200/80 rounded-2xl space-y-3.5 hover:border-amber-500/40 transition-all shadow-md">
                                 {/* Card Header Row: Item Number, Medicine Name (wide autocomplete), Batch Number, Expiry, and Remove */}
                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                   <div className="flex items-center gap-2">
-                                    <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-amber-500/30">
+                                    <span className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-700 font-mono font-bold text-xs flex items-center justify-center shrink-0 border border-amber-500/30">
                                       #{idx + 1}
                                     </span>
                                   </div>
 
                                   <div className="flex-1 min-w-[240px]">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                                       Medicine Name (Type or Select from Catalog) *
                                     </label>
                                     <input
@@ -6562,12 +6562,12 @@ export default function App() {
                                       placeholder="e.g. Paracetamol 650mg, Aceclofenac..."
                                       value={it.product_name}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'product_name', e.target.value)}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-amber-400 font-semibold"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-amber-400 font-semibold"
                                     />
                                   </div>
 
                                   <div className="w-full sm:w-44">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                                       Batch Number *
                                     </label>
                                     <input
@@ -6576,12 +6576,12 @@ export default function App() {
                                       placeholder="e.g. B-2026-001"
                                       value={it.batch_number}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'batch_number', e.target.value)}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-sky-400 font-mono focus:outline-none focus:border-amber-400"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-[#C25222] font-mono focus:outline-none focus:border-amber-400"
                                     />
                                   </div>
 
                                   <div className="w-full sm:w-44">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                                       Expiry Date *
                                     </label>
                                     <input
@@ -6589,7 +6589,7 @@ export default function App() {
                                       required
                                       value={it.expiry_date}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'expiry_date', e.target.value)}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-amber-700 font-mono focus:outline-none focus:border-amber-400"
                                     />
                                   </div>
 
@@ -6597,7 +6597,7 @@ export default function App() {
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveInwardRow(it.id)}
-                                      className="self-end sm:self-center p-2 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 rounded-xl transition-colors border border-transparent hover:border-rose-500/20"
+                                      className="self-end sm:self-center p-2 hover:bg-rose-500/10 text-slate-500 hover:text-rose-600 rounded-xl transition-colors border border-transparent hover:border-rose-500/20"
                                       title="Remove medicine from this inward receipt"
                                     >
                                       <Trash2 className="w-4 h-4" />
@@ -6606,9 +6606,9 @@ export default function App() {
                                 </div>
 
                                 {/* Card Body Grid: 5 spacious columns for Qty, Cost, Line Total, MRP, Selling Rate */}
-                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2.5 border-t border-slate-800/60">
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2.5 border-t border-orange-200/80">
                                   <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                                       Quantity (Units) *
                                     </label>
                                     <input
@@ -6618,12 +6618,12 @@ export default function App() {
                                       placeholder="e.g. 50"
                                       value={it.quantity || ''}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'quantity', Number(e.target.value))}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-white font-mono font-bold focus:outline-none focus:border-amber-400 text-right"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-amber-400 text-right"
                                     />
                                   </div>
 
                                   <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                                       Purchase Cost (₹) *
                                     </label>
                                     <input
@@ -6633,21 +6633,21 @@ export default function App() {
                                       placeholder="0.00"
                                       value={it.purchase_price || ''}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'purchase_price', Number(e.target.value))}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400 text-right"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-slate-800 font-mono focus:outline-none focus:border-amber-400 text-right"
                                     />
                                   </div>
 
                                   <div>
-                                    <label className="text-[10px] font-bold text-amber-400/90 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block mb-1">
                                       Line Total Cost (₹)
                                     </label>
-                                    <div className="w-full px-3 py-2 bg-slate-950/60 border border-amber-500/20 rounded-xl text-xs text-amber-300 font-mono font-bold text-right">
+                                    <div className="w-full px-3 py-2 bg-[#FFFBF7] border border-amber-500/20 rounded-xl text-xs text-amber-700 font-mono font-bold text-right">
                                       ₹{lineTotal.toFixed(2)}
                                     </div>
                                   </div>
 
                                   <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">
                                       MRP Printed (₹) *
                                     </label>
                                     <input
@@ -6657,12 +6657,12 @@ export default function App() {
                                       placeholder="0.00"
                                       value={it.mrp || ''}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'mrp', Number(e.target.value))}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-slate-300 font-mono focus:outline-none focus:border-amber-400 text-right"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-slate-700 font-mono focus:outline-none focus:border-amber-400 text-right"
                                     />
                                   </div>
 
                                   <div>
-                                    <label className="text-[10px] font-bold text-emerald-400/90 uppercase tracking-wider block mb-1">
+                                    <label className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1">
                                       Selling Rate (₹) *
                                     </label>
                                     <input
@@ -6672,7 +6672,7 @@ export default function App() {
                                       placeholder="0.00"
                                       value={it.selling_price || ''}
                                       onChange={(e) => handleUpdateInwardRow(it.id, 'selling_price', Number(e.target.value))}
-                                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-400 text-right"
+                                      className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-emerald-700 font-mono font-bold focus:outline-none focus:border-amber-400 text-right"
                                     />
                                   </div>
                                 </div>
@@ -6686,7 +6686,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={handleAddInwardRow}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+                            className="px-3 py-1.5 bg-orange-50/70 hover:bg-orange-100 text-amber-700 border border-amber-500/30 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>Add Another Medicine to this Inward Stock</span>
@@ -6701,30 +6701,30 @@ export default function App() {
                         const totalMrpVal = inwardConsignment.items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.mrp || 0)), 0);
 
                         return (
-                          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl">
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-gradient-to-r from-amber-950/40 via-white to-white border border-amber-500/30 rounded-2xl">
                             <div className="flex flex-wrap items-center gap-6 text-xs">
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Medicines in Consignment</span>
-                                <span className="text-base font-black text-white">{inwardConsignment.items.length} Medicines</span>
+                                <span className="text-[10px] font-bold text-slate-600 uppercase block">Medicines in Consignment</span>
+                                <span className="text-base font-black text-slate-900">{inwardConsignment.items.length} Medicines</span>
                               </div>
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Units Received</span>
-                                <span className="text-base font-black text-sky-400">{totalUnits} Units</span>
+                                <span className="text-[10px] font-bold text-slate-600 uppercase block">Total Units Received</span>
+                                <span className="text-base font-black text-[#C25222]">{totalUnits} Units</span>
                               </div>
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Stock Purchase Cost</span>
-                                <span className="text-lg font-black text-amber-400">₹{totalCost.toFixed(2)}</span>
+                                <span className="text-[10px] font-bold text-slate-600 uppercase block">Total Stock Purchase Cost</span>
+                                <span className="text-lg font-black text-amber-700">₹{totalCost.toFixed(2)}</span>
                               </div>
                               <div>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Total MRP Valuation</span>
-                                <span className="text-base font-bold text-slate-300">₹{totalMrpVal.toFixed(2)}</span>
+                                <span className="text-[10px] font-bold text-slate-600 uppercase block">Total MRP Valuation</span>
+                                <span className="text-base font-bold text-slate-700">₹{totalMrpVal.toFixed(2)}</span>
                               </div>
                             </div>
 
                             <button
                               type="submit"
                               disabled={savingInward}
-                              className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                              className="w-full sm:w-auto px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-900 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                               <Package className="w-4 h-4" />
                               <span>{savingInward ? 'Saving Consignment...' : `Record Inward Stock Consignment (₹${totalCost.toFixed(2)})`}</span>
@@ -6738,25 +6738,25 @@ export default function App() {
                   {/* Recent Inward Stock Entries Ledger */}
                   <div className="space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                         <span>Recent Inward Stock Receipts & Refills</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-slate-300">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-orange-50/70 text-slate-700">
                           {inwardRecords.length} records
                         </span>
                       </span>
                       <div className="relative">
-                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" />
                         <input
                           type="text"
                           value={inwardSearchQuery}
                           onChange={(e) => setInwardSearchQuery(e.target.value)}
                           placeholder="Search Invoice #, Medicine, or Supplier..."
-                          className="w-64 pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                          className="w-64 pl-8 pr-3 py-1.5 bg-white border border-orange-200/80 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-400"
                         />
                       </div>
                     </div>
 
-                    <div className="border border-slate-800 rounded-2xl bg-slate-950/40 overflow-hidden">
+                    <div className="border border-orange-200/80 rounded-2xl bg-[#FFFBF7] overflow-hidden">
                       {inwardRecords.length === 0 ? (
                         <div className="py-8 text-center text-xs text-slate-500">
                           No inward stock records yet. Use the form above to log monthly incoming stock.
@@ -6764,7 +6764,7 @@ export default function App() {
                       ) : (
                         <div className="max-h-72 overflow-y-auto">
                           <table className="w-full text-left border-collapse text-xs">
-                            <thead className="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400">
+                            <thead className="sticky top-0 bg-white border-b border-orange-200/80 text-[10px] uppercase font-bold text-slate-600">
                               <tr>
                                 <th className="p-2.5">Date</th>
                                 <th className="p-2.5">Invoice #</th>
@@ -6780,7 +6780,7 @@ export default function App() {
                                 <th className="p-2.5 text-center">Receipt</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800/40">
+                            <tbody className="divide-y divide-orange-100">
                               {inwardRecords
                                 .filter((r: any) => {
                                   if (!inwardSearchQuery.trim()) return true;
@@ -6796,23 +6796,23 @@ export default function App() {
                                 .map((r: any) => {
                                   const totalPurchase = Number(r.quantity || r.quantity_received || 0) * Number(r.purchase_price || 0);
                                   return (
-                                    <tr key={r.id} className="hover:bg-slate-900/60 transition-colors">
-                                      <td className="p-2.5 text-slate-400 font-mono text-[11px]">{r.received_date}</td>
-                                      <td className="p-2.5 font-mono text-sky-400 font-semibold">{r.invoice_number || 'INV-MONTHLY'}</td>
-                                      <td className="p-2.5 text-slate-300 font-medium truncate max-w-[140px]">{r.supplier_name || 'Direct Wholesale'}</td>
-                                      <td className="p-2.5 font-bold text-white">{r.product_name || `Medicine #${r.product_id}`}</td>
-                                      <td className="p-2.5 font-mono text-amber-300">{r.batch_number}</td>
-                                      <td className="p-2.5 text-right font-mono font-bold text-emerald-400">+{r.quantity || r.quantity_received}</td>
-                                      <td className="p-2.5 font-mono text-slate-400 text-[11px]">{r.expiry_date}</td>
-                                      <td className="p-2.5 text-right font-mono text-slate-300">₹{Number(r.purchase_price || 0).toFixed(2)}</td>
-                                      <td className="p-2.5 text-right font-mono font-bold text-amber-400">₹{totalPurchase.toFixed(2)}</td>
-                                      <td className="p-2.5 text-right font-mono text-slate-400">₹{Number(r.mrp || 0).toFixed(2)}</td>
-                                      <td className="p-2.5 text-right font-mono text-emerald-400">₹{Number(r.selling_price || r.mrp || 0).toFixed(2)}</td>
+                                    <tr key={r.id} className="hover:bg-white transition-colors">
+                                      <td className="p-2.5 text-slate-600 font-mono text-[11px]">{r.received_date}</td>
+                                      <td className="p-2.5 font-mono text-[#C25222] font-semibold">{r.invoice_number || 'INV-MONTHLY'}</td>
+                                      <td className="p-2.5 text-slate-700 font-medium truncate max-w-[140px]">{r.supplier_name || 'Direct Wholesale'}</td>
+                                      <td className="p-2.5 font-bold text-slate-900">{r.product_name || `Medicine #${r.product_id}`}</td>
+                                      <td className="p-2.5 font-mono text-amber-700">{r.batch_number}</td>
+                                      <td className="p-2.5 text-right font-mono font-bold text-emerald-700">+{r.quantity || r.quantity_received}</td>
+                                      <td className="p-2.5 font-mono text-slate-600 text-[11px]">{r.expiry_date}</td>
+                                      <td className="p-2.5 text-right font-mono text-slate-700">₹{Number(r.purchase_price || 0).toFixed(2)}</td>
+                                      <td className="p-2.5 text-right font-mono font-bold text-amber-700">₹{totalPurchase.toFixed(2)}</td>
+                                      <td className="p-2.5 text-right font-mono text-slate-600">₹{Number(r.mrp || 0).toFixed(2)}</td>
+                                      <td className="p-2.5 text-right font-mono text-emerald-700">₹{Number(r.selling_price || r.mrp || 0).toFixed(2)}</td>
                                       <td className="p-2.5 text-center">
                                         <button
                                           type="button"
                                           onClick={() => downloadInwardReceiptPDF(r)}
-                                          className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 transition-all whitespace-nowrap"
+                                          className="px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border border-amber-500/30 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 transition-all whitespace-nowrap"
                                           title="Download / Print Inward Stock Receipt (GRN PDF)"
                                         >
                                           <FileText className="w-3 h-3" />
@@ -6838,33 +6838,33 @@ export default function App() {
 
       {/* ----------------- INTELLIGENT DUPLICATE RESOLUTION MODAL ----------------- */}
       {showConflictModal && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-white backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white border border-amber-500/40 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
 
             {/* Header */}
             <div className="p-4 sm:p-5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-700">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Duplicate Medicine Names Detected</h3>
-                  <p className="text-xs text-amber-300/80">
+                  <h3 className="text-sm font-bold text-slate-900">Duplicate Medicine Names Detected</h3>
+                  <p className="text-xs text-amber-700">
                     {excelConflicts.length} item(s) in "{excelFileName}" already exist in your database.
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowConflictModal(false)}
-                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                className="p-1.5 hover:bg-orange-50/70 rounded-lg text-slate-600 hover:text-[#C25222]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Bulk Choice Controls */}
-            <div className="px-5 py-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="px-5 py-3 bg-[#FFFBF7] border-b border-orange-200/80 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                 Choose action for existing medicines:
               </span>
               <div className="flex items-center space-x-2">
@@ -6873,7 +6873,7 @@ export default function App() {
                   onClick={() => {
                     setExcelConflicts(prev => prev.map(c => ({ ...c, userChoice: 'skip' })));
                   }}
-                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-lg transition-colors"
+                  className="px-3 py-1 bg-orange-50/70 hover:bg-orange-100 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
                 >
                   Skip All Duplicates
                 </button>
@@ -6882,7 +6882,7 @@ export default function App() {
                   onClick={() => {
                     setExcelConflicts(prev => prev.map(c => ({ ...c, userChoice: 'add' })));
                   }}
-                  className="px-3 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/30 font-bold text-xs rounded-lg transition-colors"
+                  className="px-3 py-1 bg-orange-50 hover:bg-orange-50 text-[#C25222] border border-orange-300 font-bold text-xs rounded-lg transition-colors"
                 >
                   Add / Overwrite All Anyway
                 </button>
@@ -6895,20 +6895,20 @@ export default function App() {
                 <div
                   key={idx}
                   className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${conflict.userChoice === 'add'
-                    ? 'bg-sky-500/5 border-sky-500/40'
-                    : 'bg-slate-950/60 border-slate-800'
+                    ? 'bg-orange-50 border-orange-300'
+                    : 'bg-[#FFFBF7] border-orange-200/80'
                     }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-bold text-white block truncate">
+                    <span className="text-xs font-bold text-slate-900 block truncate">
                       {conflict.excelItem.name}
                     </span>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-[11px]">
-                      <span className="text-slate-400">
-                        In DB: <span className="font-mono text-emerald-400">₹{conflict.existingItem.price.toFixed(2)}</span> · {conflict.existingItem.tax_percent}% GST · {conflict.existingItem.category}
+                      <span className="text-slate-600">
+                        In DB: <span className="font-mono text-emerald-700">₹{conflict.existingItem.price.toFixed(2)}</span> · {conflict.existingItem.tax_percent}% GST · {conflict.existingItem.category}
                       </span>
-                      <span className="text-sky-300">
-                        In Excel: <span className="font-mono font-bold text-sky-400">₹{Number(conflict.excelItem.price).toFixed(2)}</span> · {conflict.excelItem.tax_percent}% GST · {conflict.excelItem.category}
+                      <span className="text-orange-700">
+                        In Excel: <span className="font-mono font-bold text-[#C25222]">₹{Number(conflict.excelItem.price).toFixed(2)}</span> · {conflict.excelItem.tax_percent}% GST · {conflict.excelItem.category}
                       </span>
                     </div>
                   </div>
@@ -6921,8 +6921,8 @@ export default function App() {
                         setExcelConflicts(prev => prev.map((c, i) => i === idx ? { ...c, userChoice: 'skip' } : c));
                       }}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${conflict.userChoice === 'skip'
-                        ? 'bg-slate-700 text-white shadow-sm'
-                        : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'bg-white text-slate-600 hover:text-slate-800'
                         }`}
                     >
                       Skip
@@ -6933,8 +6933,8 @@ export default function App() {
                         setExcelConflicts(prev => prev.map((c, i) => i === idx ? { ...c, userChoice: 'add' } : c));
                       }}
                       className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${conflict.userChoice === 'add'
-                        ? 'bg-sky-500 text-slate-950 shadow-sm'
-                        : 'bg-slate-900 text-slate-400 hover:text-sky-400'
+                        ? 'bg-orange-600 text-white shadow-sm'
+                        : 'bg-white text-slate-600 hover:text-[#C25222]'
                         }`}
                     >
                       Add Anyway
@@ -6945,10 +6945,10 @@ export default function App() {
             </div>
 
             {/* Footer Summary & Proceed */}
-            <div className="p-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs text-slate-400">
-                Ready to import: <strong className="text-white">{excelNewItems.length} new</strong> +{' '}
-                <strong className="text-sky-400">{excelConflicts.filter(c => c.userChoice === 'add').length} duplicate</strong> medicines (
+            <div className="p-4 bg-[#FFFBF7] border-t border-orange-200/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs text-slate-600">
+                Ready to import: <strong className="text-slate-900">{excelNewItems.length} new</strong> +{' '}
+                <strong className="text-[#C25222]">{excelConflicts.filter(c => c.userChoice === 'add').length} duplicate</strong> medicines (
                 <span className="text-slate-500">{excelConflicts.filter(c => c.userChoice === 'skip').length} skipped</span>).
               </div>
 
@@ -6956,7 +6956,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setShowConflictModal(false)}
-                  className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-colors"
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-orange-50/70 hover:bg-orange-100 text-slate-700 font-bold text-xs rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
@@ -6970,7 +6970,7 @@ export default function App() {
                     ];
                     executeExcelImport(finalItems, true);
                   }}
-                  className="flex-1 sm:flex-none px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-sky-500/20 active:scale-95 disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-5 py-2.5 bg-orange-600 hover:bg-[#C25222] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-orange-500/20 active:scale-95 disabled:opacity-50"
                 >
                   {isBatchImporting ? 'Importing...' : 'Confirm & Import Medicines'}
                 </button>
@@ -6983,35 +6983,35 @@ export default function App() {
 
       {/* ----------------- REPORTS & ANALYTICS DASHBOARD MODAL ----------------- */}
       {showAnalyticsModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-6xl shadow-2xl h-[90vh] max-h-[860px] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white border border-orange-200/80 rounded-2xl w-full max-w-6xl shadow-2xl h-[90vh] max-h-[860px] flex flex-col overflow-hidden">
 
-            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-              <span className="text-sm font-bold text-white flex items-center">
-                <BarChart2 className="w-4 h-4 mr-2 text-emerald-400" />
-                <span className="text-sky-300 font-extrabold uppercase mr-2 tracking-wide">{(bakeryDetails.name || 'MADRAS ORTHO CLINIC').toUpperCase()}</span>
+            <div className="p-4 bg-white border-b border-orange-200/80 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-900 flex items-center">
+                <BarChart2 className="w-4 h-4 mr-2 text-emerald-700" />
+                <span className="text-orange-700 font-extrabold uppercase mr-2 tracking-wide">{(bakeryDetails.name || 'MADRAS ORTHO CLINIC').toUpperCase()}</span>
                 <span className="text-slate-500 mr-2">•</span>
                 <span>Financial Reports, Margins & Stock Analytics</span>
                 {currentUser?.role !== 'admin' && (
-                  <span className="ml-3 px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-bold uppercase tracking-wider">
+                  <span className="ml-3 px-2 py-0.5 rounded-full bg-orange-50 text-[#C25222] border border-orange-300 text-[10px] font-bold uppercase tracking-wider">
                     Employee View-Only Mode
                   </span>
                 )}
               </span>
               <button
                 onClick={() => setShowAnalyticsModal(false)}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                className="p-1 hover:bg-orange-50/70 rounded text-slate-600 hover:text-[#C25222]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex bg-slate-900 border-b border-slate-800 px-4">
+            <div className="flex bg-white border-b border-orange-200/80 px-4">
               <button
                 onClick={() => setActiveTab('analytics')}
                 className={`py-2.5 px-4 text-xs font-bold border-b-2 transition-all ${activeTab === 'analytics'
-                  ? 'border-sky-500 text-sky-400 font-extrabold'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  ? 'border-orange-300 text-[#C25222] font-extrabold'
+                  : 'border-transparent text-slate-600 hover:text-slate-800'
                   }`}
               >
                 Comprehensive Financial & Inventory Report
@@ -7019,8 +7019,8 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('history')}
                 className={`py-2.5 px-4 text-xs font-bold border-b-2 transition-all ${activeTab === 'history'
-                  ? 'border-sky-500 text-sky-400 font-extrabold'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                  ? 'border-orange-300 text-[#C25222] font-extrabold'
+                  : 'border-transparent text-slate-600 hover:text-slate-800'
                   }`}
               >
                 Previous Invoices History
@@ -7028,33 +7028,33 @@ export default function App() {
             </div>
 
             {/* Filter controls */}
-            <div className="p-3.5 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+            <div className="p-3.5 bg-[#FFFBF7] border-b border-orange-200/80 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center space-x-1.5">
                 <button
                   onClick={() => setReportType('daily')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${reportType === 'daily' ? 'bg-sky-500 text-slate-950 font-black shadow-sm' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${reportType === 'daily' ? 'bg-orange-600 text-white font-black shadow-sm' : 'bg-orange-50/70 hover:bg-orange-100 text-slate-700'
                     }`}
                 >
                   Daily
                 </button>
                 <button
                   onClick={() => setReportType('weekly')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${reportType === 'weekly' ? 'bg-sky-500 text-slate-950 font-black shadow-sm' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${reportType === 'weekly' ? 'bg-orange-600 text-white font-black shadow-sm' : 'bg-orange-50/70 hover:bg-orange-100 text-slate-700'
                     }`}
                 >
                   Weekly (Mon-Sun)
                 </button>
                 <button
                   onClick={() => setReportType('monthly')}
-                  className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${reportType === 'monthly' ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${reportType === 'monthly' ? 'bg-orange-600 text-white font-black shadow-md shadow-orange-500/20' : 'bg-orange-50/70 hover:bg-orange-100 text-slate-700'
                     }`}
                 >
                   <span>Monthly</span>
-                  <span className={`text-[9px] font-black uppercase px-1 rounded ${reportType === 'monthly' ? 'bg-slate-950 text-sky-300' : 'bg-sky-500/20 text-sky-400'}`}>Primary</span>
+                  <span className={`text-[9px] font-black uppercase px-1 rounded ${reportType === 'monthly' ? 'bg-[#FFFBF7] text-orange-700' : 'bg-orange-50 text-[#C25222]'}`}>Primary</span>
                 </button>
                 <button
                   onClick={() => setReportType('yearly')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${reportType === 'yearly' ? 'bg-sky-500 text-slate-950 font-black shadow-sm' : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${reportType === 'yearly' ? 'bg-orange-600 text-white font-black shadow-sm' : 'bg-orange-50/70 hover:bg-orange-100 text-slate-700'
                     }`}
                 >
                   Yearly
@@ -7066,7 +7066,7 @@ export default function App() {
                   <select
                     value={reportYear}
                     onChange={(e) => setReportYear(Number(e.target.value))}
-                    className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono font-bold"
+                    className="px-3 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono font-bold"
                   >
                     {[2024, 2025, 2026, 2027, 2028].map(y => (
                       <option key={y} value={y}>{y}</option>
@@ -7077,14 +7077,14 @@ export default function App() {
                     type="month"
                     value={reportMonth}
                     onChange={(e) => setReportMonth(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-mono font-bold focus:outline-none focus:border-sky-500"
+                    className="px-3 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-orange-300"
                   />
                 ) : (
                   <input
                     type="date"
                     value={reportDate}
                     onChange={(e) => setReportDate(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white font-mono font-bold focus:outline-none focus:border-sky-500"
+                    className="px-3 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded-xl text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-orange-300"
                   />
                 )}
 
@@ -7103,7 +7103,7 @@ export default function App() {
               {activeTab === 'analytics' ? (
                 loadingAnalytics ? (
                   <div className="flex flex-col justify-center items-center h-full text-slate-500 gap-3 py-16">
-                    <RefreshCw className="w-8 h-8 animate-spin text-sky-400" />
+                    <RefreshCw className="w-8 h-8 animate-spin text-[#C25222]" />
                     <span className="text-xs font-semibold uppercase tracking-wider">Compiling precise financial & stock metrics...</span>
                   </div>
                 ) : analyticsData ? (
@@ -7112,68 +7112,68 @@ export default function App() {
                     {/* ROW 1: PRIMARY FINANCIAL MARGINS & COGS CARDS */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                       {/* Card 1: Revenue & Invoices */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Net Sales Revenue</span>
-                          <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Net Sales Revenue</span>
+                          <span className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono">
                             ₹{(analyticsData.financials?.netSales ?? analyticsData.totalSales ?? 0).toFixed(2)}
                           </span>
                         </div>
-                        <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Total Invoices:</span>
-                          <span className="font-bold text-white font-mono">{analyticsData.billCount ?? 0}</span>
+                        <div className="mt-3 pt-3 border-t border-orange-200/80 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-600">Total Invoices:</span>
+                          <span className="font-bold text-slate-900 font-mono">{analyticsData.billCount ?? 0}</span>
                         </div>
                       </div>
 
                       {/* Card 2: MRP vs Discount Info */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Gross MRP & Discounts</span>
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Gross MRP & Discounts</span>
                           <div className="flex items-baseline gap-2">
-                            <span className="text-lg font-bold text-slate-200 font-mono">
+                            <span className="text-lg font-bold text-slate-800 font-mono">
                               ₹{(analyticsData.financials?.grossSales ?? analyticsData.totalSales ?? 0).toFixed(2)}
                             </span>
-                            <span className="text-[10px] text-slate-400">Gross</span>
+                            <span className="text-[10px] text-slate-600">Gross</span>
                           </div>
                         </div>
-                        <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                          <span className="text-rose-400 font-medium">Discounts Given:</span>
-                          <span className="font-bold text-rose-300 font-mono">
+                        <div className="mt-3 pt-3 border-t border-orange-200/80 flex items-center justify-between text-[11px]">
+                          <span className="text-rose-600 font-medium">Discounts Given:</span>
+                          <span className="font-bold text-rose-700 font-mono">
                             -₹{(analyticsData.financials?.discounts ?? 0).toFixed(2)}
                           </span>
                         </div>
                       </div>
 
                       {/* Card 3: Purchase Rate (COGS) */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Cost of Goods Sold (Purchase Rate)</span>
-                          <span className="text-xl sm:text-2xl font-black text-amber-400 font-mono">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Cost of Goods Sold (Purchase Rate)</span>
+                          <span className="text-xl sm:text-2xl font-black text-amber-700 font-mono">
                             ₹{(analyticsData.financials?.cogs ?? 0).toFixed(2)}
                           </span>
                         </div>
-                        <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Purchase Basis:</span>
-                          <span className="font-bold text-slate-300 font-mono">Wholesale Inward Rate</span>
+                        <div className="mt-3 pt-3 border-t border-orange-200/80 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-600">Purchase Basis:</span>
+                          <span className="font-bold text-slate-700 font-mono">Wholesale Inward Rate</span>
                         </div>
                       </div>
 
                       {/* Card 4: Gross Profit & Margin % */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
                         <div>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Gross Profit & Margin</span>
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Gross Profit & Margin</span>
                           <div className="flex items-baseline gap-2">
-                            <span className="text-xl sm:text-2xl font-black text-sky-400 font-mono">
+                            <span className="text-xl sm:text-2xl font-black text-[#C25222] font-mono">
                               ₹{(analyticsData.financials?.grossProfit ?? 0).toFixed(2)}
                             </span>
-                            <span className="text-xs font-bold text-emerald-400 font-mono">
+                            <span className="text-xs font-bold text-emerald-700 font-mono">
                               {(analyticsData.financials?.profitMarginPercent ?? 0).toFixed(1)}%
                             </span>
                           </div>
                         </div>
-                        <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Net Profitability:</span>
-                          <span className="font-bold text-emerald-400">
+                        <div className="mt-3 pt-3 border-t border-orange-200/80 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-600">Net Profitability:</span>
+                          <span className="font-bold text-emerald-700">
                             {(analyticsData.financials?.profitMarginPercent ?? 0) >= 0 ? 'Profitable' : 'Deficit'}
                           </span>
                         </div>
@@ -7184,19 +7184,19 @@ export default function App() {
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
 
                       {/* Left: Stock Movement, Difference & Valuations (7 Cols) */}
-                      <div className="lg:col-span-7 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
-                        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                          <span className="text-xs font-bold text-white flex items-center gap-1.5 uppercase tracking-wide">
-                            <Package className="w-4 h-4 text-amber-400" />
+                      <div className="lg:col-span-7 bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 space-y-3 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
+                          <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
+                            <Package className="w-4 h-4 text-amber-700" />
                             Stock Amount, Inward vs Outward & Net Difference
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400">Period Audit</span>
+                          <span className="text-[10px] font-mono text-slate-600">Period Audit</span>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                          <div className="p-2.5 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[10px] text-slate-400 block uppercase">Inward Received</span>
-                            <span className="text-base font-black text-emerald-400 font-mono">
+                          <div className="p-2.5 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[10px] text-slate-600 block uppercase">Inward Received</span>
+                            <span className="text-base font-black text-emerald-700 font-mono">
                               +{analyticsData.stockMovement?.inwardUnits ?? 0}
                             </span>
                             <span className="text-[9px] text-slate-500 block font-mono">
@@ -7204,17 +7204,17 @@ export default function App() {
                             </span>
                           </div>
 
-                          <div className="p-2.5 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[10px] text-slate-400 block uppercase">Stock Sold</span>
-                            <span className="text-base font-black text-rose-400 font-mono">
+                          <div className="p-2.5 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[10px] text-slate-600 block uppercase">Stock Sold</span>
+                            <span className="text-base font-black text-rose-600 font-mono">
                               -{analyticsData.stockMovement?.unitsSold ?? 0}
                             </span>
                             <span className="text-[9px] text-slate-500 block">Dispensed</span>
                           </div>
 
-                          <div className="p-2.5 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[10px] text-amber-300 block uppercase">Free Health Disp.</span>
-                            <span className="text-base font-black text-amber-400 font-mono">
+                          <div className="p-2.5 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[10px] text-amber-700 block uppercase">Free Health Disp.</span>
+                            <span className="text-base font-black text-amber-700 font-mono">
                               -{analyticsData.stockMovement?.complimentaryUnits ?? 0}
                             </span>
                             <span className="text-[9px] text-slate-500 block font-mono">
@@ -7222,9 +7222,9 @@ export default function App() {
                             </span>
                           </div>
 
-                          <div className="p-2.5 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[10px] text-slate-300 block uppercase font-bold">Net Difference</span>
-                            <span className={`text-base font-black font-mono ${(analyticsData.stockMovement?.netStockDifferenceUnits ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                          <div className="p-2.5 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[10px] text-slate-700 block uppercase font-bold">Net Difference</span>
+                            <span className={`text-base font-black font-mono ${(analyticsData.stockMovement?.netStockDifferenceUnits ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-600'
                               }`}>
                               {(analyticsData.stockMovement?.netStockDifferenceUnits ?? 0) >= 0 ? '+' : ''}
                               {analyticsData.stockMovement?.netStockDifferenceUnits ?? 0}
@@ -7234,63 +7234,63 @@ export default function App() {
                         </div>
 
                         {/* Current Available Closing Stock Valuation in Batches */}
-                        <div className="p-3 bg-slate-900/50 border border-slate-800/80 rounded-xl flex items-center justify-between text-xs flex-wrap gap-2">
+                        <div className="p-3 bg-white border border-orange-200/80 rounded-xl flex items-center justify-between text-xs flex-wrap gap-2">
                           <div>
-                            <span className="text-slate-400 block text-[10px] uppercase font-bold">Current Closing Stock in Clinic Batches</span>
-                            <span className="font-mono font-bold text-white text-sm">
+                            <span className="text-slate-600 block text-[10px] uppercase font-bold">Current Closing Stock in Clinic Batches</span>
+                            <span className="font-mono font-bold text-slate-900 text-sm">
                               {analyticsData.stockMovement?.currentAvailableStockUnits ?? 0} Available Units
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-[11px] font-mono">
                             <div className="text-right">
                               <span className="text-slate-500 block text-[9px] uppercase">Valuation at Cost</span>
-                              <span className="text-amber-400 font-bold">₹{(analyticsData.stockMovement?.currentStockValuationCost ?? 0).toFixed(2)}</span>
+                              <span className="text-amber-700 font-bold">₹{(analyticsData.stockMovement?.currentStockValuationCost ?? 0).toFixed(2)}</span>
                             </div>
                             <div className="text-right">
                               <span className="text-slate-500 block text-[9px] uppercase">Valuation at MRP</span>
-                              <span className="text-emerald-400 font-bold">₹{(analyticsData.stockMovement?.currentStockValuationMrp ?? 0).toFixed(2)}</span>
+                              <span className="text-emerald-700 font-bold">₹{(analyticsData.stockMovement?.currentStockValuationMrp ?? 0).toFixed(2)}</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Right: Statutory GST Tax Report (5 Cols) */}
-                      <div className="lg:col-span-5 bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3 shadow-sm">
-                        <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                          <span className="text-xs font-bold text-white flex items-center gap-1.5 uppercase tracking-wide">
-                            <FileText className="w-4 h-4 text-sky-400" />
+                      <div className="lg:col-span-5 bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 space-y-3 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
+                          <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5 uppercase tracking-wide">
+                            <FileText className="w-4 h-4 text-[#C25222]" />
                             GST Statutory Tax Report (CGST & SGST)
                           </span>
-                          <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                          <span className="text-[10px] font-mono text-emerald-700 font-bold">
                             Total: ₹{(analyticsData.gstReport?.totalGst ?? 0).toFixed(2)}
                           </span>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                          <div className="p-2 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[9px] text-slate-400 block uppercase">Taxable Base</span>
-                            <span className="font-mono font-bold text-slate-200">
+                          <div className="p-2 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[9px] text-slate-600 block uppercase">Taxable Base</span>
+                            <span className="font-mono font-bold text-slate-800">
                               ₹{(analyticsData.gstReport?.taxableValue ?? 0).toFixed(1)}
                             </span>
                           </div>
-                          <div className="p-2 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[9px] text-slate-400 block uppercase">CGST (50%)</span>
-                            <span className="font-mono font-bold text-amber-400">
+                          <div className="p-2 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[9px] text-slate-600 block uppercase">CGST (50%)</span>
+                            <span className="font-mono font-bold text-amber-700">
                               ₹{(analyticsData.gstReport?.cgst ?? 0).toFixed(2)}
                             </span>
                           </div>
-                          <div className="p-2 bg-slate-900/70 border border-slate-800 rounded-xl">
-                            <span className="text-[9px] text-slate-400 block uppercase">SGST (50%)</span>
-                            <span className="font-mono font-bold text-amber-400">
+                          <div className="p-2 bg-white border border-orange-200/80 rounded-xl">
+                            <span className="text-[9px] text-slate-600 block uppercase">SGST (50%)</span>
+                            <span className="font-mono font-bold text-amber-700">
                               ₹{(analyticsData.gstReport?.sgst ?? 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
 
                         {/* 4-Tier GST Slab Table */}
-                        <div className="border border-slate-800 rounded-xl overflow-hidden text-[11px]">
+                        <div className="border border-orange-200/80 rounded-xl overflow-hidden text-[11px]">
                           <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-900 border-b border-slate-800 text-[9px] uppercase font-bold text-slate-400">
+                            <thead className="bg-white border-b border-orange-200/80 text-[9px] uppercase font-bold text-slate-600">
                               <tr>
                                 <th className="p-1.5 pl-2">Slab</th>
                                 <th className="p-1.5 text-right">Taxable</th>
@@ -7299,16 +7299,16 @@ export default function App() {
                                 <th className="p-1.5 text-right pr-2">Total GST</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800/40 font-mono">
+                            <tbody className="divide-y divide-orange-100 font-mono">
                               {['0%', '5%', '12%', '18%'].map((slab) => {
                                 const sData = analyticsData.gstReport?.slabs?.[slab] || { taxable: 0, cgst: 0, sgst: 0, total: 0 };
                                 return (
-                                  <tr key={slab} className="hover:bg-slate-900/40">
-                                    <td className="p-1.5 pl-2 font-bold text-slate-300">{slab}</td>
-                                    <td className="p-1.5 text-right text-slate-400">₹{sData.taxable.toFixed(1)}</td>
-                                    <td className="p-1.5 text-right text-slate-400">₹{sData.cgst.toFixed(2)}</td>
-                                    <td className="p-1.5 text-right text-slate-400">₹{sData.sgst.toFixed(2)}</td>
-                                    <td className="p-1.5 text-right pr-2 font-bold text-emerald-400">₹{sData.total.toFixed(2)}</td>
+                                  <tr key={slab} className="hover:bg-white">
+                                    <td className="p-1.5 pl-2 font-bold text-slate-700">{slab}</td>
+                                    <td className="p-1.5 text-right text-slate-600">₹{sData.taxable.toFixed(1)}</td>
+                                    <td className="p-1.5 text-right text-slate-600">₹{sData.cgst.toFixed(2)}</td>
+                                    <td className="p-1.5 text-right text-slate-600">₹{sData.sgst.toFixed(2)}</td>
+                                    <td className="p-1.5 text-right pr-2 font-bold text-emerald-700">₹{sData.total.toFixed(2)}</td>
                                   </tr>
                                 );
                               })}
@@ -7322,81 +7322,81 @@ export default function App() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
 
                       {/* Doctor/Staff Health Dispense Summary */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-700" />
                               Free Health Dispenses (₹0)
                             </span>
-                            <span className="text-[9px] font-mono text-slate-400">Admin</span>
+                            <span className="text-[9px] font-mono text-slate-600">Admin</span>
                           </div>
-                          <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
+                          <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
                             Doctor-issued medicines to employees & colleagues for health purposes with zero cost deducted.
                           </p>
                         </div>
-                        <div className="space-y-1.5 text-xs pt-3 border-t border-slate-800/80">
+                        <div className="space-y-1.5 text-xs pt-3 border-t border-orange-200/80">
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Dispense Count:</span>
-                            <span className="font-bold text-white font-mono">{analyticsData.complimentarySummary?.dispenseCount ?? analyticsData.complimentarySummary?.billsCount ?? 0}</span>
+                            <span className="text-slate-600">Dispense Count:</span>
+                            <span className="font-bold text-slate-900 font-mono">{analyticsData.complimentarySummary?.dispenseCount ?? analyticsData.complimentarySummary?.billsCount ?? 0}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Free Medicine Units:</span>
-                            <span className="font-bold text-amber-300 font-mono">{analyticsData.complimentarySummary?.totalUnits ?? analyticsData.complimentarySummary?.unitsDispensed ?? 0} units</span>
+                            <span className="text-slate-600">Free Medicine Units:</span>
+                            <span className="font-bold text-amber-700 font-mono">{analyticsData.complimentarySummary?.totalUnits ?? analyticsData.complimentarySummary?.unitsDispensed ?? 0} units</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-400">Clinic Cost Absorbed:</span>
-                            <span className="font-bold text-amber-400 font-mono">₹{(analyticsData.complimentarySummary?.totalCostAbsorbed ?? analyticsData.complimentarySummary?.absorbedCost ?? 0).toFixed(2)}</span>
+                            <span className="text-slate-600">Clinic Cost Absorbed:</span>
+                            <span className="font-bold text-amber-700 font-mono">₹{(analyticsData.complimentarySummary?.totalCostAbsorbed ?? analyticsData.complimentarySummary?.absorbedCost ?? 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Payment Distribution */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                           Payment Mode Settlement
                         </span>
                         <div className="space-y-2 text-xs">
-                          <div className="flex justify-between items-center py-1 border-b border-slate-800/40">
-                            <span className="flex items-center text-slate-300">
-                              <DollarSign className="w-3.5 h-3.5 text-emerald-400 mr-2" />
+                          <div className="flex justify-between items-center py-1 border-b border-orange-200/80">
+                            <span className="flex items-center text-slate-700">
+                              <DollarSign className="w-3.5 h-3.5 text-emerald-700 mr-2" />
                               Cash:
                             </span>
-                            <span className="font-bold font-mono text-white">₹{(analyticsData.paymentBreakdown?.Cash ?? 0).toFixed(2)}</span>
+                            <span className="font-bold font-mono text-slate-900">₹{(analyticsData.paymentBreakdown?.Cash ?? 0).toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between items-center py-1 border-b border-slate-800/40">
-                            <span className="flex items-center text-slate-300">
-                              <Smartphone className="w-3.5 h-3.5 text-sky-400 mr-2" />
+                          <div className="flex justify-between items-center py-1 border-b border-orange-200/80">
+                            <span className="flex items-center text-slate-700">
+                              <Smartphone className="w-3.5 h-3.5 text-[#C25222] mr-2" />
                               Google Pay / UPI:
                             </span>
-                            <span className="font-bold font-mono text-white">₹{(analyticsData.paymentBreakdown?.GooglePay ?? 0).toFixed(2)}</span>
+                            <span className="font-bold font-mono text-slate-900">₹{(analyticsData.paymentBreakdown?.GooglePay ?? 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between items-center py-1">
-                            <span className="flex items-center text-slate-300">
-                              <CreditCard className="w-3.5 h-3.5 text-purple-400 mr-2" />
+                            <span className="flex items-center text-slate-700">
+                              <CreditCard className="w-3.5 h-3.5 text-purple-600 mr-2" />
                               Bank Card:
                             </span>
-                            <span className="font-bold font-mono text-white">₹{(analyticsData.paymentBreakdown?.BankCard ?? 0).toFixed(2)}</span>
+                            <span className="font-bold font-mono text-slate-900">₹{(analyticsData.paymentBreakdown?.BankCard ?? 0).toFixed(2)}</span>
                           </div>
                         </div>
-                        <div className="mt-3 pt-2 border-t border-slate-800/60 text-[10px] text-slate-500">
+                        <div className="mt-3 pt-2 border-t border-orange-200/80 text-[10px] text-slate-500">
                           Physical POS & UPI settlements
                         </div>
                       </div>
 
                       {/* Top Products Sold */}
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col shadow-sm">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 flex flex-col shadow-sm">
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                           Top Products Sold
                         </span>
                         <div className="flex-1 overflow-y-auto space-y-2 max-h-36">
                           {analyticsData.topProducts?.slice(0, 5).map((p: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center text-xs pb-1 border-b border-slate-800/40">
+                            <div key={idx} className="flex justify-between items-center text-xs pb-1 border-b border-orange-200/80">
                               <div>
-                                <span className="font-bold text-white block truncate max-w-[140px]">{p.name}</span>
+                                <span className="font-bold text-slate-900 block truncate max-w-[140px]">{p.name}</span>
                                 <span className="text-[10px] text-slate-500">{p.quantity} sold</span>
                               </div>
-                              <span className="font-bold font-mono text-emerald-400">₹{p.total.toFixed(2)}</span>
+                              <span className="font-bold font-mono text-emerald-700">₹{p.total.toFixed(2)}</span>
                             </div>
                           ))}
                           {(!analyticsData.topProducts || analyticsData.topProducts.length === 0) && (
@@ -7408,9 +7408,9 @@ export default function App() {
 
                     {/* ROW 4: DAILY TREND (FOR MONTH / WEEK) OR MONTHLY GROWTH (FOR YEAR) */}
                     {analyticsData.dailyBreakdown && (
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 shadow-sm">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
                             Daily Sales Trend ({reportType.toUpperCase()})
                           </span>
                           <span className="text-[10px] text-slate-500 font-mono">
@@ -7419,10 +7419,10 @@ export default function App() {
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 text-center text-xs">
                           {analyticsData.dailyBreakdown.slice(-14).map((day: any) => (
-                            <div key={day.date} className="p-2 bg-slate-900/60 border border-slate-800 rounded-xl">
-                              <div className="font-bold text-slate-300 text-[11px]">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                            <div key={day.date} className="p-2 bg-white border border-orange-200/80 rounded-xl">
+                              <div className="font-bold text-slate-700 text-[11px]">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
                               <div className="text-[9px] text-slate-500 mb-1">{day.date.split('-').slice(1).join('/')}</div>
-                              <div className="font-bold text-emerald-400 font-mono">₹{day.amount.toFixed(0)}</div>
+                              <div className="font-bold text-emerald-700 font-mono">₹{day.amount.toFixed(0)}</div>
                               <div className="text-[9px] text-slate-500">{day.bills} bills</div>
                             </div>
                           ))}
@@ -7431,16 +7431,16 @@ export default function App() {
                     )}
 
                     {analyticsData.monthlyBreakdown && (
-                      <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 shadow-sm">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                      <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-2xl p-4 shadow-sm">
+                        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
                           Monthly Growth Breakdown ({reportYear})
                         </span>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs">
                           {analyticsData.monthlyBreakdown.map((m: any) => (
-                            <div key={m.monthName} className="p-2.5 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-col justify-between">
+                            <div key={m.monthName} className="p-2.5 bg-white border border-orange-200/80 rounded-xl flex flex-col justify-between">
                               <div>
-                                <div className="font-bold text-slate-300">{m.monthName}</div>
-                                <div className="font-bold text-emerald-400 font-mono mt-1">₹{m.amount.toFixed(0)}</div>
+                                <div className="font-bold text-slate-700">{m.monthName}</div>
+                                <div className="font-bold text-emerald-700 font-mono mt-1">₹{m.amount.toFixed(0)}</div>
                               </div>
                               <div className="text-[9px] text-slate-500 mt-2">
                                 {m.bills} bills • {(m.growthPercent * 100).toFixed(0)}% MoM
@@ -7465,31 +7465,31 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-12 gap-5 h-full overflow-hidden">
                     {/* Left: Bills List */}
-                    <div className="col-span-7 flex flex-col h-full overflow-hidden bg-slate-950/20 border border-slate-800/80 rounded-xl p-4">
+                    <div className="col-span-7 flex flex-col h-full overflow-hidden bg-[#FFFBF7] border border-orange-200/80 rounded-xl p-4">
                       <div className="flex flex-col gap-2.5 mb-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                          <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">
                             Invoices ({historyBills.length})
                           </span>
                           <div className="flex items-center gap-2 text-[10px]">
-                            <span className="text-sky-400 font-bold">
+                            <span className="text-[#C25222] font-bold">
                               Mode A: ₹{historyBills.filter(b => b.mode === 'CLINIC_DISPENSING' && b.status !== 'Cancelled').reduce((s, b) => s + (Number(b.grand_total) || 0), 0).toFixed(2)}
                             </span>
                             <span className="text-slate-600">•</span>
-                            <span className="text-emerald-400 font-bold">
+                            <span className="text-emerald-700 font-bold">
                               Mode B: ₹{historyBills.filter(b => b.mode !== 'CLINIC_DISPENSING' && b.status !== 'Cancelled').reduce((s, b) => s + (Number(b.grand_total) || 0), 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
 
                         {/* Mode A vs Mode B Filter Buttons */}
-                        <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-lg text-xs">
+                        <div className="flex items-center gap-1.5 p-1 bg-white border border-orange-200/80 rounded-lg text-xs">
                           <button
                             type="button"
                             onClick={() => setHistoryModeFilter('ALL')}
                             className={`flex-1 py-1 px-2 rounded font-bold text-[11px] transition-all ${historyModeFilter === 'ALL'
-                              ? 'bg-slate-700 text-white shadow-sm'
-                              : 'text-slate-400 hover:text-slate-200'
+                              ? 'bg-orange-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-slate-800'
                               }`}
                           >
                             All ({historyBills.length})
@@ -7498,8 +7498,8 @@ export default function App() {
                             type="button"
                             onClick={() => setHistoryModeFilter('CLINIC_DISPENSING')}
                             className={`flex-1 py-1 px-2 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition-all ${historyModeFilter === 'CLINIC_DISPENSING'
-                              ? 'bg-sky-600 text-white shadow-sm'
-                              : 'text-sky-400/80 hover:text-sky-300'
+                              ? 'bg-orange-600 text-white shadow-sm'
+                              : 'text-[#C25222] hover:text-orange-700'
                               }`}
                           >
                             <Building2 className="w-3 h-3" /> Mode A: Clinic ({historyBills.filter(b => b.mode === 'CLINIC_DISPENSING').length})
@@ -7509,7 +7509,7 @@ export default function App() {
                             onClick={() => setHistoryModeFilter('RETAIL_PHARMACY')}
                             className={`flex-1 py-1 px-2 rounded font-bold text-[11px] flex items-center justify-center gap-1 transition-all ${historyModeFilter === 'RETAIL_PHARMACY'
                               ? 'bg-emerald-600 text-white shadow-sm'
-                              : 'text-emerald-400/80 hover:text-emerald-300'
+                              : 'text-emerald-700 hover:text-emerald-700'
                               }`}
                           >
                             <Store className="w-3 h-3" /> Mode B: Retail ({historyBills.filter(b => b.mode !== 'CLINIC_DISPENSING').length})
@@ -7526,7 +7526,7 @@ export default function App() {
                         ) : (
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                              <tr className="text-[10px] uppercase font-bold text-slate-500 border-b border-slate-800">
+                              <tr className="text-[10px] uppercase font-bold text-slate-500 border-b border-orange-200/80">
                                 <th className="py-2 pl-2">Bill #</th>
                                 <th className="py-2">Mode</th>
                                 <th className="py-2">Date & Time</th>
@@ -7541,14 +7541,14 @@ export default function App() {
                                   <tr
                                     key={bill.id}
                                     onClick={() => fetchBillItems(bill)}
-                                    className={`border-b border-slate-800/60 cursor-pointer transition-colors ${isSelected ? 'bg-slate-800/80 text-white font-semibold' : 'hover:bg-slate-900/40 text-slate-300'
+                                    className={`border-b border-orange-200/80 cursor-pointer transition-colors ${isSelected ? 'bg-orange-50/70 text-slate-900 font-semibold' : 'hover:bg-white text-slate-700'
                                       }`}
                                   >
-                                    <td className="py-2.5 pl-2 font-mono font-bold text-bakery-400">#{bill.bill_number}</td>
+                                    <td className="py-2.5 pl-2 font-mono font-bold text-orange-600">#{bill.bill_number}</td>
                                     <td className="py-2.5">
                                       <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${bill.mode === 'CLINIC_DISPENSING'
-                                        ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30'
-                                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                        ? 'bg-orange-50 text-[#C25222] border border-orange-300'
+                                        : 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/30'
                                         }`}>
                                         {bill.mode === 'CLINIC_DISPENSING' ? 'Clinic OP' : 'Retail Rx'}
                                       </span>
@@ -7558,14 +7558,14 @@ export default function App() {
                                       <div className="text-[10px] text-slate-500">{bill.time}</div>
                                     </td>
                                     <td className="py-2.5">
-                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${bill.payment_method === 'Cash' ? 'bg-emerald-500/10 text-emerald-400' :
-                                        bill.payment_method?.toLowerCase() === 'googlepay' ? 'bg-sky-500/10 text-sky-400' :
-                                          'bg-purple-500/10 text-purple-400'
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${bill.payment_method === 'Cash' ? 'bg-emerald-500/10 text-emerald-700' :
+                                        bill.payment_method?.toLowerCase() === 'googlepay' ? 'bg-orange-50 text-[#C25222]' :
+                                          'bg-purple-500/10 text-purple-600'
                                         }`}>
                                         {bill.payment_method}
                                       </span>
                                     </td>
-                                    <td className="py-2.5 text-right pr-2 font-mono text-emerald-400 font-bold">₹{bill.grand_total.toFixed(2)}</td>
+                                    <td className="py-2.5 text-right pr-2 font-mono text-emerald-700 font-bold">₹{bill.grand_total.toFixed(2)}</td>
                                   </tr>
                                 );
                               })}
@@ -7576,39 +7576,39 @@ export default function App() {
                     </div>
 
                     {/* Right: Selected Bill Details */}
-                    <div className="col-span-5 flex flex-col h-full overflow-hidden bg-slate-950/20 border border-slate-800/80 rounded-xl p-4">
+                    <div className="col-span-5 flex flex-col h-full overflow-hidden bg-[#FFFBF7] border border-orange-200/80 rounded-xl p-4">
                       {selectedBill ? (
                         <div className="flex flex-col h-full overflow-hidden">
-                          <div className="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+                          <div className="flex justify-between items-center border-b border-orange-200/80 pb-3 mb-3">
                             <div className="min-w-0 flex-1 mr-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Bill Details</span>
-                              <span className="text-sm font-bold text-white font-mono truncate block">Bill #{selectedBill.bill_number}</span>
+                              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest block">Bill Details</span>
+                              <span className="text-sm font-bold text-slate-900 font-mono truncate block">Bill #{selectedBill.bill_number}</span>
                             </div>
 
                             <div className="flex space-x-1.5 items-center">
                               {selectedBill.status === 'Cancelled' && (
-                                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase">
+                                <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-600 border border-rose-500/30 uppercase">
                                   Cancelled (Credit Note)
                                 </span>
                               )}
                               {selectedBill.is_example ? (
                                 <button
                                   onClick={() => deleteExampleBill(selectedBill.id)}
-                                  className="px-2.5 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-700/60 font-bold rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex items-center gap-1 flex-shrink-0"
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-700 border border-rose-700/60 font-bold rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex items-center gap-1 flex-shrink-0"
                                   title="Delete Demo / Example Bill Record"
                                 >
-                                  <Trash2 className="w-3 h-3 text-rose-400" />
+                                  <Trash2 className="w-3 h-3 text-rose-600" />
                                   <span>Delete Demo Bill</span>
                                 </button>
                               ) : (
-                                <span className="px-2 py-0.5 rounded text-[9px] font-mono text-slate-500 flex items-center gap-1 bg-slate-900 border border-slate-800" title="Statutory 72-month retention under D&C Rule 65 & CGST Act Sec 36. Cancellation via Credit Note only.">
+                                <span className="px-2 py-0.5 rounded text-[9px] font-mono text-slate-500 flex items-center gap-1 bg-white border border-orange-200/80" title="Statutory 72-month retention under D&C Rule 65 & CGST Act Sec 36. Cancellation via Credit Note only.">
                                   <Lock className="w-2.5 h-2.5 text-slate-500" />
                                   <span>Statutory Retained</span>
                                 </span>
                               )}
                               <button
                                 onClick={() => handleReprintReceipt(selectedBill, selectedBillItems)}
-                                className="px-3 py-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-black rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex-shrink-0"
+                                className="px-3 py-1 bg-orange-600 hover:bg-[#C25222] text-white font-black rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex-shrink-0"
                               >
                                 Reprint
                               </button>
@@ -7619,7 +7619,7 @@ export default function App() {
                                 }}
                                 disabled={selectedBill.status === 'Cancelled'}
                                 className={`px-3 py-1 font-bold rounded text-[10px] uppercase tracking-wider transition-colors active:scale-95 flex-shrink-0 ${selectedBill.status === 'Cancelled'
-                                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                  ? 'bg-orange-50/70 text-slate-500 cursor-not-allowed'
                                   : 'bg-rose-600 hover:bg-rose-500 text-white'
                                   }`}
                               >
@@ -7629,30 +7629,30 @@ export default function App() {
                           </div>
 
                           {/* Bill Info Grid */}
-                          <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-950/40 p-2.5 rounded border border-slate-800 mb-3 flex-shrink-0">
+                          <div className="grid grid-cols-2 gap-2 text-[10px] bg-[#FFFBF7] p-2.5 rounded border border-orange-200/80 mb-3 flex-shrink-0">
                             <div>
                               <span className="text-slate-500 uppercase block">Cashier</span>
-                              <span className="text-slate-300 font-semibold">{selectedBill.cashier_name}</span>
+                              <span className="text-slate-700 font-semibold">{selectedBill.cashier_name}</span>
                             </div>
                             <div>
                               <span className="text-slate-500 uppercase block">Payment</span>
-                              <span className="text-slate-300 font-semibold">{selectedBill.payment_method}</span>
+                              <span className="text-slate-700 font-semibold">{selectedBill.payment_method}</span>
                             </div>
                             <div className="mt-1">
                               <span className="text-slate-500 uppercase block">Date</span>
-                              <span className="text-slate-300 font-semibold">{selectedBill.date}</span>
+                              <span className="text-slate-700 font-semibold">{selectedBill.date}</span>
                             </div>
                             <div className="mt-1">
                               <span className="text-slate-500 uppercase block">Time</span>
-                              <span className="text-slate-300 font-semibold">{selectedBill.time}</span>
+                              <span className="text-slate-700 font-semibold">{selectedBill.time}</span>
                             </div>
                           </div>
 
                           {/* Items Table */}
-                          <div className="flex-1 overflow-y-auto mb-3 pr-1 border-b border-slate-800/50">
+                          <div className="flex-1 overflow-y-auto mb-3 pr-1 border-b border-orange-200/80">
                             <table className="w-full text-left text-xs border-collapse">
                               <thead>
-                                <tr className="text-[9px] uppercase font-bold text-slate-500 border-b border-slate-800">
+                                <tr className="text-[9px] uppercase font-bold text-slate-500 border-b border-orange-200/80">
                                   <th className="py-1">Item</th>
                                   <th className="py-1 text-center">Qty</th>
                                   <th className="py-1 text-right pr-1">Total</th>
@@ -7660,10 +7660,10 @@ export default function App() {
                               </thead>
                               <tbody>
                                 {selectedBillItems.map((item, idx) => (
-                                  <tr key={idx} className="border-b border-slate-800/40 text-slate-300">
-                                    <td className="py-2 font-semibold text-white truncate max-w-[120px]">{item.product_name}</td>
+                                  <tr key={idx} className="border-b border-orange-200/80 text-slate-700">
+                                    <td className="py-2 font-semibold text-slate-900 truncate max-w-[120px]">{item.product_name}</td>
                                     <td className="py-2 text-center font-mono">{item.quantity}</td>
-                                    <td className="py-2 text-right font-mono pr-1 text-emerald-400">₹{item.total.toFixed(2)}</td>
+                                    <td className="py-2 text-right font-mono pr-1 text-emerald-700">₹{item.total.toFixed(2)}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -7671,36 +7671,36 @@ export default function App() {
                           </div>
 
                           {/* Financial Summary */}
-                          <div className="flex flex-col gap-1.5 text-xs font-mono text-slate-400 bg-slate-950/40 p-3 rounded border border-slate-800 flex-shrink-0">
+                          <div className="flex flex-col gap-1.5 text-xs font-mono text-slate-600 bg-[#FFFBF7] p-3 rounded border border-orange-200/80 flex-shrink-0">
                             <div className="flex justify-between">
                               <span>Subtotal (excl. GST):</span>
-                              <span className="text-white">₹{selectedBill.subtotal.toFixed(2)}</span>
+                              <span className="text-slate-900">₹{selectedBill.subtotal.toFixed(2)}</span>
                             </div>
                             {selectedBill.discount > 0 && (
-                              <div className="flex justify-between text-rose-400">
+                              <div className="flex justify-between text-rose-600">
                                 <span>Discount:</span>
                                 <span>-₹{selectedBill.discount.toFixed(2)}</span>
                               </div>
                             )}
                             {selectedBill.tax > 0 && (
                               <>
-                                <div className="flex justify-between text-amber-400">
+                                <div className="flex justify-between text-amber-700">
                                   <span>CGST (Half):</span>
                                   <span>+₹{(selectedBill.tax / 2).toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-amber-400">
+                                <div className="flex justify-between text-amber-700">
                                   <span>SGST (Half):</span>
                                   <span>+₹{(selectedBill.tax / 2).toFixed(2)}</span>
                                 </div>
-                                <div className="flex justify-between text-amber-400 font-semibold">
+                                <div className="flex justify-between text-amber-700 font-semibold">
                                   <span>Total GST Added:</span>
                                   <span>+₹{selectedBill.tax.toFixed(2)}</span>
                                 </div>
                               </>
                             )}
-                            <div className="flex justify-between border-t border-slate-800/80 pt-2 font-bold text-sm">
-                              <span className="text-white uppercase font-sans">Total Paid (incl. GST):</span>
-                              <span className="text-emerald-400">₹{selectedBill.grand_total.toFixed(2)}</span>
+                            <div className="flex justify-between border-t border-orange-200/80 pt-2 font-bold text-sm">
+                              <span className="text-slate-900 uppercase font-sans">Total Paid (incl. GST):</span>
+                              <span className="text-emerald-700">₹{selectedBill.grand_total.toFixed(2)}</span>
                             </div>
                           </div>
                         </div>
@@ -7721,12 +7721,12 @@ export default function App() {
 
       {/* ----------------- HARDWARE & RECEIPT SETTINGS MODAL ----------------- */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }}>
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-orange-200/80 rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh' }}>
 
-            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-              <span className="text-sm font-bold text-white flex items-center">
-                <Settings className="w-4 h-4 mr-2 text-sky-400" />
+            <div className="p-4 bg-white border-b border-orange-200/80 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-900 flex items-center">
+                <Settings className="w-4 h-4 mr-2 text-[#C25222]" />
                 POS Settings & Printer Alignment
               </span>
               <button
@@ -7736,7 +7736,7 @@ export default function App() {
                   }
                   setShowSettingsModal(false);
                 }}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                className="p-1 hover:bg-orange-50/70 rounded text-slate-600 hover:text-[#C25222]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -7748,7 +7748,7 @@ export default function App() {
               {currentUser?.role === 'admin' ? (
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Clinic & Doctor Details</span>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Clinic & Doctor Details</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -7756,7 +7756,7 @@ export default function App() {
                         setAdminProfileForm({ ...bakeryDetails });
                         setShowAdminProfileModal(true);
                       }}
-                      className="text-[10px] font-bold text-sky-400 hover:text-sky-300 underline flex items-center gap-1"
+                      className="text-[10px] font-bold text-[#C25222] hover:text-orange-700 underline flex items-center gap-1"
                     >
                       <Stethoscope className="w-3 h-3" />
                       <span>Full Doctor Profile Editor →</span>
@@ -7769,7 +7769,7 @@ export default function App() {
                       type="text"
                       value={bakeryDetails.name}
                       onChange={(e) => setBakeryDetails(prev => ({ ...prev, name: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                     />
                   </div>
 
@@ -7779,7 +7779,7 @@ export default function App() {
                       type="text"
                       value={(bakeryDetails as any).description || 'Mission for Cure'}
                       onChange={(e) => setBakeryDetails(prev => ({ ...prev, description: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                     />
                   </div>
 
@@ -7789,7 +7789,7 @@ export default function App() {
                       type="text"
                       value={bakeryDetails.address}
                       onChange={(e) => setBakeryDetails(prev => ({ ...prev, address: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                      className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                     />
                   </div>
 
@@ -7800,7 +7800,7 @@ export default function App() {
                         type="text"
                         value={bakeryDetails.city || 'Chennai'}
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, city: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -7809,7 +7809,7 @@ export default function App() {
                         type="text"
                         value={bakeryDetails.state || 'Tamil Nadu'}
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, state: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -7818,7 +7818,7 @@ export default function App() {
                         type="text"
                         value={bakeryDetails.pincode || '600002'}
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, pincode: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                       />
                     </div>
                   </div>
@@ -7830,7 +7830,7 @@ export default function App() {
                         type="text"
                         value={bakeryDetails.phone}
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, phone: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -7839,7 +7839,7 @@ export default function App() {
                         type="email"
                         value={bakeryDetails.email || 'contact@madrasortho.in'}
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, email: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                       />
                     </div>
                   </div>
@@ -7851,7 +7851,7 @@ export default function App() {
                       value={(bakeryDetails as any).gstin || ''}
                       placeholder="e.g. 33AAAAA0000A1Z5"
                       onChange={(e) => setBakeryDetails(prev => ({ ...prev, gstin: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                      className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                     />
                   </div>
 
@@ -7863,7 +7863,7 @@ export default function App() {
                         value={(bakeryDetails as any).dlNo || ''}
                         placeholder="e.g. 20B/TN/CHE/00482"
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -7873,7 +7873,7 @@ export default function App() {
                         value={bakeryDetails.dlNo21 || ''}
                         placeholder="e.g. 21B/TN/CHE/00482"
                         onChange={(e) => setBakeryDetails(prev => ({ ...prev, dlNo21: e.target.value }))}
-                        className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                        className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                       />
                     </div>
                   </div>
@@ -7885,12 +7885,12 @@ export default function App() {
                       value={bakeryDetails.ceaNo || ''}
                       placeholder="e.g. TN-CEA/2021/04912"
                       onChange={(e) => setBakeryDetails(prev => ({ ...prev, ceaNo: e.target.value }))}
-                      className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                      className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                     />
                   </div>
 
-                  <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-2">
-                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">Chief Doctor & Supervising Pharmacist</span>
+                  <div className="border-t border-orange-200/80 pt-2 flex flex-col gap-2">
+                    <span className="text-[9px] font-bold text-indigo-600 uppercase tracking-wider">Chief Doctor & Supervising Pharmacist</span>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex flex-col gap-1">
                         <label className="text-[9px] font-bold text-slate-500 uppercase">Chief Doctor Name</label>
@@ -7898,7 +7898,7 @@ export default function App() {
                           type="text"
                           value={bakeryDetails.doctorName || ''}
                           onChange={(e) => setBakeryDetails(prev => ({ ...prev, doctorName: e.target.value }))}
-                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                          className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                         />
                       </div>
                       <div className="flex flex-col gap-1">
@@ -7907,7 +7907,7 @@ export default function App() {
                           type="text"
                           value={bakeryDetails.doctorRegNo || ''}
                           onChange={(e) => setBakeryDetails(prev => ({ ...prev, doctorRegNo: e.target.value }))}
-                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                          className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                         />
                       </div>
                     </div>
@@ -7918,7 +7918,7 @@ export default function App() {
                           type="text"
                           value={bakeryDetails.pharmacistName || ''}
                           onChange={(e) => setBakeryDetails(prev => ({ ...prev, pharmacistName: e.target.value }))}
-                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                          className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                         />
                       </div>
                       <div className="flex flex-col gap-1">
@@ -7927,34 +7927,34 @@ export default function App() {
                           type="text"
                           value={bakeryDetails.pharmacistRegNo || ''}
                           onChange={(e) => setBakeryDetails(prev => ({ ...prev, pharmacistRegNo: e.target.value }))}
-                          className="px-2 py-1 bg-slate-950 border border-slate-800 rounded text-xs text-white font-mono"
+                          className="px-2 py-1 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                         />
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg text-[10px] text-slate-400 flex items-center space-x-2">
-                  <Lock className="w-4 h-4 text-sky-400 flex-shrink-0" />
+                <div className="p-3 bg-[#FFFBF7] border border-orange-200/80 rounded-lg text-[10px] text-slate-600 flex items-center space-x-2">
+                  <Lock className="w-4 h-4 text-[#C25222] flex-shrink-0" />
                   <span>Clinic Profile & Licensure settings are managed by Admin ({bakeryDetails.name}).</span>
                 </div>
               )}
 
               {/* Printer Hardware & Wireless Connectivity */}
-              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Printer className="w-3.5 h-3.5 text-sky-400" />
+              <div className="flex flex-col gap-3 border-t border-orange-200/80 pt-4 mt-1">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <Printer className="w-3.5 h-3.5 text-[#C25222]" />
                   Thermal Printer Connectivity (USB / WiFi / Bluetooth)
                 </span>
 
                 {/* Connection Mode Tabs */}
-                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-lg">
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#FFFBF7] border border-orange-200/80 rounded-lg">
                   <button
                     type="button"
                     onClick={() => setPrinterInterface('usb')}
                     className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${printerInterface === 'usb'
-                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
+                      : 'text-slate-600 hover:text-white'
                       }`}
                   >
                     <Printer className="w-3 h-3" />
@@ -7965,8 +7965,8 @@ export default function App() {
                     type="button"
                     onClick={() => setPrinterInterface('wifi')}
                     className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${printerInterface === 'wifi'
-                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
+                      : 'text-slate-600 hover:text-white'
                       }`}
                   >
                     <Wifi className="w-3 h-3" />
@@ -7977,8 +7977,8 @@ export default function App() {
                     type="button"
                     onClick={() => setPrinterInterface('bluetooth')}
                     className={`py-1.5 px-2 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all ${printerInterface === 'bluetooth'
-                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
+                      : 'text-slate-600 hover:text-white'
                       }`}
                   >
                     <Bluetooth className="w-3 h-3" />
@@ -7993,7 +7993,7 @@ export default function App() {
                     <select
                       value={selectedPrinter}
                       onChange={(e) => setSelectedPrinter(e.target.value)}
-                      className="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 font-mono"
+                      className="px-2 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                     >
                       <option value="Default">System default print wrapper</option>
                       {printers.map((p, idx) => (
@@ -8005,8 +8005,8 @@ export default function App() {
 
                 {/* WiFi / Network Interface */}
                 {printerInterface === 'wifi' && (
-                  <div className="flex flex-col gap-2 p-3 bg-slate-950/70 border border-slate-800 rounded-lg">
-                    <span className="text-[10px] font-semibold text-slate-300">Network ESC/POS Printer (WiFi / Ethernet)</span>
+                  <div className="flex flex-col gap-2 p-3 bg-[#FFFBF7] border border-orange-200/80 rounded-lg">
+                    <span className="text-[10px] font-semibold text-slate-700">Network ESC/POS Printer (WiFi / Ethernet)</span>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="col-span-2 flex flex-col gap-1">
                         <label className="text-[9px] font-bold text-slate-500 uppercase">Printer IP Address</label>
@@ -8015,7 +8015,7 @@ export default function App() {
                           placeholder="e.g. 192.168.1.100"
                           value={wifiPrinterIp}
                           onChange={(e) => setWifiPrinterIp(e.target.value)}
-                          className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white font-mono"
+                          className="px-2 py-1 bg-white border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                         />
                       </div>
                       <div className="flex flex-col gap-1">
@@ -8025,7 +8025,7 @@ export default function App() {
                           placeholder="9100"
                           value={wifiPrinterPort}
                           onChange={(e) => setWifiPrinterPort(e.target.value)}
-                          className="px-2 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white font-mono"
+                          className="px-2 py-1 bg-white border border-orange-200/80 rounded text-xs text-slate-900 font-mono"
                         />
                       </div>
                     </div>
@@ -8035,27 +8035,27 @@ export default function App() {
 
                 {/* Bluetooth Interface */}
                 {printerInterface === 'bluetooth' && (
-                  <div className="flex flex-col gap-2.5 p-3 bg-slate-950/70 border border-slate-800 rounded-lg">
+                  <div className="flex flex-col gap-2.5 p-3 bg-[#FFFBF7] border border-orange-200/80 rounded-lg">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-slate-300">Bluetooth Wireless ESC/POS Printer</span>
+                      <span className="text-[10px] font-semibold text-slate-700">Bluetooth Wireless ESC/POS Printer</span>
                       <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${bluetoothDeviceName
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        ? 'bg-emerald-500/20 text-emerald-700 border border-emerald-500/40'
+                        : 'bg-orange-50/70 text-slate-600 border border-orange-200'
                         }`}>
                         {bluetoothDeviceName ? 'Connected' : 'Not Paired'}
                       </span>
                     </div>
 
                     {bluetoothDeviceName ? (
-                      <div className="flex items-center justify-between p-2 bg-slate-900 border border-slate-800 rounded text-xs">
+                      <div className="flex items-center justify-between p-2 bg-white border border-orange-200/80 rounded text-xs">
                         <div className="flex items-center gap-2">
-                          <Bluetooth className="w-4 h-4 text-sky-400" />
-                          <span className="font-mono text-white font-semibold">{bluetoothDeviceName}</span>
+                          <Bluetooth className="w-4 h-4 text-[#C25222]" />
+                          <span className="font-mono text-slate-900 font-semibold">{bluetoothDeviceName}</span>
                         </div>
                         <button
                           type="button"
                           onClick={handleDisconnectBluetooth}
-                          className="px-2 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold rounded"
+                          className="px-2 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-700 text-[10px] font-bold rounded"
                         >
                           Disconnect
                         </button>
@@ -8065,7 +8065,7 @@ export default function App() {
                         type="button"
                         onClick={handleConnectBluetooth}
                         disabled={isConnectingBluetooth}
-                        className="w-full py-2 bg-sky-500 hover:bg-sky-400 active:scale-95 text-slate-950 font-bold rounded text-xs transition-all flex items-center justify-center gap-2"
+                        className="w-full py-2 bg-orange-600 hover:bg-[#C25222] active:scale-95 text-white font-bold rounded text-xs transition-all flex items-center justify-center gap-2"
                       >
                         <Bluetooth className="w-4 h-4" />
                         <span>{isConnectingBluetooth ? 'Scanning for Printers...' : 'Scan & Pair Bluetooth Printer'}</span>
@@ -8082,7 +8082,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setPaperWidth('58mm')}
-                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '58mm' ? 'bg-sky-500 text-slate-950 border-sky-500 font-extrabold' : 'bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-300'
+                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '58mm' ? 'bg-orange-600 text-white border-orange-300 font-extrabold' : 'bg-[#FFFBF7] border-orange-200/80 hover:bg-white text-slate-700'
                         }`}
                     >
                       58mm Narrow
@@ -8090,7 +8090,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setPaperWidth('80mm')}
-                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '80mm' ? 'bg-sky-500 text-slate-950 border-sky-500 font-extrabold' : 'bg-slate-950 border-slate-800 hover:bg-slate-900 text-slate-300'
+                      className={`py-1.5 text-xs font-bold rounded border ${paperWidth === '80mm' ? 'bg-orange-600 text-white border-orange-300 font-extrabold' : 'bg-[#FFFBF7] border-orange-200/80 hover:bg-white text-slate-700'
                         }`}
                     >
                       80mm Standard
@@ -8102,30 +8102,30 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleTestPrint}
-                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 mt-1"
+                  className="w-full py-2 bg-orange-50/70 hover:bg-orange-100 active:scale-95 border border-orange-200 text-slate-800 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 mt-1"
                 >
-                  <Printer className="w-3.5 h-3.5 text-sky-400" />
+                  <Printer className="w-3.5 h-3.5 text-[#C25222]" />
                   <span>Test Print Receipt ({printerInterface.toUpperCase()})</span>
                 </button>
               </div>
 
               {/* Account Security & Password Management */}
-              <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Security & Account Passwords</span>
+              <div className="flex flex-col gap-3 border-t border-orange-200/80 pt-4 mt-1">
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Security & Account Passwords</span>
                 {currentUser?.role === 'admin' ? (
                   <button
                     onClick={() => {
                       setShowSettingsModal(false);
                       setChangePasswordModal(true);
                     }}
-                    className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2"
+                    className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2"
                   >
                     <KeyRound className="w-3.5 h-3.5" />
                     <span>Change Admin or Employee Passwords</span>
                   </button>
                 ) : (
-                  <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg text-[10px] text-slate-400 flex items-center space-x-2">
-                    <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  <div className="p-3 bg-[#FFFBF7] border border-orange-200/80 rounded-lg text-[10px] text-slate-600 flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
                     <span>Password Management is restricted. Only Admin accounts can change passwords.</span>
                   </div>
                 )}
@@ -8134,13 +8134,13 @@ export default function App() {
               {/* Bill Number Sequence Reset & Device Data Management (Admin Only) */}
               {currentUser?.role === 'admin' && (
                 <>
-                  <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bill Number Sequence</span>
-                    <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2">
-                      <p className="text-[10px] text-slate-400 leading-relaxed">
-                        Bill numbers restart automatically every new day. Use the reset below to manually restart the sequence from <span className="text-white font-bold">#1</span> at any time (e.g., beginning of a new shift).
+                  <div className="flex flex-col gap-3 border-t border-orange-200/80 pt-4 mt-1">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Bill Number Sequence</span>
+                    <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-lg p-3 flex flex-col gap-2">
+                      <p className="text-[10px] text-slate-600 leading-relaxed">
+                        Bill numbers restart automatically every new day. Use the reset below to manually restart the sequence from <span className="text-slate-900 font-bold">#1</span> at any time (e.g., beginning of a new shift).
                       </p>
-                      <p className="text-[10px] text-amber-400/80 font-semibold">
+                      <p className="text-[10px] text-amber-700 font-semibold">
                         ⚠ This will close all open bill tabs and cannot be undone.
                       </p>
                       <button
@@ -8169,7 +8169,7 @@ export default function App() {
                             }
                           });
                         }}
-                        className="w-full py-2 bg-rose-900/40 hover:bg-rose-800/60 active:scale-[0.98] transition-all border border-rose-700/50 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-200"
+                        className="w-full py-2 bg-rose-600 hover:bg-rose-800/60 active:scale-[0.98] transition-all border border-rose-700/50 rounded-lg text-xs font-bold text-rose-700 hover:text-rose-800"
                       >
                         Reset Bill Sequence → Start from #1
                       </button>
@@ -8177,29 +8177,29 @@ export default function App() {
                   </div>
 
                   {/* Device Data & Uninstall Management */}
-                  <div className="flex flex-col gap-3 border-t border-slate-800/80 pt-4 mt-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Database className="w-3.5 h-3.5 text-rose-400" />
+                  <div className="flex flex-col gap-3 border-t border-orange-200/80 pt-4 mt-1">
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5 text-rose-600" />
                       Device Storage & Uninstall Options
                     </span>
-                    <div className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 flex flex-col gap-2.5">
-                      <div className="flex flex-col gap-1.5 text-[10px] text-slate-400 leading-relaxed">
+                    <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-lg p-3 flex flex-col gap-2.5">
+                      <div className="flex flex-col gap-1.5 text-[10px] text-slate-600 leading-relaxed">
                         <p className="flex items-start gap-1.5">
-                          <span className="text-sky-400 font-bold shrink-0">💻 Windows Desktop:</span>
+                          <span className="text-[#C25222] font-bold shrink-0">💻 Windows Desktop:</span>
                           <span>When you uninstall via Windows Settings / Control Panel, you will be prompted with a choice to permanently delete all clinic databases, bill archives, and patient records, or keep them for future reinstallation.</span>
                         </p>
                         <p className="flex items-start gap-1.5">
-                          <span className="text-emerald-400 font-bold shrink-0">📱 Android Mobile:</span>
+                          <span className="text-emerald-700 font-bold shrink-0">📱 Android Mobile:</span>
                           <span>When uninstalling the APK, Android prompts whether to preserve or remove all local app storage from your device.</span>
                         </p>
                       </div>
 
-                      <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
-                        <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-amber-400" />
+                      <div className="border-t border-orange-200/80 pt-2 flex flex-col gap-1.5">
+                        <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-700" />
                           Clinic Clean Slate (Purge Example Records Only)
                         </span>
-                        <p className="text-[10px] text-slate-300 leading-relaxed">
+                        <p className="text-[10px] text-slate-700 leading-relaxed">
                           Quickly clear out all pre-seeded demo records (example patient profiles, demo employees, and sample bills) with one click so the clinic starts with a 100% clean slate. Genuine records created by the clinic are strictly protected and kept safe.
                         </p>
                         <button
@@ -8226,19 +8226,19 @@ export default function App() {
                               }
                             });
                           }}
-                          className="w-full py-2 bg-amber-600/30 hover:bg-amber-600/50 active:scale-[0.98] transition-all border border-amber-500/50 rounded-lg text-xs font-bold text-amber-200 hover:text-white flex items-center justify-center gap-2"
+                          className="w-full py-2 bg-amber-600/30 hover:bg-amber-600/50 active:scale-[0.98] transition-all border border-amber-500/50 rounded-lg text-xs font-bold text-amber-800 hover:text-white flex items-center justify-center gap-2"
                         >
-                          <Trash2 className="w-3.5 h-3.5 text-amber-400" />
+                          <Trash2 className="w-3.5 h-3.5 text-amber-700" />
                           <span>Purge All Example / Demo Records</span>
                         </button>
                       </div>
 
-                      <div className="border-t border-slate-800/60 pt-2 flex flex-col gap-1.5">
-                        <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3 text-rose-400" />
+                      <div className="border-t border-orange-200/80 pt-2 flex flex-col gap-1.5">
+                        <span className="text-[9px] font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" />
                           Clean Device Wipe (Pre-Uninstall / Factory Reset)
                         </span>
-                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                        <p className="text-[10px] text-slate-600 leading-relaxed">
                           Permanently wipe all local billing history, sales records, employee lists, and database files stored on this device.
                         </p>
                         <button
@@ -8276,7 +8276,7 @@ export default function App() {
                               }
                             });
                           }}
-                          className="w-full py-2 bg-rose-950/40 hover:bg-rose-900/60 active:scale-[0.98] transition-all border border-rose-800/60 rounded-lg text-xs font-bold text-rose-300 hover:text-rose-100 flex items-center justify-center gap-1.5"
+                          className="w-full py-2 bg-rose-50 hover:bg-rose-600 active:scale-[0.98] transition-all border border-rose-200 rounded-lg text-xs font-bold text-rose-700 hover:text-rose-900 flex items-center justify-center gap-1.5"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Wipe & Remove All Data From This Device</span>
@@ -8288,7 +8288,7 @@ export default function App() {
               )}
             </div>
 
-            <div className="p-3 bg-slate-950 text-xs flex items-center justify-between border-t border-slate-800">
+            <div className="p-3 bg-[#FFFBF7] text-xs flex items-center justify-between border-t border-orange-200/80">
               <span className="text-[10px] text-slate-500 font-mono">
                 {currentUser?.role === 'admin' ? 'Settings save & sync across all devices.' : 'Printer preferences save for this terminal.'}
               </span>
@@ -8300,7 +8300,7 @@ export default function App() {
                     setShowSettingsModal(false);
                     showToast("Clinic settings saved and synced across all devices.", "success");
                   }}
-                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                  className="px-3 py-1.5 bg-orange-600 hover:bg-orange-600 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
                 >
                   Save & Broadcast Changes
                 </button>
@@ -8311,7 +8311,7 @@ export default function App() {
                     setShowSettingsModal(false);
                     showToast("Printer settings saved for this terminal.", "success");
                   }}
-                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
+                  className="px-3 py-1.5 bg-orange-600 hover:bg-orange-600 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
                 >
                   Done
                 </button>
@@ -8323,20 +8323,20 @@ export default function App() {
 
       {/* ----------------- ADMIN EMPLOYEES EDITOR CRUD MODAL ----------------- */}
       {showEmployeeCrudModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-4xl shadow-2xl h-[600px] flex overflow-hidden">
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-white border border-orange-200/80 rounded-xl w-full max-w-4xl shadow-2xl h-[600px] flex overflow-hidden">
 
             {/* Left Column: Form Editor */}
-            <div className="w-5/12 bg-slate-900 border-r border-slate-800 p-5 flex flex-col overflow-y-auto">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center">
-                <Users className="w-4 h-4 mr-2 text-sky-400" />
+            <div className="w-5/12 bg-white border-r border-orange-200/80 p-5 flex flex-col overflow-y-auto">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
+                <Users className="w-4 h-4 mr-2 text-[#C25222]" />
                 {editingEmployee.id ? 'Edit Employee Details' : 'Add New Employee'}
               </h3>
 
               {currentUser?.role !== 'admin' && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-amber-400 text-xs font-semibold mb-3">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-amber-700 text-xs font-semibold mb-3">
                   <div className="flex items-center space-x-2">
-                    <Lock className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                    <Lock className="w-4 h-4 flex-shrink-0 text-amber-700" />
                     <span>View Only: Login as Admin to add, edit, or delete staff.</span>
                   </div>
                   <button
@@ -8345,7 +8345,7 @@ export default function App() {
                       setShowEmployeeCrudModal(false);
                       handleLogout();
                     }}
-                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded text-[10px] font-bold"
+                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 rounded text-[10px] font-bold"
                   >
                     Switch to Admin
                   </button>
@@ -8354,27 +8354,27 @@ export default function App() {
 
               <form onSubmit={saveEmployee} className="flex flex-col gap-4 flex-1">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Full Name *</label>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase">Full Name *</label>
                   <input
                     type="text"
                     required
                     disabled={currentUser?.role !== 'admin'}
                     value={editingEmployee.name || ''}
                     onChange={(e) => setEditingEmployee({ ...editingEmployee, name: e.target.value })}
-                    className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                    className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 placeholder-slate-600 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                     placeholder="Enter full name"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Role / Position *</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Role / Position *</label>
                     <select
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.role || ''}
                       required
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                     >
                       <option value="" disabled>Select Role / Position</option>
                       <optgroup label="── Ownership ──">
@@ -8414,12 +8414,12 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Status</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Status</label>
                     <select
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.status || 'Active'}
                       onChange={(e: any) => setEditingEmployee({ ...editingEmployee, status: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-slate-100 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                     >
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
@@ -8429,25 +8429,25 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Qualifications / Degrees</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Qualifications / Degrees</label>
                     <input
                       type="text"
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.qualification || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, qualification: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 placeholder-slate-600 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. MBBS, MS (Ortho) or B.Pharm"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Council Reg No (TNMC / TNSPC)</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Council Reg No (TNMC / TNSPC)</label>
                     <input
                       type="text"
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.reg_no || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, reg_no: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50 font-mono"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 placeholder-slate-600 focus:border-orange-300 focus:outline-none disabled:opacity-50 font-mono"
                       placeholder="e.g. TNMC/2012/94821"
                     />
                   </div>
@@ -8455,25 +8455,25 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Phone Number</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Phone Number</label>
                     <input
                       type="text"
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.phone || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, phone: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 placeholder-slate-600 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. +91 98765 43210"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Email Address</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Email Address</label>
                     <input
                       type="email"
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.email || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, email: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 placeholder-slate-600 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. john@example.com"
                     />
                   </div>
@@ -8481,25 +8481,25 @@ export default function App() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Monthly Salary (₹)</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Monthly Salary (₹)</label>
                     <input
                       type="number"
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.salary !== undefined && editingEmployee.salary !== null ? editingEmployee.salary : ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, salary: e.target.value ? Number(e.target.value) : null })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white placeholder-slate-600 focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 placeholder-slate-600 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                       placeholder="e.g. 25000"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Joined Date</label>
+                    <label className="text-[10px] font-bold text-slate-600 uppercase">Joined Date</label>
                     <input
                       type="date"
                       disabled={currentUser?.role !== 'admin'}
                       value={editingEmployee.joined_date || ''}
                       onChange={(e) => setEditingEmployee({ ...editingEmployee, joined_date: e.target.value })}
-                      className="px-2.5 py-1.5 bg-slate-950 border border-slate-800 rounded text-xs text-white focus:border-sky-500 focus:outline-none disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900 focus:border-orange-300 focus:outline-none disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -8508,14 +8508,14 @@ export default function App() {
                   <button
                     type="submit"
                     disabled={currentUser?.role !== 'admin'}
-                    className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded text-xs transition-colors shadow-lg shadow-sky-600/10 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-600 text-white font-bold rounded text-xs transition-colors shadow-lg shadow-orange-500/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {editingEmployee.id ? 'Update Employee' : 'Add Employee'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingEmployee({})}
-                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition-colors active:scale-95"
+                    className="px-4 py-2.5 bg-orange-50/70 hover:bg-orange-100 text-slate-700 rounded text-xs transition-colors active:scale-95"
                   >
                     Clear
                   </button>
@@ -8524,12 +8524,12 @@ export default function App() {
             </div>
 
             {/* Right Column: Existing Employees List Table */}
-            <div className="flex-1 p-5 flex flex-col overflow-hidden bg-slate-950/20">
+            <div className="flex-1 p-5 flex flex-col overflow-hidden bg-[#FFFBF7]">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Clinic Employees List</h3>
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Clinic Employees List</h3>
                 <button
                   onClick={() => setShowEmployeeCrudModal(false)}
-                  className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                  className="p-1 hover:bg-orange-50/70 rounded text-slate-600 hover:text-[#C25222]"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -8541,7 +8541,7 @@ export default function App() {
                 placeholder="Search employees by name or role..."
                 value={employeeSearch}
                 onChange={(e) => setEmployeeSearch(e.target.value)}
-                className="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 text-xs rounded mb-3 focus:border-sky-500 focus:outline-none"
+                className="w-full px-3 py-1.5 bg-[#FFFBF7] border border-orange-200/80 text-xs rounded mb-3 focus:border-orange-300 focus:outline-none"
               />
 
               <div className="flex-1 overflow-y-auto">
@@ -8553,7 +8553,7 @@ export default function App() {
                 ) : (
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="text-[10px] uppercase font-bold text-slate-500 border-b border-slate-800">
+                      <tr className="text-[10px] uppercase font-bold text-slate-500 border-b border-orange-200/80">
                         <th className="py-2">Employee Name</th>
                         <th className="py-2">Role</th>
                         <th className="py-2 text-right">Salary</th>
@@ -8565,32 +8565,32 @@ export default function App() {
                       {employees
                         .filter(emp => !employeeSearch || emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) || emp.role.toLowerCase().includes(employeeSearch.toLowerCase()))
                         .map(emp => (
-                          <tr key={emp.id} className="border-b border-slate-800/60 hover:bg-slate-900/40">
-                            <td className="py-2.5 font-semibold text-white">
+                          <tr key={emp.id} className="border-b border-orange-200/80 hover:bg-white">
+                            <td className="py-2.5 font-semibold text-slate-900">
                               <div>{emp.name}</div>
-                              {emp.qualification && <div className="text-[10px] text-sky-400 font-medium">{emp.qualification}</div>}
-                              {emp.reg_no && <div className="text-[9px] text-indigo-400 font-mono">Reg: {emp.reg_no}</div>}
+                              {emp.qualification && <div className="text-[10px] text-[#C25222] font-medium">{emp.qualification}</div>}
+                              {emp.reg_no && <div className="text-[9px] text-indigo-600 font-mono">Reg: {emp.reg_no}</div>}
                               {emp.phone && <div className="text-[10px] text-slate-500 font-normal font-mono">{emp.phone}</div>}
                             </td>
-                            <td className="py-2.5 text-slate-400 font-medium">
+                            <td className="py-2.5 text-slate-600 font-medium">
                               <div>{emp.role}</div>
                               {emp.joined_date && <div className="text-[9px] text-slate-600 font-normal">Joined: {emp.joined_date}</div>}
                             </td>
-                            <td className="py-2.5 text-right font-mono text-emerald-400 font-semibold">
+                            <td className="py-2.5 text-right font-mono text-emerald-700 font-semibold">
                               {emp.salary ? `₹${emp.salary.toLocaleString()}` : '—'}
                             </td>
                             <td className="py-2.5 text-center">
                               <div className="flex flex-col items-center gap-1">
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${emp.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-500 border border-slate-700/50'
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${emp.status === 'Active' ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' : 'bg-orange-50/70 text-slate-500 border border-orange-200'
                                   }`}>
                                   {emp.status}
                                 </span>
                                 {emp.is_example ? (
-                                  <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                  <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-amber-500/15 text-amber-700 border border-amber-500/30">
                                     Demo Record
                                   </span>
                                 ) : (
-                                  <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                                  <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-orange-50 text-orange-700 border border-orange-300">
                                     Clinic Staff
                                   </span>
                                 )}
@@ -8599,7 +8599,7 @@ export default function App() {
                             <td className="py-2.5 text-right flex justify-end space-x-1.5">
                               <button
                                 onClick={() => setEditingEmployee(emp)}
-                                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-sky-400 rounded transition-colors"
+                                className="p-1 hover:bg-orange-50/70 text-slate-600 hover:text-[#C25222] rounded transition-colors"
                                 title="Edit employee"
                               >
                                 <Edit className="w-3.5 h-3.5" />
@@ -8614,7 +8614,7 @@ export default function App() {
                               ) : (
                                 <button
                                   onClick={() => deleteEmployee(emp.id)}
-                                  className="p-1 hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded transition-colors"
+                                  className="p-1 hover:bg-orange-50/70 text-slate-600 hover:text-rose-500 rounded transition-colors"
                                   title="Delete Employee Record"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -8634,13 +8634,13 @@ export default function App() {
 
       {/* ----------------- CUSTOM CONFIRMATION DIALOG ----------------- */}
       {confirmDialog.isOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white border border-orange-200/80 rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
             {/* Header section with icon */}
             <div className="p-5 flex items-start gap-4">
-              <div className={`p-3 rounded-lg ${confirmDialog.type === 'danger' ? 'bg-rose-500/10 text-rose-400' :
-                confirmDialog.type === 'info' ? 'bg-sky-500/10 text-sky-400' :
-                  'bg-amber-500/10 text-amber-400'
+              <div className={`p-3 rounded-lg ${confirmDialog.type === 'danger' ? 'bg-rose-500/10 text-rose-600' :
+                confirmDialog.type === 'info' ? 'bg-orange-50 text-[#C25222]' :
+                  'bg-amber-500/10 text-amber-700'
                 }`}>
                 {confirmDialog.type === 'danger' ? (
                   <AlertTriangle className="w-6 h-6 animate-pulse" />
@@ -8651,17 +8651,17 @@ export default function App() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-1">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-1">
                   {confirmDialog.title}
                 </h3>
-                <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">
+                <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed">
                   {confirmDialog.message}
                 </p>
               </div>
             </div>
 
             {/* Actions section */}
-            <div className="bg-slate-950/40 px-5 py-3.5 border-t border-slate-800/60 flex justify-end gap-2.5">
+            <div className="bg-[#FFFBF7] px-5 py-3.5 border-t border-orange-200/80 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => {
@@ -8670,7 +8670,7 @@ export default function App() {
                   }
                   closeConfirm();
                 }}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-xs transition-colors active:scale-95"
+                className="px-4 py-2 bg-orange-50/70 hover:bg-orange-100 text-slate-700 font-semibold rounded-lg text-xs transition-colors active:scale-95"
               >
                 {confirmDialog.cancelText}
               </button>
@@ -8678,7 +8678,7 @@ export default function App() {
                 type="button"
                 onClick={confirmDialog.onConfirm}
                 className={`px-4 py-2 text-white font-bold rounded-lg text-xs transition-colors shadow-lg active:scale-95 ${confirmDialog.type === 'danger' ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/10' :
-                  confirmDialog.type === 'info' ? 'bg-sky-600 hover:bg-sky-500 shadow-sky-600/10' :
+                  confirmDialog.type === 'info' ? 'bg-orange-600 hover:bg-orange-600 shadow-orange-500/20' :
                     'bg-amber-600 hover:bg-amber-500 shadow-amber-600/10'
                   }`}
                 autoFocus
@@ -8692,30 +8692,30 @@ export default function App() {
 
       {/* ----------------- DOCTOR PROFILE & CLINIC LICENSURE MODAL ----------------- */}
       {showAdminProfileModal && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 lg:p-6 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
+        <div className="fixed inset-0 bg-white backdrop-blur-md z-50 flex items-center justify-center p-4 lg:p-6 animate-fade-in">
+          <div className="bg-white border border-orange-200/80 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
 
             {/* Modal Header */}
-            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+            <div className="p-4 bg-white border-b border-orange-200/80 flex justify-between items-center">
               <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-sky-400">
+                <div className="p-2.5 bg-orange-50 border border-orange-300 rounded-xl text-[#C25222]">
                   <Stethoscope className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-sm lg:text-base font-bold text-white flex items-center gap-2">
+                  <h2 className="text-sm lg:text-base font-bold text-slate-900 flex items-center gap-2">
                     Doctor Profile, Clinic Establishment & Licensure
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                       TNMC & TN-CEA Compliant
                     </span>
                   </h2>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-slate-600">
                     Manage prescriber credentials, statutory drug licences (Form 20B/21B), and clinic branding
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowAdminProfileModal(false)}
-                className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1.5 hover:bg-orange-50/70 rounded-lg text-slate-600 hover:text-[#C25222] transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -8725,18 +8725,18 @@ export default function App() {
             <form onSubmit={handleSaveAdminProfile} className="flex-1 overflow-y-auto p-6 space-y-6">
 
               {/* SECTION 1: Chief Doctor / Prescribing Specialist Details */}
-              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <span className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-2">
-                    <Stethoscope className="w-4 h-4 text-sky-400" />
+              <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-orange-200/80 pb-3">
+                  <span className="text-xs font-bold text-[#C25222] uppercase tracking-wider flex items-center gap-2">
+                    <Stethoscope className="w-4 h-4 text-[#C25222]" />
                     Doctor Profile & Prescriber Credentials (Medical Council of India / TNMC)
                   </span>
-                  <span className="text-[10px] text-slate-400">Required on all outpatient bills & Schedule H/H1 registers</span>
+                  <span className="text-[10px] text-slate-600">Required on all outpatient bills & Schedule H/H1 registers</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Chief Doctor Full Name & Title *
                     </label>
                     <input
@@ -8745,12 +8745,12 @@ export default function App() {
                       value={adminProfileForm.doctorName || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorName: e.target.value }))}
                       placeholder="e.g. Dr. Arjun Sharma, MS (Ortho)"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Degrees & Medical Qualifications
                     </label>
                     <input
@@ -8758,14 +8758,14 @@ export default function App() {
                       value={adminProfileForm.doctorDegrees || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorDegrees: e.target.value }))}
                       placeholder="e.g. MBBS, MS (Orthopaedics), MCh (Ortho), DNB"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Medical Council Reg. Number *
                     </label>
                     <input
@@ -8774,12 +8774,12 @@ export default function App() {
                       value={adminProfileForm.doctorRegNo || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorRegNo: e.target.value }))}
                       placeholder="e.g. TNMC/2012/94821"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       State Medical Council
                     </label>
                     <input
@@ -8787,12 +8787,12 @@ export default function App() {
                       value={adminProfileForm.doctorCouncil || 'Tamil Nadu Medical Council'}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorCouncil: e.target.value }))}
                       placeholder="e.g. Tamil Nadu Medical Council"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Clinical Specialty / Designation
                     </label>
                     <input
@@ -8800,14 +8800,14 @@ export default function App() {
                       value={adminProfileForm.doctorSpecialty || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorSpecialty: e.target.value }))}
                       placeholder="e.g. Consultant Orthopaedic Surgeon"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Doctor Direct Phone / Mobile
                     </label>
                     <input
@@ -8815,12 +8815,12 @@ export default function App() {
                       value={adminProfileForm.doctorPhone || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorPhone: e.target.value }))}
                       placeholder="e.g. +91 98401 22334"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Doctor Professional Email
                     </label>
                     <input
@@ -8828,25 +8828,25 @@ export default function App() {
                       value={adminProfileForm.doctorEmail || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, doctorEmail: e.target.value }))}
                       placeholder="e.g. dr.arjun@madrasortho.in"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-orange-300 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 2: Clinic Establishment & Statutory Licences */}
-              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-emerald-400" />
+              <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-orange-200/80 pb-3">
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-emerald-700" />
                     Clinic Establishment & Statutory Licences (TN-CEA, Form 20B/21B, GSTIN)
                   </span>
-                  <span className="text-[10px] text-slate-400">Printed on bill headers & regulatory audits</span>
+                  <span className="text-[10px] text-slate-600">Printed on bill headers & regulatory audits</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Clinic / Hospital Establishment Name *
                     </label>
                     <input
@@ -8855,12 +8855,12 @@ export default function App() {
                       value={adminProfileForm.name || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="e.g. MADRAS ORTHO CLINIC & PHARMACY"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none font-semibold"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none font-semibold"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Tagline / Clinical Focus
                     </label>
                     <input
@@ -8868,13 +8868,13 @@ export default function App() {
                       value={adminProfileForm.description || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, description: e.target.value }))}
                       placeholder="e.g. Center for Orthopaedic Surgery & Trauma Care"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-300 uppercase">
+                  <label className="text-[10px] font-bold text-slate-700 uppercase">
                     Clinic Street Address *
                   </label>
                   <input
@@ -8883,48 +8883,48 @@ export default function App() {
                     value={adminProfileForm.address || ''}
                     onChange={(e) => setAdminProfileForm(prev => ({ ...prev, address: e.target.value }))}
                     placeholder="e.g. 42 Anna Salai, Thousand Lights"
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                    className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">City</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">City</label>
                     <input
                       type="text"
                       value={adminProfileForm.city || 'Chennai'}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, city: e.target.value }))}
                       placeholder="Chennai"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">State</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">State</label>
                     <input
                       type="text"
                       value={adminProfileForm.state || 'Tamil Nadu'}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, state: e.target.value }))}
                       placeholder="Tamil Nadu"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">PIN Code</label>
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">PIN Code</label>
                     <input
                       type="text"
                       value={adminProfileForm.pincode || '600002'}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, pincode: e.target.value }))}
                       placeholder="600002"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Clinic Reception / Landline Phone *
                     </label>
                     <input
@@ -8933,12 +8933,12 @@ export default function App() {
                       value={adminProfileForm.phone || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="e.g. +91 44 2855 0123 / +91 98401 22334"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Clinic Official Email
                     </label>
                     <input
@@ -8946,14 +8946,14 @@ export default function App() {
                       value={adminProfileForm.email || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, email: e.target.value }))}
                       placeholder="e.g. contact@madrasortho.in"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800/60">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-orange-200/80">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       GSTIN (15-Digit Goods & Services Tax Number)
                     </label>
                     <input
@@ -8961,12 +8961,12 @@ export default function App() {
                       value={adminProfileForm.gstin || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, gstin: e.target.value }))}
                       placeholder="e.g. 33AAAAA0000A1Z5"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500 focus:outline-none uppercase"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-emerald-500 focus:outline-none uppercase"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Clinical Establishments Act Reg No (TN-CEA)
                     </label>
                     <input
@@ -8974,14 +8974,14 @@ export default function App() {
                       value={adminProfileForm.ceaNo || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, ceaNo: e.target.value }))}
                       placeholder="e.g. TN-CEA/2021/04912"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Drug License Form 20B (Retail Allopathic Drugs)
                     </label>
                     <input
@@ -8989,12 +8989,12 @@ export default function App() {
                       value={adminProfileForm.dlNo || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, dlNo: e.target.value }))}
                       placeholder="e.g. 20B/TN/CHE/00482"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Drug License Form 21B (Schedule C & C1 Biologicals)
                     </label>
                     <input
@@ -9002,25 +9002,25 @@ export default function App() {
                       value={adminProfileForm.dlNo21 || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, dlNo21: e.target.value }))}
                       placeholder="e.g. 21B/TN/CHE/00482"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 3: Supervising Pharmacist In-Charge */}
-              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <span className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
-                    <Users className="w-4 h-4 text-purple-400" />
+              <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-orange-200/80 pb-3">
+                  <span className="text-xs font-bold text-purple-600 uppercase tracking-wider flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-600" />
                     Supervising Pharmacist In-Charge (Section 42, Pharmacy Act & TNSPC)
                   </span>
-                  <span className="text-[10px] text-slate-400">Required for Schedule H, H1 & Retail dispensing</span>
+                  <span className="text-[10px] text-slate-600">Required for Schedule H, H1 & Retail dispensing</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       Registered Pharmacist Name
                     </label>
                     <input
@@ -9028,12 +9028,12 @@ export default function App() {
                       value={adminProfileForm.pharmacistName || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, pharmacistName: e.target.value }))}
                       placeholder="e.g. Priya Nair, B.Pharm"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       TNSPC Registration Number
                     </label>
                     <input
@@ -9041,12 +9041,12 @@ export default function App() {
                       value={adminProfileForm.pharmacistRegNo || ''}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, pharmacistRegNo: e.target.value }))}
                       placeholder="e.g. TNSPC/2018/48912"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 font-mono placeholder-slate-400 focus:border-purple-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-300 uppercase">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase">
                       State Pharmacy Council
                     </label>
                     <input
@@ -9054,28 +9054,28 @@ export default function App() {
                       value={adminProfileForm.stateCouncil || 'Tamil Nadu State Pharmacy Council'}
                       onChange={(e) => setAdminProfileForm(prev => ({ ...prev, stateCouncil: e.target.value }))}
                       placeholder="Tamil Nadu State Pharmacy Council"
-                      className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none"
+                      className="px-3 py-2 bg-white border border-orange-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SECTION 4: Administrator Account & Passwords */}
-              <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-amber-400" />
+              <div className="bg-[#FFFBF7] border border-orange-200/80 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-orange-200/80 pb-3">
+                  <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-amber-700" />
                     Administrator Account & Security
                   </span>
-                  <span className="text-[10px] text-slate-400">Master login credentials for clinic doctor</span>
+                  <span className="text-[10px] text-slate-600">Master login credentials for clinic doctor</span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-900/80 border border-slate-800 rounded-lg">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-white border border-orange-200/80 rounded-lg">
                   <div>
-                    <span className="text-xs font-bold text-white block">
-                      Admin Username: <span className="font-mono text-amber-400">{adminProfileForm.adminUsername || 'admin'}</span>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Admin Username: <span className="font-mono text-amber-700">{adminProfileForm.adminUsername || 'admin'}</span>
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-slate-600">
                       The admin user has full supervisory authority to edit doctor credentials, clinic licenses, and employee records.
                     </span>
                   </div>
@@ -9085,7 +9085,7 @@ export default function App() {
                       setShowAdminProfileModal(false);
                       setChangePasswordModal(true);
                     }}
-                    className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shrink-0"
+                    className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 border border-amber-500/40 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shrink-0"
                   >
                     <KeyRound className="w-3.5 h-3.5" />
                     <span>Change Account Passwords</span>
@@ -9094,11 +9094,11 @@ export default function App() {
               </div>
 
               {/* Modal Actions Footer */}
-              <div className="sticky bottom-0 bg-slate-900/95 backdrop-blur-md pt-4 pb-2 border-t border-slate-800 flex items-center justify-between gap-3">
+              <div className="sticky bottom-0 bg-white backdrop-blur-md pt-4 pb-2 border-t border-orange-200/80 flex items-center justify-between gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAdminProfileModal(false)}
-                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-colors"
+                  className="px-5 py-2.5 bg-orange-50/70 hover:bg-orange-100 text-slate-700 font-semibold rounded-xl text-xs transition-colors"
                 >
                   Cancel
                 </button>
@@ -9109,13 +9109,13 @@ export default function App() {
                       setAdminProfileForm({ ...bakeryDetails });
                       showToast("Form reloaded with current clinic details.", "info");
                     }}
-                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition-colors"
+                    className="px-4 py-2.5 bg-orange-50/70 hover:bg-orange-100 text-slate-600 hover:text-slate-800 rounded-xl text-xs font-semibold transition-colors"
                   >
                     Reset Form
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-sky-600/20 active:scale-95 flex items-center gap-2"
+                    className="px-6 py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-orange-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-orange-500/20 active:scale-95 flex items-center gap-2"
                   >
                     <Check className="w-4 h-4" />
                     <span>Save All Doctor & Clinic Details</span>
@@ -9128,16 +9128,16 @@ export default function App() {
         </div>
       )}
       {changePasswordModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-              <span className="text-sm font-bold text-white flex items-center">
-                <KeyRound className="w-4 h-4 mr-2 text-amber-400" />
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-white border border-orange-200/80 rounded-xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 bg-white border-b border-orange-200/80 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-900 flex items-center">
+                <KeyRound className="w-4 h-4 mr-2 text-amber-700" />
                 Change Password
               </span>
               <button
                 onClick={() => setChangePasswordModal(false)}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                className="p-1 hover:bg-orange-50/70 rounded text-slate-600 hover:text-[#C25222]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -9145,11 +9145,11 @@ export default function App() {
 
             <form onSubmit={handleChangePassword} className="p-5 flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Target User Account</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase">Target User Account</label>
                 <select
                   value={passwordForm.username}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, username: e.target.value }))}
-                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                  className="px-3 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                 >
                   <option value="admin">Admin (admin)</option>
                   <option value="employee">Employee (employee)</option>
@@ -9157,44 +9157,44 @@ export default function App() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Current Password *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase">Current Password *</label>
                 <input
                   type="password"
                   required
                   value={passwordForm.currentPassword}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
                   placeholder="Enter current password..."
-                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                  className="px-3 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">New Password *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase">New Password *</label>
                 <input
                   type="password"
                   required
                   value={passwordForm.newPassword}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
                   placeholder="Enter new password..."
-                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                  className="px-3 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                 />
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Confirm New Password *</label>
+                <label className="text-[10px] font-bold text-slate-600 uppercase">Confirm New Password *</label>
                 <input
                   type="password"
                   required
                   value={passwordForm.confirmPassword}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                   placeholder="Confirm new password..."
-                  className="px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                  className="px-3 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-xs transition-colors mt-2"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold rounded text-xs transition-colors mt-2"
               >
                 Update Password
               </button>
@@ -9205,25 +9205,25 @@ export default function App() {
 
       {/* ----------------- CREATE CATEGORY MODAL (ADMIN ONLY) ----------------- */}
       {showAddCategoryModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 bg-white backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white border border-orange-200/80 rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-orange-200/80 pb-3">
               <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-sky-400" />
-                <h3 className="text-sm font-bold text-white">Create Custom Category</h3>
+                <Package className="w-5 h-5 text-[#C25222]" />
+                <h3 className="text-sm font-bold text-slate-900">Create Custom Category</h3>
               </div>
               <button
                 onClick={() => setShowAddCategoryModal(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+                className="p-1 hover:bg-orange-50/70 rounded-lg text-slate-600 hover:text-[#C25222] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Create a new category to organize orthopaedic medicines and clinical supplies for Madras Ortho Clinic.
             </p>
             <div>
-              <label className="text-[10px] font-bold text-slate-300 uppercase block mb-1">Category Name *</label>
+              <label className="text-[10px] font-bold text-slate-700 uppercase block mb-1">Category Name *</label>
               <input
                 type="text"
                 autoFocus
@@ -9235,21 +9235,21 @@ export default function App() {
                     handleCreateCategory(newCategoryName);
                   }
                 }}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-medium"
+                className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-300 font-medium"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddCategoryModal(false)}
-                className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                className="px-3.5 py-2 bg-orange-50/70 hover:bg-orange-100 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleCreateCategory(newCategoryName)}
-                className="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl text-xs font-bold shadow-md shadow-sky-500/20 active:scale-95 transition-all"
+                className="px-4 py-2 bg-orange-600 hover:bg-[#C25222] text-white rounded-xl text-xs font-bold shadow-md shadow-orange-500/20 active:scale-95 transition-all"
               >
                 Create Category
               </button>
@@ -9260,34 +9260,34 @@ export default function App() {
 
       {/* ----------------- STATUTORY INVOICE CANCELLATION MODAL (CREDIT NOTE) ----------------- */}
       {showCancelModal && billToCancel && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-              <span className="text-sm font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 bg-white backdrop-blur-md z-50 flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-white border border-orange-200/80 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+            <div className="p-4 bg-white border-b border-orange-200/80 flex justify-between items-center">
+              <span className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-500" />
                 Cancel Statutory Invoice #{billToCancel.bill_number}
               </span>
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white"
+                className="p-1 hover:bg-orange-50/70 rounded text-slate-600 hover:text-[#C25222]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 flex flex-col gap-4 text-xs">
-              <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-xl text-rose-200 text-[11px] leading-relaxed">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-[11px] leading-relaxed">
                 <strong>Statutory Notice:</strong> Under Rule 65(4) of Drugs & Cosmetics Rules and Section 36 of the CGST Act, statutory drug invoices cannot be deleted. Cancelling this bill will issue a formal <strong>Credit Note</strong> and preserve the transaction in the permanent audit trail.
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">
                   Reason for Invoice Cancellation *
                 </label>
                 <select
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded text-xs text-white"
+                  className="w-full px-3 py-2 bg-[#FFFBF7] border border-orange-200/80 rounded text-xs text-slate-900"
                 >
                   <option value="Patient returned medicine unopened within 24h">Patient returned medicine unopened within 24h</option>
                   <option value="Billing entry error / incorrect quantity">Billing entry error / incorrect quantity</option>
@@ -9305,7 +9305,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setShowCancelModal(false)}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition-colors"
+                  className="px-4 py-2.5 bg-orange-50/70 hover:bg-orange-100 text-slate-700 rounded-xl text-xs transition-colors"
                 >
                   Back
                 </button>
@@ -9348,15 +9348,15 @@ export default function App() {
 
       {/* ----------------- TOAST STATUS BANNER ----------------- */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center px-4 py-2.5 bg-slate-900 border border-slate-800 text-xs rounded-xl shadow-2xl animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center px-4 py-2.5 bg-white border border-orange-200/80 text-xs rounded-xl shadow-2xl animate-bounce">
           {toast.type === 'success' ? (
-            <Check className="w-4 h-4 text-emerald-400 mr-2" />
+            <Check className="w-4 h-4 text-emerald-700 mr-2" />
           ) : toast.type === 'error' ? (
-            <AlertCircle className="w-4 h-4 text-rose-400 mr-2" />
+            <AlertCircle className="w-4 h-4 text-rose-600 mr-2" />
           ) : (
-            <AlertTriangle className="w-4 h-4 text-amber-400 mr-2" />
+            <AlertTriangle className="w-4 h-4 text-amber-700 mr-2" />
           )}
-          <span className="font-semibold text-slate-200">{toast.message}</span>
+          <span className="font-semibold text-slate-800">{toast.message}</span>
         </div>
       )}
 

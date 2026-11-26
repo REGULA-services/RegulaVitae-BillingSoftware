@@ -9,27 +9,39 @@ module.exports = {
     extend: {
       colors: {
         bakery: {
-          50: '#fff7ed',
+          50: '#fff8f3',
           100: '#ffedd5',
           200: '#fed7aa',
           300: '#fdba74',
           400: '#fb923c',
           500: '#f97316',
           600: '#ea580c',
-          700: '#c2410c',
+          700: '#c25222',
           800: '#9a3412',
           900: '#7c2d12',
           950: '#431407'
         },
+        clinic: {
+          50: '#fff8f3',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#ea580c',
+          700: '#c25222',
+          800: '#9a3412',
+          900: '#7c2d12'
+        },
         terminal: {
-          bg: '#0f172a',
-          card: '#1e293b',
-          input: '#334155',
-          text: '#f8fafc',
-          accent: '#f97316',
-          success: '#10b981',
-          danger: '#ef4444',
-          highlight: '#38bdf8'
+          bg: '#fffbf7',
+          card: '#ffffff',
+          input: '#fff7ed',
+          text: '#0f172a',
+          accent: '#c25222',
+          success: '#059669',
+          danger: '#e11d48',
+          highlight: '#ea580c'
         }
       },
       fontFamily: {

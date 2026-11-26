@@ -1479,15 +1479,15 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen max-w-full overflow-hidden bg-slate-100 text-slate-800 font-sans select-none antialiased">
+    <div className="flex flex-col h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-screen max-w-full overflow-hidden bg-[#FFFBF7] text-slate-900 font-sans select-none antialiased">
       {/* ─── APP HEADER ─────────────────────────────────────────────── */}
-      <header className="bg-slate-900 text-white shrink-0 shadow-md z-30">
+      <header className="bg-white text-slate-900 border-t-2 border-t-[#C25222] border-b-2 border-b-orange-200 shrink-0 shadow-sm z-30">
         <div className="flex items-center justify-between px-3.5 py-2.5 max-w-lg mx-auto">
           <div className="flex items-center gap-2.5 min-w-0">
             <img
               src="./icon.png"
               alt="Clinic Logo"
-              className="h-9 w-9 rounded-xl object-cover shadow-md shadow-sky-900/30 shrink-0"
+              className="h-9 w-9 rounded-xl object-cover bg-white p-0.5 ring-1 ring-orange-200 shadow-sm shrink-0"
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
@@ -1499,10 +1499,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 fetchNotifications();
                 setIsNotificationsOpen(true);
               }}
-              className="relative p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 shadow-xs active:scale-95 transition-all"
+              className="relative p-2 bg-orange-50 hover:bg-orange-100 text-[#C25222] rounded-xl border border-orange-200 shadow-xs active:scale-95 transition-all"
               title="Real-Time Alerts"
             >
-              <Bell className="h-4 w-4 text-amber-400" />
+              <Bell className="h-4 w-4 text-[#C25222]" />
               {(() => {
                 const smartCount = (notificationsData?.summary?.expiringSoonCount || 0) + (notificationsData?.summary?.lowStockCount || 0) + (notificationsData?.summary?.expiredCount || 0);
                 if (smartCount <= 0) return null;
@@ -1517,7 +1517,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             {/* Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-xs active:scale-95 transition-all"
+              className="relative p-2 bg-gradient-to-r from-[#C25222] to-orange-500 hover:from-[#a8441b] hover:to-orange-600 text-white rounded-xl shadow-sm shadow-orange-500/20 active:scale-95 transition-all"
             >
               <ShoppingBag className="h-4 w-4" />
               {cart.length > 0 && (
@@ -1532,7 +1532,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <div className="flex flex-col items-center gap-0.5">
                 <button
                   onClick={onLogout}
-                  className="px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 rounded-xl text-xs font-bold border border-rose-500/30 flex items-center gap-1 transition-all active:scale-95"
+                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 rounded-xl text-xs font-bold border border-rose-200 flex items-center gap-1 transition-all active:scale-95"
                   title="Log out of software"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -1540,8 +1540,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </button>
                 <span className={`text-[8px] font-black uppercase tracking-wider px-1 rounded leading-none ${
                   currentUser?.role === 'admin'
-                    ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
-                    : 'text-slate-400 bg-slate-800 border border-slate-700'
+                    ? 'text-[#C25222] bg-orange-50 border border-orange-200'
+                    : 'text-teal-700 bg-teal-50 border border-teal-200'
                 }`}>
                   {currentUser?.role === 'admin' ? 'admin' : 'employee'}
                 </span>
@@ -1564,7 +1564,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search 550+ medicines, generic, batch..."
-                className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs placeholder-slate-400 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                className="w-full pl-9 pr-8 py-2.5 bg-white border border-orange-200/80 rounded-xl text-xs placeholder-slate-400 shadow-2xs focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium"
               />
               {searchQuery && (
                 <button
@@ -1582,7 +1582,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddCategoryOpen(true)}
-                  className="shrink-0 px-2.5 py-1.5 bg-sky-500 hover:bg-sky-400 active:scale-95 text-slate-950 font-black text-xs rounded-lg shadow-xs flex items-center gap-1"
+                  className="shrink-0 px-2.5 py-1.5 bg-gradient-to-r from-[#C25222] to-orange-500 hover:from-[#a8441b] hover:to-orange-600 active:scale-95 text-white font-black text-xs rounded-lg shadow-xs flex items-center gap-1"
                   title="Create custom category (Always Visible)"
                 >
                   <Plus className="h-3.5 w-3.5 stroke-[3]" />
@@ -1598,8 +1598,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       onClick={() => setSelectedCategory(cat)}
                       className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                         isSelected
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                          ? 'bg-orange-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-orange-200/80 hover:bg-slate-50'
                       }`}
                     >
                       {cat}
@@ -1612,11 +1612,11 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             {/* Medicines List Grid */}
             {isLoadingProducts ? (
               <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
-                <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
+                <RefreshCw className="h-6 w-6 animate-spin text-orange-500" />
                 <span className="text-xs">Loading medicines...</span>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="bg-white rounded-2xl p-6 text-center border border-slate-200 text-slate-500">
+              <div className="bg-white rounded-2xl p-6 text-center border border-orange-200/80 text-slate-500">
                 <Package className="h-8 w-8 mx-auto text-slate-300 mb-2" />
                 <div className="text-xs font-bold">No medicines found</div>
                 <div className="text-[11px] text-slate-400 mt-1">Try another search or category.</div>
@@ -1640,8 +1640,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                           : isOutOfStock
                           ? 'border-amber-200 bg-amber-50/20'
                           : inCartItem
-                          ? 'border-blue-400 ring-1 ring-blue-400'
-                          : 'border-slate-200'
+                          ? 'border-orange-500 ring-1 ring-orange-500'
+                          : 'border-orange-200/80'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -1680,7 +1680,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       {/* Pricing Row */}
                       <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-sm font-black text-blue-700">₹{rate.toFixed(2)}</span>
+                          <span className="text-sm font-black text-[#C25222]">₹{rate.toFixed(2)}</span>
                           {mrp > rate && (
                             <span className="text-[10px] text-slate-400 line-through">MRP ₹{mrp.toFixed(2)}</span>
                           )}
@@ -1700,19 +1700,19 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                             Unavailable
                           </button>
                         ) : inCartItem ? (
-                          <div className="flex items-center bg-blue-50 border border-blue-200 rounded-lg p-0.5">
+                          <div className="flex items-center bg-orange-50 border border-orange-200 rounded-lg p-0.5">
                             <button
                               onClick={() => updateCartQty(product.id, -1)}
-                              className="h-6 w-6 rounded flex items-center justify-center text-blue-700 hover:bg-blue-100"
+                              className="h-6 w-6 rounded flex items-center justify-center text-[#C25222] hover:bg-orange-100"
                             >
                               <Minus className="h-3 w-3" />
                             </button>
-                            <span className="w-6 text-center text-xs font-black text-blue-700">
+                            <span className="w-6 text-center text-xs font-black text-[#C25222]">
                               {inCartItem.quantity}
                             </span>
                             <button
                               onClick={() => updateCartQty(product.id, 1)}
-                              className="h-6 w-6 rounded flex items-center justify-center text-blue-700 hover:bg-blue-100"
+                              className="h-6 w-6 rounded flex items-center justify-center text-[#C25222] hover:bg-orange-100"
                             >
                               <Plus className="h-3 w-3" />
                             </button>
@@ -1720,7 +1720,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         ) : (
                           <button
                             onClick={() => addToCart(product)}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1"
+                            className="px-3 py-1.5 bg-orange-600 hover:bg-[#C25222] text-white rounded-lg text-xs font-bold shadow-xs active:scale-95 transition-all flex items-center gap-1"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             <span>Add</span>
@@ -1767,7 +1767,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         });
                         setIsProductModalOpen(true);
                       }}
-                      className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1"
+                      className="px-2.5 py-1.5 bg-orange-600 hover:bg-[#C25222] text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Add Medicine
@@ -1789,7 +1789,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               {currentUser?.role === 'admin' && (
                 <button
                   onClick={() => setIsAddCategoryOpen(true)}
-                  className="flex-1 py-1.5 bg-white border border-slate-200 text-sky-600 text-xs font-bold rounded-lg shadow-2xs flex items-center justify-center gap-1"
+                  className="flex-1 py-1.5 bg-white border border-orange-200/80 text-orange-600 text-xs font-bold rounded-lg shadow-2xs flex items-center justify-center gap-1"
                 >
                   <Tag className="h-3.5 w-3.5" />
                   + Add Category
@@ -1797,7 +1797,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               )}
               <button
                 onClick={loadData}
-                className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1"
+                className="px-3 py-1.5 bg-white border border-orange-200/80 text-slate-600 text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Refresh
@@ -1810,7 +1810,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, generic, barcode..."
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+              className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs font-medium"
             />
 
             {/* Product Cards with Edit / Delete actions */}
@@ -1819,7 +1819,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 const isExpired = p.is_expired || p.status === 'Expired';
                 const isOutOfStock = (p.available_stock ?? 0) <= 0;
                 return (
-                  <div key={p.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                  <div key={p.id} className="bg-white p-3 rounded-xl border border-orange-200/80 shadow-2xs space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold text-slate-900 truncate">{p.name}</div>
@@ -1838,8 +1838,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         <div className="font-bold text-slate-700">₹{Number(p.mrp || p.price).toFixed(2)}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-blue-500 uppercase font-bold">Price Sold At</div>
-                        <div className="font-extrabold text-blue-700">₹{Number(p.price).toFixed(2)}</div>
+                        <div className="text-[10px] text-orange-500 uppercase font-bold">Price Sold At</div>
+                        <div className="font-extrabold text-[#C25222]">₹{Number(p.price).toFixed(2)}</div>
                       </div>
                       <div>
                         <div className="text-[10px] text-slate-400 uppercase font-semibold">Cost Price</div>
@@ -1873,7 +1873,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               });
                               setIsProductModalOpen(true);
                             }}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1 text-orange-600 hover:bg-orange-50 rounded"
                             title="Edit Medicine"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
@@ -1899,9 +1899,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         {activeTab === 'reports' && (
           <div className="space-y-3 max-w-lg mx-auto">
             {currentUser?.role !== 'admin' && (
-              <div className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-xs font-semibold flex items-center justify-between shadow-2xs">
+              <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-[#9A3412] text-xs font-semibold flex items-center justify-between shadow-2xs">
                 <span>Employee View-Only Access</span>
-                <span className="text-[10px] font-mono uppercase bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold border border-blue-200">
+                <span className="text-[10px] font-mono uppercase bg-orange-100 text-[#C25222] px-2 py-0.5 rounded-full font-bold border border-orange-200">
                   Read-Only Mode
                 </span>
               </div>
@@ -1912,7 +1912,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <button
                 onClick={() => setReportsSubTab('snapshot')}
                 className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
-                  reportsSubTab === 'snapshot' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'
+                  reportsSubTab === 'snapshot' ? 'bg-white text-[#C25222] shadow-xs' : 'text-slate-600'
                 }`}
               >
                 P&L & Tax Audit
@@ -1920,7 +1920,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <button
                 onClick={() => setReportsSubTab('history')}
                 className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
-                  reportsSubTab === 'history' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'
+                  reportsSubTab === 'history' ? 'bg-white text-[#C25222] shadow-xs' : 'text-slate-600'
                 }`}
               >
                 Bill History ({billsList.length})
@@ -1928,7 +1928,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <button
                 onClick={() => setReportsSubTab('inward')}
                 className={`flex-1 py-1.5 rounded-lg text-center transition-all ${
-                  reportsSubTab === 'inward' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'
+                  reportsSubTab === 'inward' ? 'bg-white text-[#C25222] shadow-xs' : 'text-slate-600'
                 }`}
               >
                 Stock Intake Log
@@ -1948,7 +1948,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         loadPeriodStats(p);
                       }}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
-                        reportPeriod === p ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-slate-200'
+                        reportPeriod === p ? 'bg-orange-600 text-white shadow-xs' : 'bg-white text-slate-600 border border-orange-200/80'
                       }`}
                     >
                       {p === 'today' ? "Today's P&L" : p === 'monthly' ? "This Month" : "This Year"}
@@ -1956,7 +1956,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   ))}
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-xs space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-base font-bold text-slate-900">
@@ -1979,24 +1979,24 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 transition-all"
                       title="Refresh sales and tax summary"
                     >
-                      <RefreshCw className={`h-4 w-4 ${isRefreshingStats ? 'animate-spin text-blue-600' : ''}`} />
+                      <RefreshCw className={`h-4 w-4 ${isRefreshingStats ? 'animate-spin text-orange-600' : ''}`} />
                     </button>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <div className="bg-blue-50/70 p-3 rounded-xl border border-blue-100">
-                      <div className="text-[10px] font-bold text-blue-600 uppercase">Gross Sales Collected</div>
-                      <div className="text-lg font-black text-blue-900 mt-0.5">₹{todayStats.grossSales.toFixed(2)}</div>
+                    <div className="bg-orange-50/80 p-3 rounded-xl border border-orange-100">
+                      <div className="text-[10px] font-bold text-orange-600 uppercase">Gross Sales Collected</div>
+                      <div className="text-lg font-black text-[#7C2D12] mt-0.5">₹{todayStats.grossSales.toFixed(2)}</div>
                     </div>
                     <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-100">
                       <div className="text-[10px] font-bold text-emerald-600 uppercase">Bills Dispensed</div>
                       <div className="text-lg font-black text-emerald-900 mt-0.5">{todayStats.billsCount}</div>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-orange-200/80">
                       <div className="text-[10px] font-semibold text-slate-500">Cash Received</div>
                       <div className="text-sm font-bold text-slate-800">₹{todayStats.cashAmount.toFixed(2)}</div>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-orange-200/80">
                       <div className="text-[10px] font-semibold text-slate-500">Digital / UPI</div>
                       <div className="text-sm font-bold text-slate-800">₹{todayStats.upiAmount.toFixed(2)}</div>
                     </div>
@@ -2007,7 +2007,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   </div>
 
                   {/* GST Audit Breakdown */}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-orange-200/80 text-xs space-y-1.5">
                     <div className="font-bold text-slate-700 uppercase text-[10px] tracking-wide border-b pb-1">
                       Statutory GST Breakdown
                     </div>
@@ -2023,15 +2023,15 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       <span className="text-slate-500">SGST (6%):</span>
                       <span className="font-medium">₹{todayStats.sgst.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between font-bold pt-1 border-t border-slate-200">
+                    <div className="flex justify-between font-bold pt-1 border-t border-orange-200/80">
                       <span>Total GST Liability:</span>
-                      <span className="text-blue-700">₹{(todayStats.cgst + todayStats.sgst).toFixed(2)}</span>
+                      <span className="text-[#C25222]">₹{(todayStats.cgst + todayStats.sgst).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Downloads Section */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+                <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-xs space-y-2">
                   <div className="text-sm font-bold text-slate-900">Detailed Financial Reports (Excel)</div>
                   <p className="text-xs text-slate-500 leading-relaxed">
                     Download comprehensive audits covering P&L Summary, Inventory Ledger, Itemized Sales, Inward Receipts, GST Audit, and Stock Margins.
@@ -2046,7 +2046,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     </button>
                     <button
                       onClick={() => window.open(authApiUrl('/api/reports/daily?export=excel'), '_blank')}
-                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-slate-200"
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-orange-200/80"
                     >
                       <Download className="h-4 w-4" />
                       Download Today's Daily Audit Excel
@@ -2066,7 +2066,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     value={billSearchQuery}
                     onChange={(e) => setBillSearchQuery(e.target.value)}
                     placeholder="Search invoice number or patient name..."
-                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs"
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs"
                   />
                 </div>
 
@@ -2089,11 +2089,11 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                           <div
                             key={b.id}
                             className={`p-3 rounded-xl border bg-white shadow-2xs space-y-1.5 ${
-                              isCancelled ? 'border-rose-200 bg-rose-50/10' : 'border-slate-200'
+                              isCancelled ? 'border-rose-200 bg-rose-50/10' : 'border-orange-200/80'
                             }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-mono font-bold text-xs text-blue-700">{b.bill_number}</span>
+                              <span className="font-mono font-bold text-xs text-[#C25222]">{b.bill_number}</span>
                               <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
                                 isCancelled ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
                               }`}>
@@ -2124,7 +2124,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               </button>
                               <button
                                 onClick={() => printMobileThermalReceipt(b, clinicDetails)}
-                                className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg flex items-center gap-1"
+                                className="px-2.5 py-1 bg-orange-50 text-[#C25222] text-xs font-semibold rounded-lg flex items-center gap-1"
                               >
                                 <Printer className="h-3 w-3" /> Reprint
                               </button>
@@ -2153,18 +2153,18 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <div className="space-y-2">
                 <div className="text-xs font-bold text-slate-700">Stock Intake Audit Trail</div>
                 {inwardLogs.length === 0 ? (
-                  <div className="bg-white p-6 rounded-xl border border-slate-200 text-center text-xs text-slate-400">
+                  <div className="bg-white p-6 rounded-xl border border-orange-200/80 text-center text-xs text-slate-400">
                     No inward stock entries recorded yet.
                   </div>
                 ) : (
                   inwardLogs.map((log: any) => {
                     const totalCost = Number(log.quantity || 0) * Number(log.purchase_price || 0);
                     return (
-                      <div key={log.id} className="bg-white p-3 rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-2xs">
+                      <div key={log.id} className="bg-white p-3 rounded-xl border border-orange-200/80 text-xs space-y-1.5 shadow-2xs">
                         <div className="flex justify-between items-start font-bold">
                           <div>
                             <span className="text-slate-900 block">{log.product_name}</span>
-                            <span className="text-[10px] text-sky-700 font-mono font-semibold">Inv #{log.invoice_number || 'INV-MONTHLY'}</span>
+                            <span className="text-[10px] text-[#C25222] font-mono font-semibold">Inv #{log.invoice_number || 'INV-MONTHLY'}</span>
                           </div>
                           <div className="text-right">
                             <span className="text-emerald-700 font-black block">+{log.quantity} units</span>
@@ -2212,7 +2212,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   });
                   setIsPatientModalOpen(true);
                 }}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 active:scale-95"
+                className="px-3 py-1.5 bg-orange-600 hover:bg-[#C25222] text-white text-xs font-bold rounded-lg shadow-xs flex items-center gap-1 active:scale-95"
               >
                 <Plus className="h-3.5 w-3.5" />
                 New Patient
@@ -2225,7 +2225,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               value={patientSearch}
               onChange={(e) => setPatientSearch(e.target.value)}
               placeholder="Search by name, phone or MRN..."
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-xl text-xs focus:ring-2 focus:ring-orange-500 font-medium"
             />
 
             {/* Patient Cards */}
@@ -2241,7 +2241,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   );
                 })
                 .map((p) => (
-                  <div key={p.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                  <div key={p.id} className="bg-white p-3 rounded-xl border border-orange-200/80 shadow-2xs space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold text-slate-900 truncate">{p.name}</div>
@@ -2258,7 +2258,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                           setActiveTab('billing');
                           setIsCartOpen(true);
                         }}
-                        className="shrink-0 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-2xs"
+                        className="shrink-0 px-2.5 py-1 bg-orange-600 hover:bg-[#C25222] text-white text-xs font-bold rounded-lg shadow-2xs"
                       >
                         Bill Patient
                       </button>
@@ -2267,7 +2267,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
                       <button
                         onClick={() => setViewingPatientHistory(p)}
-                        className="text-blue-600 hover:underline font-medium"
+                        className="text-orange-600 hover:underline font-medium"
                       >
                         View Visit & Bill History
                       </button>
@@ -2287,7 +2287,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                             });
                             setIsPatientModalOpen(true);
                           }}
-                          className="text-slate-600 hover:text-blue-600 font-medium"
+                          className="text-slate-600 hover:text-orange-600 font-medium"
                         >
                           Edit Details
                         </button>
@@ -2313,9 +2313,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
         {activeTab === 'more' && (
           <div className="space-y-3 max-w-lg mx-auto">
             {/* Wi-Fi & Local Network Card with Interactive Server Connection Manager */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+            <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-blue-600">
+                <div className="flex items-center gap-2 text-orange-600">
                   <Wifi className="h-5 w-5" />
                   <h2 className="text-sm font-bold text-slate-900">Clinic Server & Wi-Fi Connection</h2>
                 </div>
@@ -2324,8 +2324,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </span>
               </div>
 
-              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-mono text-[11px]">
-                <div><strong>Domain:</strong> <code className="text-blue-700 font-bold">http://madrasorthoclinic.local:4848</code></div>
+              <div className="text-xs text-slate-600 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-orange-200/80 font-mono text-[11px]">
+                <div><strong>Domain:</strong> <code className="text-[#C25222] font-bold">http://madrasorthoclinic.local:4848</code></div>
                 {networkInfo?.primaryLanUrl && (
                   <div><strong>Wi-Fi Direct:</strong> <code className="text-emerald-700 font-bold">{networkInfo.primaryLanUrl}</code></div>
                 )}
@@ -2343,13 +2343,13 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     value={serverUrlInput}
                     onChange={(e) => setServerUrlInput(e.target.value)}
                     placeholder="http://192.168.x.x:4848 or http://madrasorthoclinic.local:4848"
-                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-slate-200 rounded-xl"
+                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-orange-200/80 rounded-xl"
                   />
                   <button
                     type="button"
                     disabled={isTestingServer}
                     onClick={handleTestServerConnection}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-xs"
+                    className="px-3 py-1.5 bg-orange-600 hover:bg-[#C25222] disabled:opacity-50 text-white text-xs font-bold rounded-xl whitespace-nowrap shadow-xs"
                   >
                     {isTestingServer ? 'Pinging...' : 'Test Ping'}
                   </button>
@@ -2381,7 +2381,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveServerConnection}
-                    className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl"
+                    className="flex-1 py-1.5 bg-gradient-to-r from-[#C25222] to-orange-600 hover:from-[#a8441b] hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-xs"
                   >
                     Save & Reconnect
                   </button>
@@ -2399,7 +2399,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             </div>
 
             {/* Drug-Drug Clinical Interaction Checker */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+            <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-xs space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-amber-600">
                   <ShieldAlert className="h-5 w-5" />
@@ -2409,7 +2409,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <p className="text-xs text-slate-500">Select medicines to check contraindications and severe interaction alerts.</p>
 
               {/* Medicine multi-selector */}
-              <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50 space-y-1">
+              <div className="max-h-36 overflow-y-auto border border-orange-200/80 rounded-xl p-2 bg-slate-50 space-y-1">
                 {products.slice(0, 40).map((p) => {
                   const isChecked = interactionSelectedIds.includes(p.id);
                   return (
@@ -2422,7 +2422,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                             isChecked ? prev.filter((id) => id !== p.id) : [...prev, p.id]
                           );
                         }}
-                        className="rounded text-blue-600"
+                        className="rounded text-orange-600"
                       />
                       <span className="truncate">{p.name}</span>
                     </label>
@@ -2459,7 +2459,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             {/* Staff / Employees Management (Admin) */}
             {currentUser?.role === 'admin' && (
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+              <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-xs space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-indigo-600">
                     <UserCheck className="h-5 w-5" />
@@ -2479,7 +2479,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
                 <div className="space-y-1.5">
                   {employees.map((emp) => (
-                    <div key={emp.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                    <div key={emp.id} className="bg-slate-50 p-2.5 rounded-xl border border-orange-200/80 flex items-center justify-between text-xs">
                       <div>
                         <div className="font-bold text-slate-800">{emp.name}</div>
                         <div className="text-[10px] text-slate-500 uppercase">{emp.role} • {emp.shift || 'General'}</div>
@@ -2497,7 +2497,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                             });
                             setIsEmployeeModalOpen(true);
                           }}
-                          className="text-xs text-blue-600 font-semibold hover:underline"
+                          className="text-xs text-orange-600 font-semibold hover:underline"
                         >
                           Edit
                         </button>
@@ -2576,7 +2576,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             )}
 
             {/* System Controls */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2">
+            <div className="bg-white p-4 rounded-2xl border border-orange-200/80 shadow-xs space-y-2">
               {onLogout && (
                 <div className="flex flex-col items-center gap-1">
                   <button
@@ -2589,7 +2589,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded leading-none ${
                     currentUser?.role === 'admin'
                       ? 'text-amber-600 bg-amber-50 border border-amber-200'
-                      : 'text-slate-600 bg-slate-100 border border-slate-200'
+                      : 'text-slate-600 bg-slate-100 border border-orange-200/80'
                   }`}>
                     {currentUser?.role === 'admin' ? 'admin' : 'employee'}
                   </span>
@@ -2606,7 +2606,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           <div className="max-w-lg mx-auto pointer-events-auto">
             <button
               onClick={() => setIsCartOpen(true)}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl flex items-center justify-between active:scale-98 transition-all"
+              className="w-full py-3 px-4 bg-gradient-to-r from-[#C25222] via-orange-600 to-amber-500 hover:from-[#a8441b] hover:via-orange-700 hover:to-amber-600 text-white rounded-2xl shadow-xl shadow-orange-600/25 flex items-center justify-between active:scale-98 transition-all"
             >
               <div className="flex items-center gap-2.5">
                 <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center font-bold text-xs">
@@ -2614,7 +2614,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </div>
                 <div className="text-left">
                   <div className="text-xs font-bold truncate">Review Bill & Checkout</div>
-                  <div className="text-[10px] text-blue-200">{cart.length} unique medicines</div>
+                  <div className="text-[10px] text-orange-100">{cart.length} unique medicines</div>
                 </div>
               </div>
               <div className="flex items-center gap-1 font-black text-sm">
@@ -2627,14 +2627,14 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
       )}
 
       {/* ─── BOTTOM NAVIGATION BAR & COPYRIGHT FOOTER ───────────────── */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shrink-0 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white border-t-2 border-orange-200 shrink-0 z-40 shadow-[0_-4px_20px_rgba(194,82,34,0.08)]">
         <nav className={`pt-1.5 pb-1 px-1 ${
           currentUser?.role === 'admin' ? 'grid grid-cols-5' : 'grid grid-cols-4'
         }`}>
           <button
             onClick={() => setActiveTab('billing')}
             className={`flex flex-col items-center justify-center gap-0.5 ${
-              activeTab === 'billing' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              activeTab === 'billing' ? 'text-orange-600 font-bold' : 'text-slate-500'
             }`}
           >
             <ShoppingBag className="h-5 w-5" />
@@ -2644,7 +2644,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           <button
             onClick={() => setActiveTab('medicines')}
             className={`flex flex-col items-center justify-center gap-0.5 ${
-              activeTab === 'medicines' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              activeTab === 'medicines' ? 'text-orange-600 font-bold' : 'text-slate-500'
             }`}
           >
             <Package className="h-5 w-5" />
@@ -2654,7 +2654,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           <button
             onClick={() => setActiveTab('reports')}
             className={`flex flex-col items-center justify-center gap-0.5 ${
-              activeTab === 'reports' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              activeTab === 'reports' ? 'text-orange-600 font-bold' : 'text-slate-500'
             }`}
           >
             <BarChart2 className="h-5 w-5" />
@@ -2664,7 +2664,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
           <button
             onClick={() => setActiveTab('patients')}
             className={`flex flex-col items-center justify-center gap-0.5 ${
-              activeTab === 'patients' ? 'text-blue-600 font-bold' : 'text-slate-500'
+              activeTab === 'patients' ? 'text-orange-600 font-bold' : 'text-slate-500'
             }`}
           >
             <Users className="h-5 w-5" />
@@ -2675,7 +2675,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             <button
               onClick={() => setActiveTab('more')}
               className={`flex flex-col items-center justify-center gap-0.5 ${
-                activeTab === 'more' ? 'text-blue-600 font-bold' : 'text-slate-500'
+                activeTab === 'more' ? 'text-orange-600 font-bold' : 'text-slate-500'
               }`}
             >
               <Settings className="h-5 w-5" />
@@ -2683,8 +2683,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             </button>
           )}
         </nav>
-        <div className="bg-slate-50 border-t border-slate-100 px-2 py-0.5 pb-[max(3px,env(safe-area-inset-bottom))] text-center text-[9px] text-slate-500 font-medium">
-          &copy; 2026 <strong className="text-slate-700 font-bold">RegulaVitae</strong> · Developed &amp; Licensed by RegulaVitae
+        <div className="bg-orange-50/80 border-t border-orange-100 px-2 py-0.5 pb-[max(3px,env(safe-area-inset-bottom))] text-center text-[9px] text-slate-600 font-medium">
+          &copy; 2026 <strong className="text-[#C25222] font-bold">RegulaVitae</strong> · Developed &amp; Licensed by RegulaVitae
         </div>
       </footer>
 
@@ -2695,7 +2695,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             {/* Sheet Header */}
             <div className="p-3.5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                <div className="h-7 w-7 rounded-lg bg-orange-100 text-[#C25222] flex items-center justify-center font-bold text-xs">
                   {totalItemsCount}
                 </div>
                 <div>
@@ -2714,7 +2714,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             {/* Sheet Scrollable Body */}
             <div className="p-3.5 overflow-y-auto space-y-3 flex-1">
               {/* Patient Selection Card */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+              <div className="bg-slate-50 p-3 rounded-xl border border-orange-200/80 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                     Patient Details
@@ -2727,7 +2727,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         setIsWalkIn(e.target.checked);
                         if (e.target.checked) setSelectedPatient(null);
                       }}
-                      className="rounded text-blue-600"
+                      className="rounded text-orange-600"
                     />
                     Walk-in Patient
                   </label>
@@ -2745,10 +2745,10 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         setIsPatientDropdownOpen(true);
                       }}
                       onFocus={() => setIsPatientDropdownOpen(true)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs"
+                      className="w-full px-3 py-2 bg-white border border-orange-200/80 rounded-lg text-xs"
                     />
                     {isPatientDropdownOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50">
+                      <div className="absolute top-full left-0 right-0 mt-1 max-h-40 overflow-y-auto bg-white border border-orange-200/80 rounded-lg shadow-lg z-50">
                         {patients
                           .filter((p) => p.name.toLowerCase().includes(patientSearch.toLowerCase()))
                           .map((p) => (
@@ -2758,7 +2758,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                                 setSelectedPatient(p);
                                 setIsPatientDropdownOpen(false);
                               }}
-                              className="p-2 text-xs hover:bg-blue-50 cursor-pointer border-b border-slate-100"
+                              className="p-2 text-xs hover:bg-orange-50 cursor-pointer border-b border-slate-100"
                             >
                               <div className="font-bold text-slate-800">{p.name}</div>
                               <div className="text-[10px] text-slate-400">{p.phone} • Age: {p.age || 'N/A'}</div>
@@ -2775,7 +2775,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   <select
                     value={selectedDoctor}
                     onChange={(e) => setSelectedDoctor(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800"
+                    className="w-full px-2.5 py-1.5 bg-white border border-orange-200/80 rounded-lg text-xs font-medium text-slate-800"
                   >
                     {CLINIC_DOCTORS.map((doc, idx) => (
                       <option key={idx} value={doc.name}>{doc.name}</option>
@@ -2791,7 +2791,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </div>
 
                 {cart.map((item) => (
-                  <div key={item.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                  <div key={item.id} className="bg-slate-50 p-2.5 rounded-xl border border-orange-200/80 flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-slate-900 truncate">{item.name}</div>
                       <div className="text-[10px] text-slate-500 mt-0.5">
@@ -2805,7 +2805,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
                     {/* Stepper + Delete */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5">
+                      <div className="flex items-center bg-white border border-orange-200/80 rounded-lg p-0.5">
                         <button
                           onClick={() => updateCartQty(item.id, -1)}
                           className="h-6 w-6 rounded flex items-center justify-center text-slate-600 hover:bg-slate-100"
@@ -2817,7 +2817,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                         </span>
                         <button
                           onClick={() => updateCartQty(item.id, 1)}
-                          className="h-6 w-6 rounded flex items-center justify-center text-blue-600 hover:bg-blue-50"
+                          className="h-6 w-6 rounded flex items-center justify-center text-orange-600 hover:bg-orange-50"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -2835,14 +2835,14 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               </div>
 
               {/* Discount Section (5%, 10%, Custom - Persists across all bills) */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-orange-200/80 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-700 uppercase tracking-wide text-[11px]">Bill Discount (%)</span>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => handleSetDiscount(5)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${discountPercent === 5 ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-400 font-black' : 'bg-white text-slate-700 border border-slate-200'}`}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${discountPercent === 5 ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-400 font-black' : 'bg-white text-slate-700 border border-orange-200/80'}`}
                       title="Apply 5% persistent discount"
                     >
                       5%
@@ -2850,7 +2850,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     <button
                       type="button"
                       onClick={() => handleSetDiscount(10)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${discountPercent === 10 ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-400 font-black' : 'bg-white text-slate-700 border border-slate-200'}`}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${discountPercent === 10 ? 'bg-amber-500 text-slate-950 shadow-xs ring-1 ring-amber-400 font-black' : 'bg-white text-slate-700 border border-orange-200/80'}`}
                       title="Apply 10% persistent discount"
                     >
                       10%
@@ -2880,7 +2880,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       const p = Math.min(100, Math.max(0, Number(e.target.value)));
                       handleSetDiscount(p);
                     }}
-                    className="w-20 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 text-center"
+                    className="w-20 px-2 py-1 bg-white border border-orange-200/80 rounded-lg text-xs font-bold text-slate-800 text-center"
                   />
                   {discountAmount > 0 && (
                     <span className="text-rose-600 font-bold text-xs ml-auto">
@@ -2890,7 +2890,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 </div>
 
                 {/* Subtotal & Net Payable */}
-                <div className="pt-2 border-t border-slate-200 space-y-1">
+                <div className="pt-2 border-t border-orange-200/80 space-y-1">
                   <div className="flex justify-between text-slate-600">
                     <span>Subtotal (excl. GST):</span>
                     <span className="font-medium font-mono">₹{cartSubtotal.toFixed(2)}</span>
@@ -2917,9 +2917,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       </div>
                     </>
                   )}
-                  <div className="flex justify-between text-base font-black text-slate-900 pt-1 border-t border-slate-200">
+                  <div className="flex justify-between text-base font-black text-slate-900 pt-1 border-t border-orange-200/80">
                     <span>{isComplimentaryCheckout ? 'Complimentary Dispense:' : 'Grand Total (incl. GST):'}</span>
-                    <span className="text-blue-700 font-mono">₹{isComplimentaryCheckout ? '0.00' : totalAmount.toFixed(2)}</span>
+                    <span className="text-[#C25222] font-mono">₹{isComplimentaryCheckout ? '0.00' : totalAmount.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -2968,7 +2968,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               )}
 
               {/* Payment Section */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+              <div className="bg-slate-50 p-3 rounded-xl border border-orange-200/80 space-y-2.5">
                 <div className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                   Payment Mode
                 </div>
@@ -2980,8 +2980,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       onClick={() => setPaymentMethod(m)}
                       className={`py-2 rounded-lg text-xs font-bold transition-all ${
                         paymentMethod === m
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-white text-slate-600 border border-slate-200'
+                          ? 'bg-orange-600 text-white shadow-xs'
+                          : 'bg-white text-slate-600 border border-orange-200/80'
                       }`}
                     >
                       {m}
@@ -3002,7 +3002,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       onChange={(e) => setCashTendered(e.target.value)}
                       placeholder={`Min ₹${totalAmount.toFixed(2)}`}
                       className={`w-full px-3 py-2 rounded-xl text-sm font-bold border ${
-                        isCashInsufficient ? 'border-rose-300 bg-rose-50/50' : 'border-slate-200 bg-white'
+                        isCashInsufficient ? 'border-rose-300 bg-rose-50/50' : 'border-orange-200/80 bg-white'
                       }`}
                     />
 
@@ -3010,7 +3010,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                     <div className="flex gap-1.5 overflow-x-auto pb-1">
                       <button
                         onClick={() => setCashTendered(round2(totalAmount).toFixed(2))}
-                        className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-700"
+                        className="px-2.5 py-1 bg-white border border-orange-200/80 rounded-md text-[11px] font-bold text-slate-700"
                       >
                         Exact (₹{round2(totalAmount).toFixed(2)})
                       </button>
@@ -3021,7 +3021,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                             const cur = parseFloat(cashTendered) || 0;
                             setCashTendered(round2(cur + val).toFixed(2));
                           }}
-                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-700"
+                          className="px-2.5 py-1 bg-white border border-orange-200/80 rounded-md text-[11px] font-bold text-slate-700"
                         >
                           +₹{val}
                         </button>
@@ -3088,7 +3088,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <p className="text-xs text-slate-500 font-mono mt-0.5">Invoice #{billSuccessModal.billNumber}</p>
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-left text-xs space-y-1">
+            <div className="bg-slate-50 p-3 rounded-xl border border-orange-200/80 text-left text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Patient:</span>
                 <span className="font-bold text-slate-800">{billSuccessModal.patientName}</span>
@@ -3101,9 +3101,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 <span className="text-slate-500">Items:</span>
                 <span className="font-bold">{billSuccessModal.items.length} medicines</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-slate-200 font-black text-sm">
+              <div className="flex justify-between pt-1 border-t border-orange-200/80 font-black text-sm">
                 <span>Amount Paid:</span>
-                <span className="text-blue-700">₹{billSuccessModal.totalAmount.toFixed(2)}</span>
+                <span className="text-[#C25222]">₹{billSuccessModal.totalAmount.toFixed(2)}</span>
               </div>
             </div>
 
@@ -3114,7 +3114,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             <div className="space-y-1.5 pt-1">
               <button
                 onClick={() => printMobileThermalReceipt(billSuccessModal, clinicDetails)}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                className="w-full py-2.5 bg-orange-600 hover:bg-[#C25222] text-white font-bold text-xs rounded-xl shadow-xs"
               >
                 🖨️ Print Receipt
               </button>
@@ -3187,7 +3187,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   </datalist>
 
                   {/* Interactive Category Chips for Multi-Category Assignment */}
-                  <div className="flex flex-wrap gap-1 mt-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-100 rounded-lg border border-slate-200">
+                  <div className="flex flex-wrap gap-1 mt-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-100 rounded-lg border border-orange-200/80">
                     {categories.filter((c) => c !== 'All').map((cat) => {
                       const activeCats = (productForm.category || '').split(',').map(s => s.trim()).filter(Boolean);
                       const isSelected = activeCats.some(c => c.toLowerCase() === cat.toLowerCase());
@@ -3206,8 +3206,8 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                           }}
                           className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all border ${
                             isSelected
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                              ? 'bg-orange-600 text-white border-orange-600 shadow-2xs'
+                              : 'bg-white text-slate-600 border-orange-200/80 hover:bg-slate-50'
                           }`}
                           title={isSelected ? `Click to remove "${cat}"` : `Click to add "${cat}"`}
                         >
@@ -3236,14 +3236,14 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
               <div className="grid grid-cols-3 gap-1.5">
                 <div>
-                  <label className="block text-[10px] font-bold text-blue-700 mb-1">Selling Rate *</label>
+                  <label className="block text-[10px] font-bold text-[#C25222] mb-1">Selling Rate *</label>
                   <input
                     type="number"
                     step="any"
                     value={productForm.price}
                     onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
                     placeholder="Rate"
-                    className="w-full p-1.5 bg-blue-50 border border-blue-200 rounded-lg font-bold"
+                    className="w-full p-1.5 bg-orange-50 border border-orange-200 rounded-lg font-bold"
                     required
                   />
                 </div>
@@ -3320,7 +3320,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
+                  className="w-full py-2.5 bg-orange-600 hover:bg-[#C25222] text-white font-bold rounded-xl shadow-xs"
                 >
                   {editingProduct ? 'Update Medicine' : 'Save Medicine'}
                 </button>
@@ -3347,12 +3347,12 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
                 placeholder="e.g. Spine Implants, Pediatric Care"
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                className="w-full p-2 bg-slate-50 border border-orange-200/80 rounded-lg text-xs"
               />
             </div>
             <button
               onClick={() => handleCreateCategory(newCatName)}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl"
+              className="w-full py-2 bg-orange-600 hover:bg-[#C25222] text-white font-bold text-xs rounded-xl"
             >
               Add Category (Placed First)
             </button>
@@ -3384,7 +3384,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
 
             <form onSubmit={handleInwardSubmit} className="space-y-3.5 text-xs">
               {/* Consignment Header: Supplier & Invoice */}
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+              <div className="bg-slate-50 p-3 rounded-2xl border border-orange-200/80 space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Supplier / Wholesaler *</label>
@@ -3394,7 +3394,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       placeholder="e.g. Apex Pharma, MedPlus"
                       value={inwardConsignment.supplier}
                       onChange={(e) => setInwardConsignment({ ...inwardConsignment, supplier: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold"
+                      className="w-full p-2 bg-white border border-orange-200/80 rounded-lg text-xs font-semibold"
                     />
                   </div>
                   <div>
@@ -3405,7 +3405,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       placeholder="e.g. INV-9041"
                       value={inwardConsignment.invoiceNumber}
                       onChange={(e) => setInwardConsignment({ ...inwardConsignment, invoiceNumber: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono uppercase"
+                      className="w-full p-2 bg-white border border-orange-200/80 rounded-lg text-xs font-mono uppercase"
                     />
                   </div>
                 </div>
@@ -3418,7 +3418,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       required
                       value={inwardConsignment.receivedDate}
                       onChange={(e) => setInwardConsignment({ ...inwardConsignment, receivedDate: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                      className="w-full p-2 bg-white border border-orange-200/80 rounded-lg text-xs font-mono"
                     />
                   </div>
                   <div>
@@ -3428,7 +3428,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                       placeholder="e.g. Shelf A-2"
                       value={inwardConsignment.notes}
                       onChange={(e) => setInwardConsignment({ ...inwardConsignment, notes: e.target.value })}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                      className="w-full p-2 bg-white border border-orange-200/80 rounded-lg text-xs"
                     />
                   </div>
                 </div>
@@ -3447,7 +3447,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                   {inwardConsignment.items.map((it, idx) => {
                     const lineCost = Number(it.quantity || 0) * Number(it.purchasePrice || 0);
                     return (
-                      <div key={it.id} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                      <div key={it.id} className="bg-slate-50 p-3 rounded-2xl border border-orange-200/80 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-slate-700 text-xs">#{idx + 1} Medicine</span>
                           {inwardConsignment.items.length > 1 && (
@@ -3472,7 +3472,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                             placeholder="Type or select medicine name..."
                             value={it.productName}
                             onChange={(e) => handleUpdateInwardRow(it.id, 'productName', e.target.value)}
-                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900"
+                            className="w-full p-2 bg-white border border-orange-200/80 rounded-lg text-xs font-semibold text-slate-900"
                           />
                         </div>
 
@@ -3485,7 +3485,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               placeholder="e.g. B-2026-01"
                               value={it.batchNumber}
                               onChange={(e) => handleUpdateInwardRow(it.id, 'batchNumber', e.target.value)}
-                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono uppercase text-sky-700 font-bold"
+                              className="w-full p-1.5 bg-white border border-orange-200/80 rounded-lg text-xs font-mono uppercase text-[#C25222] font-bold"
                             />
                           </div>
                           <div>
@@ -3495,7 +3495,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               required
                               value={it.expiryDate}
                               onChange={(e) => handleUpdateInwardRow(it.id, 'expiryDate', e.target.value)}
-                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                              className="w-full p-1.5 bg-white border border-orange-200/80 rounded-lg text-xs font-mono"
                             />
                           </div>
                         </div>
@@ -3510,7 +3510,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               placeholder="Qty"
                               value={it.quantity}
                               onChange={(e) => handleUpdateInwardRow(it.id, 'quantity', e.target.value)}
-                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
+                              className="w-full p-1.5 bg-white border border-orange-200/80 rounded-lg text-xs font-bold text-center"
                             />
                           </div>
                           <div>
@@ -3522,7 +3522,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               placeholder="Cost"
                               value={it.purchasePrice}
                               onChange={(e) => handleUpdateInwardRow(it.id, 'purchasePrice', e.target.value)}
-                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center"
+                              className="w-full p-1.5 bg-white border border-orange-200/80 rounded-lg text-xs font-mono text-center"
                             />
                           </div>
                           <div>
@@ -3543,11 +3543,11 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               placeholder="MRP"
                               value={it.mrp}
                               onChange={(e) => handleUpdateInwardRow(it.id, 'mrp', e.target.value)}
-                              className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center"
+                              className="w-full p-1.5 bg-white border border-orange-200/80 rounded-lg text-xs font-mono text-center"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold uppercase text-blue-700 mb-1">Selling Rate (₹) *</label>
+                            <label className="block text-[10px] font-bold uppercase text-[#C25222] mb-1">Selling Rate (₹) *</label>
                             <input
                               type="number"
                               step="any"
@@ -3555,7 +3555,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                               placeholder="Rate"
                               value={it.sellingPrice}
                               onChange={(e) => handleUpdateInwardRow(it.id, 'sellingPrice', e.target.value)}
-                              className="w-full p-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-mono font-bold text-blue-800 text-center"
+                              className="w-full p-1.5 bg-orange-50 border border-orange-200 rounded-lg text-xs font-mono font-bold text-[#9A3412] text-center"
                             />
                           </div>
                         </div>
@@ -3567,7 +3567,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
                 <button
                   type="button"
                   onClick={handleAddInwardRow}
-                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-amber-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-slate-200"
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-amber-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-orange-200/80"
                 >
                   <Plus className="h-4 w-4" />
                   <span>+ Add Another Medicine</span>
@@ -3680,7 +3680,7 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs"
+                  className="w-full py-2.5 bg-orange-600 hover:bg-[#C25222] text-white font-bold rounded-xl shadow-xs"
                 >
                   {editingPatient ? 'Update Patient' : 'Save Patient & Select for Bill'}
                 </button>
@@ -3708,9 +3708,9 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
               {billsList
                 .filter((b) => b.patient_name === viewingPatientHistory.name)
                 .map((b) => (
-                  <div key={b.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
+                  <div key={b.id} className="p-2.5 bg-slate-50 border border-orange-200/80 rounded-xl text-xs space-y-1">
                     <div className="flex justify-between font-bold">
-                      <span className="font-mono text-blue-700">{b.bill_number}</span>
+                      <span className="font-mono text-[#C25222]">{b.bill_number}</span>
                       <span className="text-slate-800">₹{Number(b.grand_total !== undefined && b.grand_total !== null ? b.grand_total : (b.total ?? b.total_amount ?? 0)).toFixed(2)}</span>
                     </div>
                     <div className="text-[10px] text-slate-500">{b.date} • {b.doctor || 'Doctor'}</div>
@@ -3735,27 +3735,27 @@ export const MobileTabletApp: React.FC<MobileTabletAppProps> = ({
             <div className="flex items-center justify-between border-b pb-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Receipt Details</h3>
-                <p className="text-xs font-mono text-blue-600">{viewingBillModal.bill_number}</p>
+                <p className="text-xs font-mono text-orange-600">{viewingBillModal.bill_number}</p>
               </div>
               <button onClick={() => setViewingBillModal(null)} className="text-slate-400">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="text-xs space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <div className="text-xs space-y-1 bg-slate-50 p-2.5 rounded-xl border border-orange-200/80">
               <div className="flex justify-between"><span className="text-slate-500">Date:</span><span>{viewingBillModal.date}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Patient:</span><span className="font-bold">{viewingBillModal.patient_name || 'Walk-in'}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Doctor:</span><span>{viewingBillModal.doctor || 'Consultant'}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Payment:</span><span>{viewingBillModal.payment_method}</span></div>
               <div className="flex justify-between font-bold pt-1 border-t text-sm">
-                <span>Total Amount:</span><span className="text-blue-700">₹{Number(viewingBillModal.grand_total !== undefined && viewingBillModal.grand_total !== null ? viewingBillModal.grand_total : (viewingBillModal.total ?? viewingBillModal.total_amount ?? 0)).toFixed(2)}</span>
+                <span>Total Amount:</span><span className="text-[#C25222]">₹{Number(viewingBillModal.grand_total !== undefined && viewingBillModal.grand_total !== null ? viewingBillModal.grand_total : (viewingBillModal.total ?? viewingBillModal.total_amount ?? 0)).toFixed(2)}</span>
               </div>
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={() => printMobileThermalReceipt(viewingBillModal, clinicDetails)}
-                className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1"
+                className="flex-1 py-2 bg-orange-600 hover:bg-[#C25222] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1"
               >
                 <Printer className="h-3.5 w-3.5" /> Print
               </button>

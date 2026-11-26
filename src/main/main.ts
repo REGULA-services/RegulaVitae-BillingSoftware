@@ -45,6 +45,7 @@ function createMainWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 720,
+    backgroundColor: '#fffbf7',
     title: "MADRAS ORTHO CLINIC SOFTWARE",
     icon: iconPath,
     webPreferences: {

@@ -345,7 +345,9 @@ export function startMdnsResponder(): { stop: () => void } {
     socket.bind(MDNS_PORT, '0.0.0.0', () => {
       try {
         socket?.setMulticastTTL(255);
-        socket?.setMulticastLoopback(false);
+        // Keep IP_MULTICAST_LOOP enabled: on Windows Winsock, disabling it can drop incoming
+        // local mDNS queries; parseQuestions already drops all QR=1 responses to prevent self-echo.
+        socket?.setMulticastLoopback(true);
       } catch {}
       syncMulticastMemberships();
       console.log(`[mDNS] Active on UDP 5353. Resolving http://${TARGET_HOST}:${HTTP_PORT} -> ${getPrimaryLanIp()}`);

@@ -76,11 +76,28 @@ async function createControllerWindow() {
         : path.join(app.getAppPath(), 'public', 'icon.png'))
     : path.join(app.getAppPath(), 'public', 'icon.png');
 
+  let logoDataUri = '';
+  try {
+    const pngCandidates = [
+      path.join(app.getAppPath(), 'public', 'icon.png'),
+      path.join(app.getAppPath(), 'build', 'icon.png'),
+      path.join(__dirname, '../../../public/icon.png'),
+      path.join(__dirname, '../../../build/icon.png')
+    ];
+    for (const candidate of pngCandidates) {
+      if (fs.existsSync(candidate)) {
+        logoDataUri = `data:image/png;base64,${fs.readFileSync(candidate).toString('base64')}`;
+        break;
+      }
+    }
+  } catch {}
+
   controllerWindow = new BrowserWindow({
-    width: 900,
-    height: 750,
-    minWidth: 800,
-    minHeight: 680,
+    width: 920,
+    height: 760,
+    minWidth: 820,
+    minHeight: 700,
+    backgroundColor: '#fffbf7',
     title: "MADRAS ORTHO CLINIC - Local Host & Wi-Fi Server",
     icon: iconPath,
     autoHideMenuBar: true,
@@ -100,81 +117,100 @@ async function createControllerWindow() {
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: #f8fafc;
+        background: linear-gradient(145deg, #ffffff 0%, #fff8f3 55%, #ffedd5 100%);
+        color: #0f172a;
         min-height: 100vh;
         display: flex;
         flex-direction: column;
         user-select: none;
       }
       .header {
-        padding: 20px 30px 16px;
-        background: rgba(15, 23, 42, 0.78);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 16px 26px 14px;
+        background: #ffffff;
+        border-top: 4px solid #c25222;
+        border-bottom: 1.5px solid #fed7aa;
+        box-shadow: 0 2px 10px rgba(194, 82, 34, 0.06);
         display: flex;
         justify-content: space-between;
         align-items: center;
       }
-      .clinic-title { font-size: 20px; font-weight: 800; letter-spacing: 0.4px; color: #38bdf8; }
-      .clinic-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+      .brand-wrap { display: flex; align-items: center; gap: 12px; }
+      .brand-logo {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #ffffff;
+        border: 1.5px solid #fed7aa;
+        padding: 2px;
+        object-fit: cover;
+        box-shadow: 0 3px 10px rgba(194, 82, 34, 0.12);
+      }
+      .clinic-title { font-size: 19px; font-weight: 800; letter-spacing: 0.3px; color: #c25222; }
+      .clinic-sub { font-size: 12px; color: #64748b; margin-top: 2px; font-weight: 500; }
       .status-pill {
         display: flex;
         align-items: center;
         gap: 8px;
-        background: rgba(16, 185, 129, 0.15);
-        border: 1px solid rgba(16, 185, 129, 0.35);
+        background: #ecfdf5;
+        border: 1.5px solid #6ee7b7;
         padding: 6px 14px;
         border-radius: 9999px;
         font-size: 12px;
         font-weight: 700;
-        color: #34d399;
+        color: #047857;
       }
       .pulse-dot {
         width: 9px;
         height: 9px;
         background: #10b981;
         border-radius: 50%;
-        box-shadow: 0 0 10px #10b981;
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.65);
         animation: pulse 1.8s infinite;
       }
       @keyframes pulse {
         0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.85); }
+        50% { opacity: 0.45; transform: scale(0.85); }
       }
       .container {
-        padding: 22px 30px;
+        padding: 18px 26px;
         display: grid;
-        grid-template-columns: 1fr 278px;
-        gap: 22px;
+        grid-template-columns: 1fr 272px;
+        gap: 18px;
         flex: 1;
+        align-items: stretch;
       }
       .card {
-        background: rgba(30, 41, 59, 0.72);
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #ffffff;
+        border: 1.5px solid #fed7aa;
+        box-shadow: 0 6px 20px rgba(194, 82, 34, 0.06);
         border-radius: 16px;
-        padding: 18px;
-        margin-bottom: 16px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+      }
+      .card:last-child { margin-bottom: 0; }
+      .card-primary {
+        border: 1.5px solid #fb923c;
+        background: linear-gradient(180deg, #ffffff 0%, #fffbf7 100%);
       }
       .card-title {
-        font-size: 12px;
-        font-weight: 700;
+        font-size: 11.5px;
+        font-weight: 800;
         text-transform: uppercase;
-        letter-spacing: 0.9px;
-        color: #94a3b8;
-        margin-bottom: 10px;
+        letter-spacing: 0.85px;
+        color: #ea580c;
+        margin-bottom: 9px;
         display: flex;
         align-items: center;
         gap: 8px;
       }
       .url-box {
-        background: #090d16;
-        border: 1px solid rgba(56, 189, 248, 0.35);
-        padding: 10px 14px;
-        border-radius: 10px;
+        background: #fff7ed;
+        border: 1.5px solid #fdba74;
+        padding: 9px 12px;
+        border-radius: 11px;
         font-family: monospace;
-        font-size: 14px;
-        color: #38bdf8;
+        font-size: 13.5px;
+        color: #c25222;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -183,36 +219,42 @@ async function createControllerWindow() {
       .url-text {
         user-select: text;
         word-break: break-all;
+        font-weight: 700;
       }
       .btn {
         cursor: pointer;
         border: none;
         outline: none;
-        padding: 9px 15px;
+        padding: 8px 14px;
         border-radius: 10px;
-        font-size: 12.5px;
-        font-weight: 600;
-        transition: all 0.18s;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all 0.16s;
         display: inline-flex;
         align-items: center;
         gap: 6px;
         white-space: nowrap;
       }
-      .btn-primary { background: #0284c7; color: #ffffff; }
-      .btn-primary:hover { background: #0369a1; transform: translateY(-1px); }
-      .btn-secondary { background: #334155; color: #f1f5f9; }
-      .btn-secondary:hover { background: #475569; }
-      .btn-emerald { background: #059669; color: white; }
-      .btn-emerald:hover { background: #047857; }
-      .btn-amber { background: rgba(245, 158, 11, 0.16); border: 1px solid rgba(245, 158, 11, 0.45); color: #fbbf24; }
-      .btn-amber:hover { background: rgba(245, 158, 11, 0.28); }
+      .btn-primary { background: linear-gradient(135deg, #c25222, #ea580c); color: #ffffff; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.24); }
+      .btn-primary:hover { background: linear-gradient(135deg, #9a3412, #c25222); transform: translateY(-1px); }
+      .btn-orange-outline { background: #fff7ed; border: 1.5px solid #fdba74; color: #c2410c; }
+      .btn-orange-outline:hover { background: #ffedd5; }
+      .btn-secondary { background: #f8fafc; border: 1.5px solid #cbd5e1; color: #334155; }
+      .btn-secondary:hover { background: #f1f5f9; border-color: #94a3b8; }
+      .btn-emerald { background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.22); }
+      .btn-emerald:hover { background: linear-gradient(135deg, #047857, #059669); transform: translateY(-1px); }
+      .btn-amber { background: #fffbeb; border: 1.5px solid #f59e0b; color: #b45309; }
+      .btn-amber:hover { background: #fef3c7; }
+      .btn-copy { background: #ea580c; color: #ffffff; border: 1px solid #c25222; }
+      .btn-copy:hover { background: #c25222; }
       .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
-      .actions-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+      .actions-row { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
       .qr-panel {
-        background: rgba(30, 41, 59, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #ffffff;
+        border: 1.5px solid #fed7aa;
+        box-shadow: 0 6px 20px rgba(194, 82, 34, 0.06);
         border-radius: 16px;
-        padding: 18px;
+        padding: 16px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -220,12 +262,12 @@ async function createControllerWindow() {
       }
       .qr-tabs {
         display: flex;
-        gap: 6px;
+        gap: 5px;
         margin-top: 8px;
-        background: #0f172a;
+        background: #fff7ed;
         padding: 4px;
         border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.08);
+        border: 1px solid #fed7aa;
       }
       .qr-tab {
         padding: 5px 10px;
@@ -234,36 +276,39 @@ async function createControllerWindow() {
         border-radius: 7px;
         border: none;
         cursor: pointer;
-        color: #94a3b8;
+        color: #9a3412;
         background: transparent;
       }
       .qr-tab.active {
-        background: #0284c7;
-        color: #fff;
+        background: linear-gradient(135deg, #c25222, #ea580c);
+        color: #ffffff;
+        box-shadow: 0 2px 6px rgba(234, 88, 12, 0.25);
       }
       .qr-img {
-        width: 185px;
-        height: 185px;
-        background: white;
+        width: 170px;
+        height: 170px;
+        background: #ffffff;
         padding: 8px;
         border-radius: 12px;
+        border: 2px solid #fed7aa;
         margin: 12px 0 8px;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+        box-shadow: 0 4px 14px rgba(194, 82, 34, 0.12);
       }
-      .qr-note { font-size: 11px; color: #94a3b8; line-height: 1.45; }
+      .qr-note { font-size: 11px; color: #64748b; line-height: 1.45; }
       .footer {
-        padding: 12px 30px;
-        background: rgba(15, 23, 42, 0.92);
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 10px 26px;
+        background: #fff7ed;
+        border-top: 1.5px solid #fed7aa;
         display: flex;
         justify-content: space-between;
         align-items: center;
         font-size: 11px;
-        color: #94a3b8;
+        color: #475569;
+        font-weight: 500;
       }
       .copy-toast {
         position: fixed;
-        bottom: 52px;
+        bottom: 48px;
         right: 26px;
         background: #059669;
         color: #fff;
@@ -271,7 +316,7 @@ async function createControllerWindow() {
         border-radius: 10px;
         font-size: 12px;
         font-weight: 700;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        box-shadow: 0 8px 24px rgba(5, 150, 105, 0.35);
         display: none;
         z-index: 100;
       }
@@ -279,9 +324,12 @@ async function createControllerWindow() {
   </head>
   <body>
     <div class="header">
-      <div>
-        <div class="clinic-title">MADRAS ORTHO CLINIC PHARMACY</div>
-        <div class="clinic-sub">Local Host & Same Wi-Fi Network Server (Port ${PORT} · Adapter: ${lanInfo.name})</div>
+      <div class="brand-wrap">
+        ${logoDataUri ? `<img class="brand-logo" src="${logoDataUri}" alt="Madras Ortho Clinic" />` : ''}
+        <div>
+          <div class="clinic-title">MADRAS ORTHO CLINIC PHARMACY</div>
+          <div class="clinic-sub">Local Host &amp; Same Wi-Fi Network Server (Port ${PORT} · Adapter: ${lanInfo.name})</div>
+        </div>
       </div>
       <div class="status-pill">
         <div class="pulse-dot"></div>
@@ -292,20 +340,20 @@ async function createControllerWindow() {
     <div class="container">
       <div class="main-left">
         <!-- Custom Clinic URL Card (Primary) -->
-        <div class="card" style="border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(14, 116, 144, 0.15);">
-          <div class="card-title" style="color: #38bdf8;">Primary Custom Clinic URL (mDNS .local)</div>
-          <div class="url-box" style="border-color: #38bdf8;">
-            <span id="customUrl" class="url-text" style="font-weight: bold; font-size: 15px;">${customUrl}</span>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="copyText('${customUrl}', this)">Copy</button>
+        <div class="card card-primary">
+          <div class="card-title">Primary Custom Clinic URL (mDNS .local)</div>
+          <div class="url-box">
+            <span id="customUrl" class="url-text" style="font-size: 15px;">${customUrl}</span>
+            <button type="button" class="btn btn-copy btn-sm" onclick="copyText('${customUrl}', this)">Copy</button>
           </div>
-          <p style="font-size: 11.5px; color: #cbd5e1; margin-top: 9px; line-height: 1.45;">
-            mDNS responder active on UDP 5353 (${lanInfo.ip}). Note: On Android phones, keep <strong>Settings &rarr; Network &rarr; Private DNS</strong> set to <em>Off</em> or <em>Automatic</em> so <code>.local</code> resolves over Wi-Fi.
+          <p style="font-size: 11.5px; color: #475569; margin-top: 9px; line-height: 1.45;">
+            mDNS responder active on UDP 5353 (${lanInfo.ip}). On Android phones, keep <strong>Settings &rarr; Network &rarr; Private DNS</strong> set to <em>Off</em> or <em>Automatic</em> so <code style="color:#c25222;font-weight:700;">.local</code> resolves over Wi-Fi.
           </p>
           <div class="actions-row">
             <button type="button" class="btn btn-primary" onclick="openUrl('${customUrl}')">
               Open Custom URL in Browser
             </button>
-            <button type="button" class="btn btn-secondary" onclick="openUrl('${customMobileUrl}')">
+            <button type="button" class="btn btn-orange-outline" onclick="openUrl('${customMobileUrl}')">
               Open Mobile UI Preview
             </button>
             <button type="button" class="btn btn-amber" onclick="enableMobileFirewall(this)">
@@ -316,13 +364,13 @@ async function createControllerWindow() {
 
         <!-- Same Wi-Fi Network Card -->
         <div class="card">
-          <div class="card-title">Direct Wi-Fi URL (Works on All Phones & Tablets)</div>
-          <div class="url-box">
+          <div class="card-title" style="color: #047857;">Direct Wi-Fi URL (Works on All Phones &amp; Tablets)</div>
+          <div class="url-box" style="background: #f0fdf4; border-color: #86efac; color: #065f46;">
             <span id="wifiUrl" class="url-text">${wifiUrl}</span>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="copyText('${wifiUrl}', this)">Copy</button>
+            <button type="button" class="btn btn-emerald btn-sm" onclick="copyText('${wifiUrl}', this)">Copy</button>
           </div>
-          <p style="font-size: 11.5px; color: #94a3b8; margin-top: 9px; line-height: 1.5;">
-            Connect your phone or tablet to the <strong>same clinic Wi-Fi</strong>, then open this direct Wi-Fi URL (works even when a router or Private DNS blocks <code>.local</code>).
+          <p style="font-size: 11.5px; color: #475569; margin-top: 9px; line-height: 1.45;">
+            Connect your phone or tablet to the <strong>same clinic Wi-Fi</strong>, then open this direct Wi-Fi URL (works even when a router or Private DNS blocks <code style="color:#047857;font-weight:700;">.local</code>).
           </p>
           <div class="actions-row">
             <button type="button" class="btn btn-emerald" onclick="openUrl('${wifiMobileUrl}')">
@@ -346,9 +394,9 @@ async function createControllerWindow() {
           <button type="button" id="tabWifi" class="qr-tab" onclick="switchQr('wifi')">Direct Wi-Fi IP</button>
         </div>
         <img id="qrImg" class="qr-img" src="${qrCustomDataUrl || qrWifiDataUrl}" alt="Wi-Fi QR Code" />
-        <div id="qrTargetText" style="font-family: monospace; font-size: 11px; color: #38bdf8; word-break: break-all; margin-bottom: 6px;">${customMobileUrl}</div>
+        <div id="qrTargetText" style="font-family: monospace; font-size: 11px; color: #c25222; font-weight: 700; word-break: break-all; margin-bottom: 6px;">${customMobileUrl}</div>
         <div class="qr-note">
-          Scan with your phone camera to open the dedicated <strong>Mobile & Tablet Login Screen</strong>. Switch to <em>Direct Wi-Fi IP</em> if your phone blocks <code>.local</code>.
+          Scan with your phone camera to open the dedicated <strong>Mobile &amp; Tablet Login Screen</strong>. Switch to <em>Direct Wi-Fi IP</em> if your phone blocks <code style="color:#c25222;">.local</code>.
         </div>
       </div>
     </div>
@@ -357,7 +405,7 @@ async function createControllerWindow() {
 
     <div class="footer">
       <div>Madras Ortho Clinic Pharmacy Software · Localhost Server (Port ${PORT})</div>
-      <div>&copy; 2026 <strong style="color:#38bdf8;">RegulaVitae</strong>. All Rights Reserved · Developed by RegulaVitae</div>
+      <div>&copy; 2026 <strong style="color:#c25222;">RegulaVitae</strong>. All Rights Reserved · Developed by <strong style="color:#c25222;">RegulaVitae</strong></div>
     </div>
 
     <script>

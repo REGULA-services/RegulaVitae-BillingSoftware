@@ -346,8 +346,43 @@ async function runAudit() {
       mobileTsx.includes('Developed &amp; Licensed by RegulaVitae'),
       'Mobile/Tablet footer & receipt must show RegulaVitae copyright'
     );
-    assert(mainLocalhostTs.includes('Developed by RegulaVitae'), 'Localhost controller footer must show RegulaVitae copyright');
+    assert(/Developed by\s*(?:<strong[^>]*>)?RegulaVitae/.test(mainLocalhostTs), 'Localhost controller footer must show RegulaVitae copyright');
     assert(mainTs.includes('Developed by RegulaVitae') && serverTs.includes('Developed by RegulaVitae'), 'Standalone & Network ESC/POS thermal receipts must credit RegulaVitae');
+  });
+
+  // ----------------------------------------------------------------------
+  // PHASE 11: WHITE & BURNT-ORANGE CLINIC THEME, CONTRAST & ANDROID BRANDING
+  // ----------------------------------------------------------------------
+  console.log('\n--- PHASE 11: White & Burnt-Orange Theme, Contrast & Android Branding ---');
+
+  const indexHtml = fs.readFileSync(path.join(__dirname, '../src/renderer/index.html'), 'utf8');
+  const manifestJson = fs.readFileSync(path.join(__dirname, '../src/renderer/public/manifest.json'), 'utf8');
+  const indexCss = fs.readFileSync(path.join(__dirname, '../src/renderer/src/index.css'), 'utf8');
+  const notificationsTsx = fs.readFileSync(path.join(__dirname, '../src/renderer/src/components/NotificationsModal.tsx'), 'utf8');
+  const patientsTsx = fs.readFileSync(path.join(__dirname, '../src/renderer/src/components/PatientsModal.tsx'), 'utf8');
+  const androidColorsXml = fs.readFileSync(path.join(__dirname, '../android/app/src/main/res/values/colors.xml'), 'utf8');
+  const androidStylesXml = fs.readFileSync(path.join(__dirname, '../android/app/src/main/res/values/styles.xml'), 'utf8');
+
+  verify('HTML entry, PWA manifest, Electron shell & CSS use crisp White & Orange light theme', () => {
+    assert(!indexHtml.includes('class="dark"'), 'index.html must not force dark class');
+    assert(indexHtml.includes('#ea580c') && indexHtml.includes('#fffbf7'), 'index.html must use clinic white & orange tokens');
+    assert(manifestJson.includes('#ffffff') && manifestJson.includes('#ea580c'), 'manifest.json must use white & orange branding');
+    assert(indexCss.includes('#fffbf7') && !indexCss.includes('.theme-orange-white button'), 'index.css must natively style white/orange without !important button override hacks');
+    assert(mainTs.includes("backgroundColor: '#fffbf7'"), 'Electron BrowserWindow must launch with warm clinic white background');
+  });
+
+  verify('Desktop POS, Modals, Mobile POS & Localhost Controller adopt cohesive White & Terracotta-Orange surfaces with zero dark/blue chrome', () => {
+    assert(appTsx.includes('#C25222') && appTsx.includes('#FFFBF7'), 'App.tsx must use logo-matched #C25222 orange & #FFFBF7 white surfaces');
+    assert(!appTsx.includes('from-sky-700') && !appTsx.includes('theme-pharmacy-blue'), 'App.tsx must remove legacy blue/dark theme classes');
+    assert(mobileTsx.includes('#C25222') && mobileTsx.includes('#FFFBF7') && !mobileTsx.includes('bg-blue-600'), 'MobileTabletApp must use vibrant White & Terracotta-Orange instead of blue');
+    assert(!/\bbg-slate-900\b(?!\/)/.test(notificationsTsx) && notificationsTsx.includes('border-orange-200'), 'NotificationsModal must render in bright White & Orange theme');
+    assert(!/\bbg-slate-900\b(?!\/)/.test(patientsTsx) && patientsTsx.includes('border-orange-200'), 'PatientsModal must render in bright White & Orange theme');
+    assert(mainLocalhostTs.includes('#c25222') && mainLocalhostTs.includes('#fff7ed') && mainLocalhostTs.includes('brand-logo'), 'Localhost controller must render in White & Orange with embedded clinic logo');
+  });
+
+  verify('Android APK colors.xml and styles.xml configure native Orange & White clinic chrome', () => {
+    assert(androidColorsXml.includes('#EA580C') && androidColorsXml.includes('#C25222'), 'Android colors.xml must define clinic orange palette');
+    assert(androidStylesXml.includes('Theme.AppCompat.Light.NoActionBar'), 'Android styles.xml must use light White & Orange theme');
   });
 
   // ----------------------------------------------------------------------

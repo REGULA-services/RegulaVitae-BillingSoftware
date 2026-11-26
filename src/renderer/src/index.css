@@ -4,292 +4,69 @@
 
 @layer base {
   body {
-    @apply bg-white text-slate-800 font-sans selection:bg-bakery-500 selection:text-white;
+    @apply bg-[#fffbf7] text-slate-900 font-sans selection:bg-orange-500 selection:text-white;
   }
 }
 
-/* Custom Scrollbar Styles */
+/* Vibrant White & Orange Scrollbar Styles */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-900 rounded;
+  background-color: #fff7ed;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-800 rounded hover:bg-slate-700 transition-colors;
+  background-color: #fdba74;
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
-/* Premium Focus Glows */
-input:focus, select:focus {
-  @apply outline-none ring-2 ring-bakery-500/50 border-bakery-500/50 transition-all;
+::-webkit-scrollbar-thumb:hover {
+  background-color: #ea580c;
 }
 
-/* Ensure inputs, selects, and textareas are selectable and typable even when select-none is on parent containers */
-input, select, textarea {
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Crisp Clinic Orange Focus Glows */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+  transition: all 0.15s ease;
+}
+
+/* Ensure inputs, selects, and textareas are always selectable and typable */
+input,
+select,
+textarea {
   user-select: text !important;
   -webkit-user-select: text !important;
 }
 
+/* Native select option dropdown clarity */
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
 /* Flash Animations */
 @keyframes item-add-flash {
-  0% { background-color: rgba(249, 115, 22, 0.3); }
+  0% { background-color: rgba(234, 88, 12, 0.24); }
   100% { background-color: transparent; }
 }
 
 .animate-flash-add {
   animation: item-add-flash 0.3s ease-out;
-}
-
-/* Orange & White Theme Overrides */
-.theme-orange-white {
-  background-color: #ffffff !important;
-  color: #1e293b !important;
-}
-
-/* Background Overrides */
-.theme-orange-white .bg-slate-950 {
-  background-color: #ffffff !important;
-}
-.theme-orange-white .bg-slate-900 {
-  background-color: #ffffff !important;
-}
-.theme-orange-white .bg-slate-900\/50 {
-  background-color: rgba(248, 250, 252, 0.5) !important;
-}
-.theme-orange-white .bg-slate-950\/60 {
-  background-color: rgba(241, 245, 249, 0.6) !important;
-}
-.theme-orange-white .bg-slate-950\/40 {
-  background-color: rgba(241, 245, 249, 0.4) !important;
-}
-.theme-orange-white .bg-slate-950\/20 {
-  background-color: rgba(248, 250, 252, 0.2) !important;
-}
-.theme-orange-white .bg-slate-800 {
-  background-color: #f1f5f9 !important;
-}
-.theme-orange-white .bg-slate-800\/50 {
-  background-color: rgba(241, 245, 249, 0.5) !important;
-}
-.theme-orange-white .bg-slate-800\/80 {
-  background-color: rgba(226, 232, 240, 0.8) !important;
-}
-
-/* Hover Background Overrides */
-.theme-orange-white .hover\:bg-slate-700:hover {
-  background-color: #e2e8f0 !important;
-}
-.theme-orange-white .hover\:bg-slate-800:hover {
-  background-color: #f1f5f9 !important;
-}
-.theme-orange-white .hover\:bg-slate-900:hover {
-  background-color: #f8fafc !important;
-}
-
-/* Border Overrides */
-.theme-orange-white .border-slate-800 {
-  border-color: #e2e8f0 !important;
-}
-.theme-orange-white .border-slate-800\/80 {
-  border-color: rgba(226, 232, 240, 0.8) !important;
-}
-.theme-orange-white .border-slate-800\/60 {
-  border-color: rgba(226, 232, 240, 0.6) !important;
-}
-.theme-orange-white .border-slate-700 {
-  border-color: #cbd5e1 !important;
-}
-.theme-orange-white .border-slate-700\/50 {
-  border-color: rgba(203, 213, 225, 0.5) !important;
-}
-.theme-orange-white .border-slate-700\/60 {
-  border-color: rgba(203, 213, 225, 0.6) !important;
-}
-
-/* Text Color Overrides */
-.theme-orange-white .text-white {
-  color: #0f172a !important;
-}
-
-/* ==========================================
-   BUTTONS LEGIBILITY IN ORANGE-WHITE THEME
-   ========================================== */
-
-/* 1. Neutral / Secondary Buttons & Backgrounds (should have black text) */
-.theme-orange-white button,
-.theme-orange-white .bg-slate-800,
-.theme-orange-white .bg-slate-900,
-.theme-orange-white .bg-slate-950 {
-  color: #0f172a !important; /* Force black text */
-}
-
-/* 2. Primary / Colored Buttons & Elements (should have white text) */
-.theme-orange-white button.bg-bakery-500,
-.theme-orange-white button.bg-bakery-600,
-.theme-orange-white button.bg-orange-500,
-.theme-orange-white button.bg-orange-600,
-.theme-orange-white button.bg-sky-600,
-.theme-orange-white button.bg-emerald-600,
-.theme-orange-white button.bg-rose-600,
-.theme-orange-white button.bg-sky-500,
-.theme-orange-white button.bg-emerald-500,
-.theme-orange-white button.bg-rose-500,
-.theme-orange-white .bg-bakery-500,
-.theme-orange-white .bg-bakery-600,
-.theme-orange-white .bg-orange-500,
-.theme-orange-white .bg-orange-600,
-.theme-orange-white .bg-sky-600,
-.theme-orange-white .bg-emerald-600,
-.theme-orange-white .bg-rose-600,
-.theme-orange-white .bg-sky-500,
-.theme-orange-white .bg-emerald-500,
-.theme-orange-white .bg-rose-500 {
-  color: #ffffff !important; /* Force white text */
-}
-
-/* Ensure text color utility classes on colored buttons are overridden to white */
-.theme-orange-white .bg-bakery-500[class*="text-"],
-.theme-orange-white .bg-bakery-600[class*="text-"],
-.theme-orange-white .bg-orange-500[class*="text-"],
-.theme-orange-white .bg-orange-600[class*="text-"],
-.theme-orange-white .bg-sky-600[class*="text-"],
-.theme-orange-white .bg-emerald-600[class*="text-"],
-.theme-orange-white .bg-rose-600[class*="text-"],
-.theme-orange-white .bg-sky-500[class*="text-"],
-.theme-orange-white .bg-emerald-500[class*="text-"],
-.theme-orange-white .bg-rose-500[class*="text-"] {
-  color: #ffffff !important;
-}
-
-/* Ensure children (icons, spans) inside colored buttons inherit white color */
-.theme-orange-white .bg-bakery-500 *,
-.theme-orange-white .bg-bakery-600 *,
-.theme-orange-white .bg-orange-500 *,
-.theme-orange-white .bg-orange-600 *,
-.theme-orange-white .bg-sky-600 *,
-.theme-orange-white .bg-emerald-600 *,
-.theme-orange-white .bg-rose-600 *,
-.theme-orange-white .bg-sky-500 *,
-.theme-orange-white .bg-emerald-500 *,
-.theme-orange-white .bg-rose-500 * {
-  color: #ffffff !important;
-}
-
-/* Secondary background transparent text adjustments */
-.theme-orange-white .bg-slate-950\/40,
-.theme-orange-white .bg-slate-950\/40 * {
-  color: #1e293b !important;
-}
-
-.theme-orange-white .text-slate-100 {
-  color: #0f172a !important;
-}
-.theme-orange-white .text-slate-200 {
-  color: #1e293b !important;
-}
-.theme-orange-white .text-slate-300 {
-  color: #334155 !important;
-}
-.theme-orange-white .text-slate-400 {
-  color: #475569 !important;
-}
-.theme-orange-white .text-slate-500 {
-  color: #64748b !important;
-}
-.theme-orange-white .text-slate-600 {
-  color: #94a3b8 !important;
-}
-
-/* ==========================================
-   INPUTS & SELECT DROPDOWNS LEGIBILITY
-   ========================================== */
-
-/* Dropdowns, Selects, Options, and Inputs */
-.theme-orange-white select,
-.theme-orange-white select *,
-.theme-orange-white option,
-.theme-orange-white input,
-.theme-orange-white textarea {
-  background-color: #ffffff !important;
-  color: #0f172a !important; /* Force black text */
-  border-color: #cbd5e1 !important;
-}
-
-/* Ensure browser native dropdown menu inherits white background and black text */
-.theme-orange-white select option {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-}
-
-.theme-orange-white input::placeholder {
-  color: #94a3b8 !important;
-}
-.theme-orange-white input:focus, 
-.theme-orange-white select:focus {
-  border-color: #f97316 !important;
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25) !important;
-}
-
-/* Inline Search Suggestions dropdown legibility fixes */
-.theme-orange-white .absolute.top-full {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-}
-.theme-orange-white .absolute.top-full * {
-  color: #0f172a !important;
-}
-.theme-orange-white .absolute.top-full .text-bakery-300 {
-  color: #c2410c !important; /* Force dark orange instead of light orange */
-}
-.theme-orange-white .absolute.top-full .text-emerald-300 {
-  color: #047857 !important; /* Force dark green instead of light green */
-}
-
-/* Invert queue selected/active colors */
-.theme-orange-white .border-bakery-500 {
-  border-color: #f97316 !important;
-}
-
-/* Scrollbars in light mode */
-.theme-orange-white ::-webkit-scrollbar-track {
-  background-color: #f1f5f9 !important;
-}
-.theme-orange-white ::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1 !important;
-}
-.theme-orange-white ::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8 !important;
-}
-
-/* Color contrast adjustments for semantic colors in light mode */
-.theme-orange-white .text-emerald-400 {
-  color: #047857 !important; /* emerald-700 (dark green) */
-}
-.theme-orange-white .text-rose-400 {
-  color: #be123c !important; /* rose-700 (dark red) */
-}
-.theme-orange-white .text-sky-400 {
-  color: #0369a1 !important; /* sky-700 (dark blue) */
-}
-.theme-orange-white .text-amber-400 {
-  color: #b45309 !important; /* amber-700 (dark amber/orange) */
-}
-.theme-orange-white .text-amber-500 {
-  color: #b45309 !important; /* amber-700 */
-}
-
-/* Settings Reset Button overrides (bg-rose-900/40 with rose-300 text) */
-.theme-orange-white .bg-rose-900\/40 {
-  background-color: #e11d48 !important; /* solid rose red */
-  color: #ffffff !important;
-}
-.theme-orange-white .bg-rose-900\/40:hover {
-  background-color: #f43f5e !important;
-}
-.theme-orange-white .bg-rose-900\/40 *,
-.theme-orange-white .bg-rose-900\/40.text-rose-300 {
-  color: #ffffff !important;
 }
